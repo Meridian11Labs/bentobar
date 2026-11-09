@@ -94,7 +94,7 @@ private fun PageLabel(text: String) {
 fun AddPage(onAdded: (String) -> Unit) {
     val cfg by Store.config.collectAsState()
     val groups = listOf(
-        AddGroup(R.string.add_group_system, listOf("cpu", "network", "memory", "battery", "storage", "heat", "devices", "displays")),
+        AddGroup(R.string.add_group_system, listOf("antigravity", "cpu", "network", "memory", "battery", "storage", "heat", "devices", "displays")),
         AddGroup(R.string.add_group_time, listOf("calendar", "event", "clock", "timer", "countdown")),
         AddGroup(R.string.add_group_tools, listOf("caffeine", "media", "sound", "clipboard", "tools", "shortcut", "folder", "app", "text", "spacer")),
         // The only items that go online, in a group that says so.

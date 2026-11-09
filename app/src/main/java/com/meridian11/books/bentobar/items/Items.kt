@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 /** Every item type, in catalog order. */
 object Items {
     val all: List<ItemType> = listOf(
-        CpuItem, NetworkItem, BatteryItem, MemoryItem, StorageItem, HeatItem, DevicesItem, DisplaysItem,
+        AntigravityItem, CpuItem, NetworkItem, BatteryItem, MemoryItem, StorageItem, HeatItem, DevicesItem, DisplaysItem,
         CalendarItem, EventItem, ClockItem, TimerItem, CountdownItem,
         CaffeineItem, MediaItem, SoundItem, ClipboardItem, ToolsItem, ShortcutItem, FolderItem, AppItem, TextItem, SpacerItem,
         WeatherItem, AirItem, FlightItem, StocksItem, FxItem,
