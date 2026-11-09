@@ -2,7 +2,12 @@ package com.meridian11.books.bentobar.util
 
 import android.content.Context
 import android.graphics.Typeface
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import com.meridian11.books.bentobar.R
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -71,6 +76,17 @@ fun SymIcon(
     color: Color = LocalContentColor.current,
     contentDescription: String? = null,
 ) {
+    if (sym == Sym.ANTIGRAVITY) {
+        Icon(
+            painter = painterResource(R.drawable.ic_antigravity),
+            contentDescription = contentDescription,
+            tint = color,
+            modifier = modifier.size(size.value.dp).clearAndSetSemantics {
+                if (contentDescription != null) this.contentDescription = contentDescription
+            },
+        )
+        return
+    }
     Text(
         text = sym,
         modifier = modifier.clearAndSetSemantics { if (contentDescription != null) this.contentDescription = contentDescription },

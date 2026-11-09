@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="item_antigravity_title">Antigravity usage</string>
+    <string name="item_antigravity_desc">Model quota remaining and reset countdowns for Gemini, Claude/GPT and Argon.</string>
+    <string name="trigger_antigravity">Show when remaining quota is below %1$s</string>
+    <string name="trigger_antigravity_short">Quota below %1$s</string>
+    <string name="antigravity_menu_title">Usage</string>
+    <string name="antigravity_weekly_limit">Weekly limit</string>
+    <string name="antigravity_5h_limit">5h limit</string>
+    <string name="antigravity_pct_left">%1$d%% left</string>
+    <string name="antigravity_resets_in">Resets in %1$s</string>
+    <string name="antigravity_open_app">Open Antigravity</string>
+    <string name="antigravity_group_label">Model in the bar</string>
+    <string name="antigravity_group_active">Active model</string>
+    <string name="antigravity_group_lowest">Lowest remaining</string>
+    <string name="antigravity_group_turns">Rotate all groups</string>
+    <string name="antigravity_group_gemini">Gemini Models</string>
+    <string name="antigravity_group_claude">Claude and GPT</string>
+    <string name="antigravity_group_argon">Gemini 4 Argon</string>
+    <string name="antigravity_window_label">Limit window</string>
+    <string name="antigravity_window_lowest">Lower of Weekly / 5h</string>
+    <string name="antigravity_window_5h">5h limit</string>
+    <string name="antigravity_window_weekly">Weekly limit</string>
+    <string name="antigravity_show_label">Show in the bar</string>
+    <string name="antigravity_show_both">Percent and reset</string>
+    <string name="antigravity_show_pct">Percent only</string>
+    <string name="antigravity_show_full">Model, percent and reset</string>
+</resources>
