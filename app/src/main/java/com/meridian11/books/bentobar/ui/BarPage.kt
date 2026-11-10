@@ -114,6 +114,7 @@ import com.meridian11.books.bentobar.data.putInArea
 import com.meridian11.books.bentobar.data.setWhenActive
 import com.meridian11.books.bentobar.data.show
 import com.meridian11.books.bentobar.data.turnOff
+import com.meridian11.books.bentobar.data.usesAreas
 import com.meridian11.books.bentobar.data.spacingDp
 import com.meridian11.books.bentobar.data.stripPlan
 import com.meridian11.books.bentobar.items.ItemState
@@ -543,14 +544,18 @@ private fun RowScope.RowBody(item: ItemConfig, state: ItemState?) {
     Column(Modifier.weight(1f)) {
         Text(rowName(item), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         val overflow by com.meridian11.books.bentobar.bar.BarOverflow.ids.collectAsState()
-        val detail = if (type == null) "" else listOfNotNull(
+        val cfg by Store.config.collectAsState()
+        // Its area, first, and only while the layout uses more than one: a layout in one area reads as it did before there were
+        // areas. A type this version doesn't know says it too, as Look counts its area among those in use.
+        val area = if (item.section != Section.OFF && cfg.usesAreas()) areaChoices().first { it.first == item.area }.second else null
+        val detail = listOfNotNull(area) + if (type == null) emptyList() else listOfNotNull(
             if (item.id in overflow) stringResource(R.string.row_overflow) else null,
             state?.text?.takeIf { it.isNotBlank() },
             // The rule in short ("shows above 80% CPU"), so the list says when each hidden item pops out.
             if (item.whenActive && item.section == Section.HIDDEN) type.trigger?.short(item) ?: stringResource(R.string.row_when_active) else null,
             if (type.iconOnly) null
-            else when (item.display) { Display.ICON -> stringResource(R.string.row_icon_only); Display.TEXT -> stringResource(R.string.row_text_only); else -> null }).joinToString(" · ")
-        if (detail.isNotEmpty()) Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            else when (item.display) { Display.ICON -> stringResource(R.string.row_icon_only); Display.TEXT -> stringResource(R.string.row_text_only); else -> null })
+        if (detail.isNotEmpty()) Text(detail.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

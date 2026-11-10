@@ -30,8 +30,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Where Settings says and changes an item's area: the chooser in the item's detail. Drawn through the Bar page as the app
- * draws it, wide enough for the list and the detail side by side.
+ * Where Settings says and changes an item's area: the chooser in the item's detail and the word on its row. Drawn through
+ * the Bar page as the app draws it, wide enough for the list and the detail side by side.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -88,5 +88,24 @@ class AreaChoosersTest {
         choice(middle).assertIsSelected()
         // An area that holds only an item that is Off is not in use: the rows go on saying nothing about areas.
         for (word in listOf(left, middle, right)) rowsSaying(word).assertCountEquals(0)
+    }
+
+    @Test fun aRowSaysItsAreaOnlyWhileMoreThanOneAreaIsInUseAndARowInOffNever() {
+        barPage(null, item("a", Position.RIGHT), item("b", Position.LEFT, Section.HIDDEN), item("c", Position.CENTER, Section.OFF))
+        rowsSaying(right).assertCountEquals(1)
+        rowsSaying(left).assertCountEquals(1)
+        rowsSaying(middle).assertCountEquals(0)
+
+        // One area again: the list reads as it did before there were areas.
+        Store.update { it.copy(items = it.items.map { i -> if (i.id == "b") i.copy(area = Position.RIGHT) else i }) }
+        rule.waitForIdle()
+        for (word in listOf(left, middle, right)) rowsSaying(word).assertCountEquals(0)
+    }
+
+    @Test fun aRowOfATypeThisVersionDoesNotKnowSaysItsAreaLikeAnyOther() {
+        // It counts as an area in use for Settings (Look shows no choice), so its row has to say where it is.
+        barPage(null, item("a", Position.RIGHT), ItemConfig("n", "from-a-newer-version", area = Position.LEFT))
+        rowsSaying(left).assertCountEquals(1)
+        rowsSaying(right).assertCountEquals(1)
     }
 }
