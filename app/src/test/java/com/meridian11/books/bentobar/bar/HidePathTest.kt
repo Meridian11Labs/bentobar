@@ -134,13 +134,20 @@ class HidePathTest {
         assertTrue(hide, "for (strip in strips) strip.hide()" in hide)
     }
 
-    /** With no window carrying the flag for a moment, the screen could go off in it. */
+    /**
+     * With no window carrying the flag for a moment, the screen could go off in it. Which window and when the wake lock
+     * holds instead is `KeepAwakeRule.choose` (KeepAwakeTest); what only the code shows is that update() does as it says,
+     * in that order.
+     */
     @Test fun keepAwakesFlagIsOnTheStripThatCarriesItBeforeItLeavesAnyOther() {
         val awake = File("src/main/java/com/meridian11/books/bentobar/bar/KeepAwake.kt").readText()
         val update = awake.substringAfter("fun update() {").substringBefore("\n    }\n")
-        val set = update.indexOf("flag(carrier, true)")
+        val asked = update.indexOf("KeepAwakeRule.choose(on, if (on) carrier() else null, pm.isInteractive, km.isKeyguardLocked)")
+        assertTrue("update() asks the one rule: $update", asked >= 0)
+        val set = update.indexOf("flag(it, true)", asked)
         assertTrue(update, set >= 0 && update.indexOf("flag(window, false)", set) > set)
-        assertTrue("a wake lock only while no strip carries the flag: $update", "val lock = on && carrier == null && pm.isInteractive && !km.isKeyguardLocked" in update)
+        assertTrue("the wake lock is the rule's too: $update", "if (c.lock && !screenLock.isHeld)" in update && "else if (!c.lock && screenLock.isHeld) screenLock.release()" in update)
+        for (own in listOf("&& pm.isInteractive", "!km.isKeyguardLocked")) assertFalse("update() decides nothing itself: $own", own in update)
     }
 
     @Test fun anItemsMenuIsToldItIsOpeningBeforeItsFirstFrame() {
