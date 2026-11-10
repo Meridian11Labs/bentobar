@@ -160,6 +160,32 @@ class StripPlanTest {
         assertFalse(plan(c, right).open)
     }
 
+    /**
+     * The first placed area's ‹ also stands for the items of an area with no room (the caller says so as overflow). It is a
+     * ‹ for what does not fit, like any other: the plan keeps no room for it, and while another area has hidden items of its
+     * own to bring out it never looks open, opened bar or not.
+     */
+    @Test fun theCarriersChevronForAnOwedAreaIsAnOverflowChevronAndNeverLooksOpenWhileAnotherAreaHasHiddenItems() {
+        val c = BarConfig(hiddenMode = HiddenMode.CLICK, items = listOf(clock.at(right), clock.at(left, "c2"), memory.at(left)))
+        assertFalse("Right has nothing behind a ‹ of its own", plan(c, right).chevron)
+        for (expanded in listOf(false, true)) {
+            val carrier = plan(c, right, expanded = expanded, overflow = true)
+            assertTrue(carrier.chevron)
+            assertFalse(carrier.chevronAlways)
+            assertFalse("expanded=$expanded", carrier.open)
+            assertEquals(listOf("c"), ids(carrier.visible))
+            assertEquals(emptyList<String>(), ids(carrier.revealed))
+        }
+        // While presenting, the home area's ‹ on a carrier that is not the home area is the same ‹: Right is not in use,
+        // so the Middle is home and Left is placed first.
+        val presenting = BarConfig(presenting = true, items = listOf(clock.at(left), clock.at(middle, "c2")))
+        val stand = plan(presenting, left, overflow = true)
+        assertTrue(stand.chevron)
+        assertFalse(stand.chevronAlways)
+        assertFalse(stand.open)
+        assertFalse("without the home area owed, Left has no ‹ while presenting", plan(presenting, left).chevron)
+    }
+
     /** As it always was in one strip: the bar is open, its last hidden item went away, and a ‹ still drawn shows as open. */
     @Test fun anOpenBarWithNoHiddenItemAtAllShowsEveryChevronAsOpen() {
         val c = BarConfig(hiddenMode = HiddenMode.CLICK, items = listOf(clock.at(right), timerRule.at(right), clock.at(left, "c2")))
