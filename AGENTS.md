@@ -92,6 +92,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     One exception: `DisplaysItem`'s display listener also lives while "Keep awake while connected" is in force (an
     item outside Off has it on and the service is up, `DisplaysItem.follow`), sampled or not. That option is a
     promise about the screen staying on while the bar is hidden, so the bar hiding must not end it.
+    The Network menu's Connection section is `LinkWatch` (the active network's link from ConnectivityManager,
+    kept by a callback on the default network between `onLive()` and `onIdle()`) on the pure `LinkRules`; `LinkSamples` stages one.
   - `items/Refresher.kt` is `Calendar`'s way of loading as one class (a background thread, one load
     per key, an immutable snapshot, a generation counter); `items/Ask.kt` is the same for one
     question at a time (a search). Both are pure Kotlin; `items/Background.kt` wires them to the app.
@@ -205,7 +207,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   day, to choose from in the item's menu: tomorrow's, and the next within a day; the bar shows the number
   meanwhile, closing the menu drops them as it does the real ones, and `several 2` is the second of them,
   followed; bare `flight` prints the question and the rows);
-  `sound fixed on|off`. Each type's bare name prints what it knows (`media`, `devices`, `heat`, `flight`).
+  `sound fixed on|off`; `network stage wifi|ethernet|vpn|ipv6|offline` and `network off` (the Connection section's
+  rows; stage one before capturing the menu, so that no real address is in a picture). Each type's bare name prints
+  what it knows (`media`, `devices`, `heat`, `flight`, `network`: which rows, never an address).
   For color tests a debug build has a window that lies under the bar and turns its icons dark or light
   on command, with no event of any kind: `adb shell am start -n com.meridian11.books.bentobar/.util.BarFlipActivity
   --ez dark true` (now), `--ez dark false --ei after 1500` (in 1.5 s), `--ez dark true --ei unlock 3000`

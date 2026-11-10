@@ -63,7 +63,7 @@ hides when an app goes full screen or the screen locks.
 | Item | In the bar | In its menu |
 |---|---|---|
 | **CPU load** | busy %; can also pop out when the device runs hot | chart, per-core load, clock speeds, GPU load |
-| **Network speed** | ↓ download ↑ upload | chart, totals since start-up, connection |
+| **Network speed** | ↓ download ↑ upload | chart, totals since start-up, connection, addresses, gateway and DNS |
 | **Memory** | RAM in use | used, available, chart |
 | **Battery details** | watts, %, temperature or time to full | power in or out, voltage, current, health, cycles, thermal state |
 | **Storage** | free space | used and free, shortcuts to clean up |
