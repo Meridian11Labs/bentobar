@@ -135,12 +135,22 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     and the user's own key for one, in a file in Android's no-backup directory (so in no backup, no
     device transfer and no copied layout). `Kept.kt` keeps small texts there too (a service's last
     answer, as the app's own model, never the reply as it came).
-  - `ui/`: `MainActivity` (nav rail), `BarPage` (preview, sections, item detail), `Reorder` (drag
+  - `ui/`: `MainActivity` (the settings window: its pages inside `Shell`), `Shell` (the header row directly under the
+    system's caption, on the caption's ground: mark and name, the tabs, the status line, and one control, the "Show in
+    status bar" switch or Turn on while BentoBar is off, neither on Setup; nothing is ever placed in the caption. Below
+    760 dp the header takes two rows. `windowLayout(widthDp)` is the one window model, pure: from 1100 a list and one
+    panel, 760 to 1099 one pane, never two panels; a page reads it from `LocalWindowLayout`. `statusLine` words the
+    status), `BarPage` (preview, sections, item detail), `Reorder` (drag
     and drop across the section cards: the gesture sits on the container, a copy of the row floats
     above the cards, the Store changes once on the drop), `Pages` (Add, Look, Setup, About),
     `Disclosure` (the accessibility disclosure and consent Google Play requires, and the one list of
     what the service does that Setup shows too; `ConsentRules` says when it comes up), `Theme`, `MenuKit` and
     `Controls` (shared UI pieces).
+    Two themes: the settings window has BentoBar's own colors and tokens (`SettingsTheme`: `Palette` in light and dark,
+    read as `Bento.colors` and `Bento.type`, with `Space`, `Radius` and `Target`; Material's roles are set from the same
+    palette for the pages not yet moved over), and `PaletteContrastTest` holds its pairs to the contrast they need. The
+    bar's popups keep the device's colors (`BentoBarTheme`). The settings window's own controls are in `Controls`
+    (`Segment`, `SwitchMark`, `BentoButton`, `Keycap`) and `Notice` (`NoticeLine`), beside the rows the item menus share.
     Areas in Settings: an item's detail has the Area chooser; a row says its area only while more than one is in use
     (`usesAreas`); Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
     while they all are in it (`oneArea`); while they are in several, and only then, a line under its title says what a
@@ -171,7 +181,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   set from the text resources in `Env.init`.
 - `tools/logo.py`: draws the icon (a bento box seen from above: a status bar compartment with a ‹
   and dots cut out, over three item compartments; rice, salmon, tamago and edamame on ink blue):
-  launcher foreground/monochrome/background, `ic_bentobar` (24 dp, app header, ‹ menu) and
+  launcher foreground/monochrome/background, `ic_bentobar` (24 dp: About, the disclosure, the ‹ menu; the settings header draws the mark itself, with the same numbers) and
   `ic_tile_bar` (the QS tile), plus docs/images/icon.png for the README. No font needed.
 - `tools/icons.py`: subsets Material Symbols Rounded into `assets/fonts` (outlined and filled),
   writes `Sym.kt`, and exports some glyphs as vector drawables (`res/drawable/sym_*.xml`, for
@@ -191,6 +201,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
 - The Compose tests live in `app/src/testComposeTest` under the `composeTest` build type (`:app:testComposeTestUnitTest`), so
   Robolectric stays out of the fast tests in `app/src/test`. `MenuCompositionTest` composes every registered item's menu under
   each state in its type's `stages`; Compose has no error boundary, so this is what stands between a throwing menu and the service.
+  `ShellPicturesTest` draws the settings window at each layout's width in light and dark and holds the grounds to the palette;
+  with `BENTOBAR_PICTURES=<directory>` (and `--rerun`) it writes the pictures there as PNGs, to look at beside a design. A test
+  of keys asks for the keyboard first (`LocalInputModeManager`): in touch mode nothing that takes a click takes the focus.
 - Editing the manifest or a string re-runs the tests that read them; a green run that says UP-TO-DATE after such an
   edit is wrong, so look.
 - Anything only hardware shows (colours after an unlock, full screen, the empty strip, a bar in several areas, Play
