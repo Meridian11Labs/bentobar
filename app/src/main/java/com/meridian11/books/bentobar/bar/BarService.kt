@@ -773,7 +773,9 @@ class BarController(private val service: AccessibilityService) {
             trace("hover $inside ${word(strip.area)}")
             val (areas, bar) = PopupRules.hoverChanged(hoverAreas, strip.area, inside)
             hoverAreas = areas
-            // Onto this strip or off it with the pointer over another one as well: to the bar it is where it was.
+            // Onto this strip or off it with the pointer over another one as well: to the bar it is where it was. The
+            // tooltip of the strip it left ends all the same; one the other strip is waiting to show is not this one's.
+            if (bar == null && !inside) menus.hideTip(strip)
             if (bar == null) return
             if (!inside) menus.hideTip() // the pointer left the bar: even an item that has gone, and can't say so itself
             barHover(bar)

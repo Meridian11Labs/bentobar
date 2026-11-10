@@ -211,6 +211,9 @@ internal class MenuCoordinator(
         facts.popupClosed()
     }
 
+    /** The pointer left [strip] for another strip: a tooltip of an item of [strip], shown or waited for, ends with that. */
+    fun hideTip(strip: AreaStrip) { if (tipFor?.first === strip) hideTip() }
+
     /** [strip] is leaving the screen: a popup that hangs from it, open or still folding away, goes at once, and so does its tooltip. */
     fun closeFor(strip: AreaStrip) {
         if (menuStrip === strip) closeMenu(now = true)
@@ -220,6 +223,9 @@ internal class MenuCoordinator(
 
     /** The pointer is over [item] of [strip] or has left it: a tooltip after a moment, or the item's own popup with one already open. */
     fun itemHover(strip: AreaStrip, item: ItemConfig, at: Rect, inside: Boolean, sliding: Boolean) {
+        // Each strip's window has its own frames: the item the pointer left can say so after the one it came to, in
+        // another strip, said it is under it. That is not this tooltip's end (the last one went as the pointer came, below).
+        if (!inside && tipFor?.first.let { it != null && it !== strip }) return
         main.removeCallbacks(showTip)
         // "Switch popups on hover": with a popup open, the item pointed at opens its own, as in a menu bar.
         val type = Items.of(item.type)
@@ -229,7 +235,10 @@ internal class MenuCoordinator(
             toggleMenu(strip, MenuKey.Item(item.id), at, type.menuWidthDp) { host -> ItemMenu(item.id, host) }
             return
         }
-        if (inside && menu == null && !sliding) { tipFor = Triple(strip, item, Rect(at)); main.postDelayed(showTip, 600) } else hideTip()
+        if (inside && menu == null && !sliding) {
+            if (tipFor?.first !== strip) hideTip() // another strip's, whose item may not have said its end yet
+            tipFor = Triple(strip, item, Rect(at)); main.postDelayed(showTip, 600)
+        } else hideTip()
     }
 
     private companion object {

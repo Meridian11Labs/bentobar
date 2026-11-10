@@ -442,6 +442,28 @@ class HidePathTest {
         assertTrue(ui, Regex("""onDispose \{ if \(hovered\) events\.itemHover\(entry\.item, bounds, false\) \}""").containsMatchIn(ui))
         val hover = code.substringAfter("override fun hover(inside: Boolean) {").substringBefore("\n        }\n")
         assertTrue("the pointer leaving the strip ends its tooltip: $hover", Regex("""if \(!inside\) menus\.hideTip\(\)""").containsMatchIn(hover))
+        // Off one strip and still over another, the bar's hover goes on: the tooltip of the strip it left ends all the same,
+        // and one the other strip is waiting to show does not.
+        val still = hover.indexOf("if (bar == null && !inside) menus.hideTip(strip)")
+        assertTrue(hover, still >= 0 && hover.indexOf("if (bar == null) return", still) > still)
+        assertTrue("fun hideTip(strip: AreaStrip) { if (tipFor?.first === strip) hideTip() }" in menus)
+    }
+
+    /**
+     * Each strip is a window with its own frames: the item the pointer left can say so after the item it came to, in
+     * another strip, has said it is under it. That end is not the waiting tooltip's. With one strip a tooltip is always
+     * that strip's, and every end ends it, as it always did.
+     */
+    @Test fun anItemsHoverEndingInOneStripDoesNotEndATooltipOfAnother() {
+        val hover = menus.substringAfter("fun itemHover(strip: AreaStrip, item: ItemConfig, at: Rect, inside: Boolean, sliding: Boolean) {").substringBefore("\n    }\n")
+        val other = hover.indexOf("if (!inside && tipFor?.first.let { it != null && it !== strip }) return")
+        val first = hover.indexOf("main.removeCallbacks(showTip)")
+        assertTrue("before anything is called off: $hover", other >= 0 && first > other)
+        assertTrue("an end in the tooltip's own strip ends it: $hover", "else hideTip()" in hover)
+        // So the tooltip of the strip the pointer left goes when the next strip's item says it has the pointer, not at an end
+        // that may come later and is then passed over.
+        val next = hover.indexOf("if (tipFor?.first !== strip) hideTip()")
+        assertTrue(hover, next > first && hover.indexOf("tipFor = Triple(strip, item, Rect(at)); main.postDelayed(showTip, 600)", next) > next)
     }
 
     @Test fun itemsThatLeftOrDidNotFitLeaveNoBoxBehind() {
