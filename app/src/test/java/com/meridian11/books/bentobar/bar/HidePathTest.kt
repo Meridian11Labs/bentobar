@@ -141,12 +141,28 @@ class HidePathTest {
      */
     @Test fun aStripThatLeavesEndsOnlyWhatThePointerHeldInIt() {
         val leave = code.substringAfter("private fun leave(strip: AreaStrip) {").substringBefore("\n    }\n")
-        assertTrue(leave, "if (dragFrom?.first in strip.placed) cancelDrag()" in leave)
+        assertTrue(leave, "if (dragFrom?.strip === strip) cancelDrag()" in leave)
         assertTrue(leave, "if (strip.area in hoverAreas) events.getValue(strip).hover(false)" in leave)
         val hover = code.substringAfter("override fun hover(inside: Boolean) {").substringBefore("\n        }\n")
         assertTrue("a hover says which strip it is on: $hover", "val (areas, bar) = PopupRules.hoverChanged(hoverAreas, strip.area, inside)" in hover && "hoverAreas = areas" in hover)
         assertTrue("the bar leaving ends it whichever strips it was on: $hide", "hoverAreas = emptySet()" in hide)
         assertTrue("the pointer is over the bar while it is over any strip", "private val hovering get() = hoverAreas.isNotEmpty()" in code)
+    }
+
+    /**
+     * A drag is one strip's: where its item stood and the others' centres are places in that strip's window, and mean
+     * nothing in another's. So the drag says which strip it began in, and only that strip moves it on or ends it.
+     */
+    @Test fun aDragIsInTheStripItBeganIn() {
+        assertTrue("private class Drag(val id: String, val from: Rect, val strip: AreaStrip)" in code)
+        assertTrue("private var dragFrom: Drag? = null" in code)
+        val drag = code.substringAfter("override fun drag(item: ItemConfig, dx: Float, done: Boolean) {").substringBefore("\n        }\n")
+        val begins = drag.indexOf("if (dragFrom?.id != item.id || dragFrom?.strip !== strip) {")
+        val held = drag.indexOf("dragFrom = r?.let { Drag(item.id, Rect(it), strip) }", begins)
+        val centres = drag.indexOf("dragCenters = placed.filterKeys { it != item.id }", held)
+        assertTrue(drag, begins >= 0 && held > begins && centres > held)
+        assertTrue("the centres are its own strip's", "private val placed = strip.placed" in code)
+        assertTrue("override fun dragTakenAway(item: ItemConfig) { if (dragFrom?.id == item.id && dragFrom?.strip === strip) cancelDrag() }" in code)
     }
 
     /**

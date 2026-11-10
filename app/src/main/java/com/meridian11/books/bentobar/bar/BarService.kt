@@ -350,7 +350,7 @@ class BarController(private val service: AccessibilityService) {
     private fun leave(strip: AreaStrip) {
         if (!strip.shown) return
         menus.closeFor(strip)
-        if (dragFrom?.first in strip.placed) cancelDrag() // its window takes the release with it
+        if (dragFrom?.strip === strip) cancelDrag() // its window takes the release with it
         if (strip.area in hoverAreas) events.getValue(strip).hover(false) // and the Exit
         strip.hide()
         noteDrawing()
@@ -649,13 +649,19 @@ class BarController(private val service: AccessibilityService) {
         if (started && strips.any { it.shown }) BarStatus.current.value = status()
     }
 
-    private var dragFrom: Pair<String, Rect>? = null
+    private var dragFrom: Drag? = null
     private var dragCenters: Map<String, Float> = emptyMap()
     /** While an item is dragged: its id and the index it would land at, for the strip's live order. */
     private val dragPreview = mutableStateOf<Pair<String, Int>?>(null)
 
     /** Ends a drag without moving anything: the order drawn is the saved one again. */
     private fun cancelDrag() { dragPreview.value = null; dragFrom = null; dragCenters = emptyMap() }
+
+    /**
+     * The one drag: its item, where that stood when the drag began, and the strip it is in. [from] and the others' centres
+     * are places in that strip's window, so a drag is never carried on from another strip.
+     */
+    private class Drag(val id: String, val from: Rect, val strip: AreaStrip)
 
     /** What the pointer does on one strip: the same for each, but for the window its popups hang from and where its items stand. */
     private inner class AreaEvents(val strip: AreaStrip) : StripEvents {
@@ -724,12 +730,12 @@ class BarController(private val service: AccessibilityService) {
          */
         override fun drag(item: ItemConfig, dx: Float, done: Boolean) {
             menus.hideTip()
-            if (dragFrom?.first != item.id) {
+            if (dragFrom?.id != item.id || dragFrom?.strip !== strip) {
                 val r = placed[item.id]
-                dragFrom = r?.let { item.id to Rect(it) }
+                dragFrom = r?.let { Drag(item.id, Rect(it), strip) }
                 dragCenters = placed.filterKeys { it != item.id }.mapValues { it.value.exactCenterX() }
             }
-            val from = dragFrom?.second
+            val from = dragFrom?.from
             val cfg = Store.config.value
             // It lands among its own area's items; with every item in one area those are all the others, as they always were.
             val others = cfg.items.filter { it.section == Section.SHOWN && it.id != item.id }
@@ -746,7 +752,7 @@ class BarController(private val service: AccessibilityService) {
             cancelDrag()
         }
 
-        override fun dragTakenAway(item: ItemConfig) { if (dragFrom?.first == item.id) cancelDrag() }
+        override fun dragTakenAway(item: ItemConfig) { if (dragFrom?.id == item.id && dragFrom?.strip === strip) cancelDrag() }
 
         override fun gapClick(key: String) {
             val at = placed[key] ?: return
