@@ -332,9 +332,9 @@ class StripPlanTest {
 
     @Test fun theBarAndThePreviewAskTheSameFunctionAndNeitherChoosesForItself() {
         val code = { name: String -> SourceScan.code(SourceScan.sources.single { it.name == name }) }
-        for (name in listOf("BarService.kt", "BarPage.kt")) assertTrue(name, ".stripPlan(" in code(name))
-        val preview = code("BarPage.kt")
-        for (rule in listOf("sectionShows", "behindChevron", "sortedBy", "PINNED_LEFT")) assertFalse("BarPage.kt chooses by $rule", rule in preview)
+        for (name in listOf("BarService.kt", "BarPreview.kt")) assertTrue(name, ".stripPlan(" in code(name))
+        val preview = code("BarPreview.kt")
+        for (rule in listOf("sectionShows", "behindChevron", "sortedBy", "PINNED_LEFT")) assertFalse("BarPreview.kt chooses by $rule", rule in preview)
         assertFalse("BarService.kt sorts the strip itself", "PINNED_LEFT" in code("BarService.kt"))
     }
 }

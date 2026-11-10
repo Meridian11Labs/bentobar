@@ -33,41 +33,49 @@ import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.round
-import com.meridian11.books.bentobar.data.ItemConfig
-import com.meridian11.books.bentobar.data.Section
-import com.meridian11.books.bentobar.data.Store
-import com.meridian11.books.bentobar.data.moved
+import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.Part
+import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.data.canGoBelow
+import com.meridian11.books.bentobar.data.partOf
+import com.meridian11.books.bentobar.data.parts
+import com.meridian11.books.bentobar.data.placed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/** Where a dragged row would land: a section, and a place among that section's other rows. */
-data class DropSpot(val section: Section, val index: Int)
+/** One stretch of the bar's list a row can be dropped in: a part of an area. */
+data class Zone(val area: Position, val part: Part)
+
+/** Where a dragged row would land: a zone, and a place among that zone's other rows. */
+data class DropSpot(val zone: Zone, val index: Int)
 
 /**
- * The drop spot for a dragged row whose middle is at [y]. [cards] are the section cards' vertical
- * extents, top to bottom; [rows] the middles of each section's other rows (not the dragged one), in
- * order. In the gap between two cards the [current] spot stays, so the opening doesn't flicker.
+ * The drop spot for a dragged row whose middle is at [y]. [zones] are the zones' vertical extents, top to
+ * bottom (a zone starts at its heading: the list's head, an area's name, the line between the parts); [rows] the
+ * middles of each zone's other rows (not the dragged one), in order. In a gap between two zones the [current] spot
+ * stays, so the opening doesn't flicker.
  */
 fun dropSpot(
     y: Float,
-    cards: List<Pair<Section, ClosedFloatingPointRange<Float>>>,
-    rows: Map<Section, List<Float>>,
+    zones: List<Pair<Zone, ClosedFloatingPointRange<Float>>>,
+    rows: Map<Zone, List<Float>>,
     current: DropSpot,
 ): DropSpot {
-    if (cards.isEmpty()) return current
-    val section = cards.firstOrNull { y in it.second }?.first ?: when {
-        y < cards.first().second.start -> cards.first().first
-        y > cards.last().second.endInclusive -> cards.last().first
+    if (zones.isEmpty()) return current
+    val zone = zones.firstOrNull { y in it.second }?.first ?: when {
+        y < zones.first().second.start -> zones.first().first
+        y > zones.last().second.endInclusive -> zones.last().first
         else -> return current
     }
-    return DropSpot(section, rows[section].orEmpty().count { it < y })
+    return DropSpot(zone, rows[zone].orEmpty().count { it < y })
 }
 
 /**
- * Drag to reorder across the section cards. The gesture lives on the container (rows come and go
- * as they change cards, which would cancel a gesture on the row itself). While dragging, the row's
- * place shows an opening ([dragging] in [order]), a copy of the row follows the pointer above all
- * the cards, and the Store changes once, on the drop.
+ * Drag to reorder within the bar's list and across the line between its parts. The gesture lives on the
+ * container (a row that changes part is drawn anew, which would cancel a gesture on the row itself). While
+ * dragging, the row's place shows an opening ([dragging] in [preview]), a copy of the row follows the pointer above
+ * the list, and the layout changes once, on the drop, by [placed]: the one step a drop is, with its rules (a type
+ * without a rule is not put under the line in the default mode: its opening stays where it was).
  */
 @Stable
 class Reorder {
@@ -90,26 +98,29 @@ class Reorder {
     var rowHeight = 0f
         private set
 
-    /** All items, as the Store has them (set by the composable). */
-    var items: List<ItemConfig> = emptyList()
+    /** The layout, as the Store has it (set by the composable). */
+    var config: BarConfig = BarConfig()
     var container: LayoutCoordinates? = null
     /** Each row's bounds (the opening registers under the dragged id), its draggable area and its handle. */
     val rows = HashMap<String, LayoutCoordinates>()
     val grabAreas = HashMap<String, LayoutCoordinates>()
     val handles = HashMap<String, LayoutCoordinates>()
-    val cards = HashMap<Section, LayoutCoordinates>()
+    /** Each zone's heading: a zone runs from its heading to the next one's, the last to the list's end. */
+    val headings = HashMap<Zone, LayoutCoordinates>()
+    /** Told when the dragged row is carried under a line it can't go under (its type has no rule): the page says why. */
+    var onRefused: (String) -> Unit = {}
 
     val busy: Boolean get() = dragging != null || settleTop != null
 
-    /** The order to draw: the preview while dragging, else the Store's. */
-    fun order(items: List<ItemConfig>): List<ItemConfig> {
+    /** The layout to list: with the dragged row where it would land while dragging, else the Store's. */
+    fun preview(config: BarConfig): BarConfig {
         val id = dragging
         val s = spot
         val p = pending
         return when {
-            id != null && s != null -> items.moved(id, s.section, s.index)
-            p != null -> items.moved(p.first, p.second.section, p.second.index)
-            else -> items
+            id != null && s != null -> config.placed(id, s.zone.area, s.zone.part, s.index)
+            p != null -> config.placed(p.first, p.second.zone.area, p.second.zone.part, p.second.index)
+            else -> config
         }
     }
 
@@ -129,14 +140,15 @@ class Reorder {
         (if (touch) handles else grabAreas).entries.firstOrNull { (_, c) -> bounds(c)?.contains(pos) == true }?.key
 
     fun start(id: String, down: Offset) {
-        val item = items.firstOrNull { it.id == id } ?: return
+        val item = config.items.firstOrNull { it.id == id } ?: return
+        val part = config.partOf(item) ?: return
         val b = bounds(rows[id]) ?: return
         rowLeft = b.left; rowWidth = b.width; rowHeight = b.height
         grabY = down.y - b.top
         pointerY = down.y
         container?.let { pointerInWindow = it.localToWindow(down) }
         pending = null
-        spot = DropSpot(item.section, items.filter { it.section == item.section }.indexOfFirst { it.id == id })
+        spot = DropSpot(Zone(item.area, part), config.parts(item.area)[part].indexOfFirst { it.id == id })
         dragging = id
     }
 
@@ -153,13 +165,16 @@ class Reorder {
         if (settleTop != null) return
         pointerY = c.windowToLocal(pointerInWindow).y
         val current = spot ?: return
-        val preview = order(items)
-        val cardSpans = Section.entries.mapNotNull { s -> bounds(cards[s])?.let { s to it.top..it.bottom } }.sortedBy { it.second.start }
-        val middles = Section.entries.associateWith { s ->
-            preview.filter { it.section == s && it.id != id }.mapNotNull { bounds(rows[it.id])?.center?.y }
+        val preview = preview(config)
+        val tops = headings.mapNotNull { (zone, h) -> bounds(h)?.let { zone to it.top } }.sortedBy { it.second }
+        val spans = tops.mapIndexed { i, (zone, top) -> zone to top..(tops.getOrNull(i + 1)?.second ?: c.size.height.toFloat()) }
+        val middles = tops.associate { (zone, _) ->
+            zone to preview.parts(zone.area)[zone.part].filter { it.id != id }.mapNotNull { bounds(rows[it.id])?.center?.y }
         }
-        val next = dropSpot(ghostTop + rowHeight / 2, cardSpans, middles, current)
-        if (next != current) spot = next
+        val next = dropSpot(ghostTop + rowHeight / 2, spans, middles, current)
+        if (next == current) return
+        spot = next
+        if (next.zone.part == Part.LOWER && next.zone != current.zone && config.items.firstOrNull { it.id == id }?.let { !config.canGoBelow(it) } == true) onRefused(id)
     }
 
     /** Pixels to scroll this frame: faster the closer the pointer is to the visible edge. */
@@ -186,7 +201,8 @@ class Reorder {
             animate(from, target, animationSpec = Motion.spec(tween(140))) { v, _ -> settleTop = v }
         }
         pending = id to s
-        Store.move(id, s.section, s.index)
+        // Nothing changed (the same place, or a place its type can't take): nothing is on its way.
+        if (!Undo.change { it.placed(id, s.zone.area, s.zone.part, s.index) }) pending = null
         dragging = null
         spot = null
         settleTop = null

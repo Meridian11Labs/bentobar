@@ -21,6 +21,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,6 +54,8 @@ class MainActivity : ComponentActivity() {
     private val services = AccessibilityManager.AccessibilityServicesStateChangeListener { Setup.refresh(this) }
     private var page by mutableStateOf(Page.BAR)
     private var selected by mutableStateOf<String?>(null)
+    /** Counts the times an item's options were asked for from outside (the bar's menu): each turns the Bar page's panel to them. */
+    private var turn by mutableIntStateOf(0)
     /** The accessibility disclosure is up ([AccessibilityDisclosure]). */
     private var disclosure by mutableStateOf(false)
 
@@ -114,13 +117,17 @@ class MainActivity : ComponentActivity() {
 
     private fun handle(intent: Intent?) {
         intent ?: return
-        intent.getStringExtra(EXTRA_ITEM)?.let { selected = it; page = Page.BAR }
+        intent.getStringExtra(EXTRA_ITEM)?.let { selected = it; page = Page.BAR; turn++ }
         if (intent.getBooleanExtra(EXTRA_EDIT, false)) page = Page.BAR
         // A permission's prompt is asked for in this process ([requestPermission]), never named by an intent: this activity is
         // exported, so any app could send one, and the prompt would be BentoBar's.
         takeAsked()?.let { perm -> if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(perm), 1) }
         if (intent.action == "android.service.quicksettings.action.QS_TILE_PREFERENCES") page = Page.LOOK
     }
+
+    // A key no control took (nothing in the window has the focus): the Bar page's keys still act on the selected item.
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean =
+        (page == Page.BAR && BarKeys.handler?.invoke(event) == true) || super.onKeyDown(keyCode, event)
 
     override fun onDestroy() {
         if (current === this) current = null
@@ -181,20 +188,21 @@ class MainActivity : ComponentActivity() {
         val status by BarStatus.current.collectAsState()
         val running = setup.serviceOn
         Shell(page, { page = it }, running, cfg.enabled, status, onEnabled = { on -> Store.update { it.copy(enabled = on) } }, onTurnOn = ::turnOn) {
-            // Before the pages: a message is seen only by someone already listening, and BarPage's Undo posts as it opens.
+            // Before the pages: a message is seen only by someone already listening.
             val snackbar = rememberNotices()
+            // Adding keeps you where you are: a message confirms it, with Undo, instead of jumping pages.
+            val onAdded: (String) -> Unit = { id ->
+                val added = Store.config.value.items.firstOrNull { it.id == id }
+                val type = added?.let { Items.of(it.type) }
+                val title = type?.title.orEmpty()
+                // Added to When active, the bar looks as before: the message says when the item will show.
+                val rule = added?.takeIf { it.whenActive && it.section == com.meridian11.books.bentobar.data.Section.HIDDEN }?.let { type?.trigger?.short(it) }
+                Notice.post(if (rule != null) getString(R.string.add_added_rule, title, rule) else getString(R.string.add_added, title),
+                    getString(R.string.bar_undo)) { Store.remove(id) }
+            }
             when (page) {
-                Page.BAR -> BarPage(running, selected, onSelect = { selected = it }, onSetup = { page = Page.SETUP })
-                // Adding keeps you on Add: a message confirms it, with Undo, instead of jumping pages.
-                Page.ADD -> AddPage { id ->
-                    val added = Store.config.value.items.firstOrNull { it.id == id }
-                    val type = added?.let { Items.of(it.type) }
-                    val title = type?.title.orEmpty()
-                    // Added to When active, the bar looks as before: the message says when the item will show.
-                    val rule = added?.takeIf { it.whenActive && it.section == com.meridian11.books.bentobar.data.Section.HIDDEN }?.let { type?.trigger?.short(it) }
-                    Notice.post(if (rule != null) getString(R.string.add_added_rule, title, rule) else getString(R.string.add_added, title),
-                        getString(R.string.bar_undo)) { Store.remove(id) }
-                }
+                Page.BAR -> BarPage(selected, onSelect = { selected = it }, onAdded = onAdded, turn = turn)
+                Page.ADD -> AddPage(onAdded)
                 Page.LOOK -> LookPage()
                 Page.SETUP -> SetupPage(this@MainActivity, setup, onTurnOn = ::turnOn)
                 Page.ABOUT -> AboutPage()

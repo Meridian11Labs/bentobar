@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -40,6 +41,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +68,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -77,6 +81,7 @@ import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.bar.SliderMath
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
 
 /** A labelled group of single-choice chips. */
@@ -282,15 +287,18 @@ fun SwitchMark(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean
     }
 }
 
-/** Filled: the one such button on a screen. Tonal: every other command. Text: a quiet one in a line (Undo). Danger: one that can't be taken back. */
-enum class ButtonKind { FILLED, TONAL, TEXT, DANGER }
+/**
+ * Filled: the one such button on a screen. Tonal: every other command. Text: a quiet one in a line (Undo). Plain: a command
+ * as plain words, where nothing is lost by it (Remove from the bar). Danger: one that can't be taken back.
+ */
+enum class ButtonKind { FILLED, TONAL, TEXT, PLAIN, DANGER }
 
 @Composable
 fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: ButtonKind = ButtonKind.TONAL, icon: String? = null, enabled: Boolean = true) {
     val c = Bento.colors
     val interaction = remember { MutableInteractionSource() }
     val ground = when (kind) { ButtonKind.FILLED -> c.primary; ButtonKind.TONAL -> c.sunk; else -> Color.Transparent }
-    val ink = when (kind) { ButtonKind.FILLED -> c.onPrimary; ButtonKind.TONAL -> c.ink; ButtonKind.TEXT -> c.accent; ButtonKind.DANGER -> c.danger }
+    val ink = when (kind) { ButtonKind.FILLED -> c.onPrimary; ButtonKind.TONAL, ButtonKind.PLAIN -> c.ink; ButtonKind.TEXT -> c.accent; ButtonKind.DANGER -> c.danger }
     val pad = when (kind) { ButtonKind.FILLED -> 18.dp; ButtonKind.TONAL -> Space.l; else -> Space.m }
     Row(modifier.height(Target.control).alpha(if (enabled) 1f else DIMMED)
         .states(interaction, veil = ink)
@@ -301,12 +309,51 @@ fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
             SymIcon(icon, size = 18.sp, color = ink)
             Spacer(Modifier.width(Space.s))
         }
-        Text(text, style = Bento.type.strong, color = ink, maxLines = 1)
+        Text(text, style = if (kind == ButtonKind.PLAIN) Bento.type.label else Bento.type.strong, color = ink, maxLines = 1)
+    }
+}
+
+/** A square tonal button with one glyph (Order's arrows); [description] is its spoken name. */
+@Composable
+fun BentoIconButton(icon: String, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val c = Bento.colors
+    val interaction = remember { MutableInteractionSource() }
+    Box(modifier.size(Target.control).alpha(if (enabled) 1f else DIMMED)
+        .states(interaction)
+        .background(c.sunk, RoundedCornerShape(Radius.medium))
+        .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center) {
+        SymIcon(icon, size = 18.sp, color = c.ink, contentDescription = description)
+    }
+}
+
+/** A quiet button that opens a short menu of [choices] and shows the [chosen] one (an item's Area, with one area in use). */
+@Composable
+fun <T> MenuButton(choices: List<Pair<T, String>>, chosen: T, onChoose: (T) -> Unit, modifier: Modifier = Modifier) {
+    val c = Bento.colors
+    val interaction = remember { MutableInteractionSource() }
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        Row(Modifier.width(132.dp).height(Target.control)
+            .states(interaction)
+            .background(c.sunk, RoundedCornerShape(Radius.medium))
+            .clickable(interaction, indication = null, role = Role.DropdownList) { open = true }
+            .padding(start = 14.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(choices.firstOrNull { it.first == chosen }?.second.orEmpty(), Modifier.weight(1f), style = Bento.type.strong, color = c.ink, maxLines = 1)
+            SymIcon(Sym.EXPAND_MORE, size = 18.sp, color = c.ink2)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = c.raised) {
+            choices.forEach { (value, label) ->
+                DropdownMenuItem(text = { Text(label, style = if (value == chosen) Bento.type.strong else Bento.type.body, color = c.ink) },
+                    onClick = { open = false; if (value != chosen) onChoose(value) })
+            }
+        }
     }
 }
 
 /** One part of a [Segment]. A part that can't be chosen right now is dimmed; its reason is said in words beside the segment. */
-class SegmentPart(val label: String, val icon: String? = null, val enabled: Boolean = true)
+/** [spoken] is read out in the label's place, for a label with a sign in it (‹). */
+class SegmentPart(val label: String, val icon: String? = null, val enabled: Boolean = true, val spoken: String? = null)
 
 /**
  * A segmented choice: equal parts on a sunk track, the chosen one raised and heavier (never by color alone). The raised
@@ -336,6 +383,7 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
             Row(Modifier.weight(1f).height(34.dp)
                 .states(interaction, radius = Radius.small, ground = !up)
                 .selectable(up, interaction, indication = null, enabled = part.enabled, role = role) { onChoose(i) }
+                .then(if (part.spoken != null) Modifier.clearAndSetSemantics { contentDescription = part.spoken } else Modifier)
                 .padding(horizontal = 10.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 if (part.icon != null) {
                     SymIcon(part.icon, size = 15.sp, color = ink)

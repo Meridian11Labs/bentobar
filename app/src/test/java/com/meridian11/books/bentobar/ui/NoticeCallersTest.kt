@@ -39,7 +39,8 @@ class NoticeCallersTest {
                 at = code.indexOf("Notice.post(", at + 1)
             }
         }
-        assertTrue("the scan saw the callers", calls >= 5)
+        // Four since the Bar page's Undo stands in the removed row's place and is no snackbar.
+        assertTrue("the scan saw the callers", calls >= 4)
     }
 
     /** The arguments of the call whose parenthesis was just opened at [from], split at the commas that are not inside brackets or strings. */
