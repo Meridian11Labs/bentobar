@@ -339,7 +339,7 @@ private fun ItemRow(item: ItemConfig, cfg: BarConfig, state: ItemState?, selecte
             .pointerHoverIcon(PointerIcon.Hand)
             .semantics { this.selected = selected; customActions = actions }
             .testTag("row:$id"),
-        grip = { if (pinned) Spacer(Modifier.width(28.dp)) else Grip(c.ink3, Modifier.onGloballyPositioned { reorder.handles[id] = it }.pointerHoverIcon(grab)) })
+        grip = { if (pinned) Spacer(Modifier.width(28.dp)) else Grip(c.ink3, Modifier.onGloballyPositioned { reorder.handles[id] = it }.pointerHoverIcon(grab).testTag("grip")) })
 }
 
 /** What a row draws, for the list and for the copy that floats while it is dragged. */
