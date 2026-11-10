@@ -208,8 +208,12 @@ internal object BarRules {
 
     // ---- room: which areas have a strip, where and how wide ------------------------------------------------
 
-    /** One area's strip as the controller knows it. [measured] and [empty] are the last known, kept while it has no window. */
-    data class AreaState(val measured: Int, val empty: Boolean, val shown: Boolean, val pending: Boolean)
+    /**
+     * One area's strip as the controller knows it. [measured] and [empty] are the last known, kept while it has no window.
+     * [reach] is how wide it is with a ‹'s whole room beside the items it keeps, whether it draws a ‹ or not; 0 while that
+     * is not known.
+     */
+    data class AreaState(val measured: Int, val empty: Boolean, val shown: Boolean, val pending: Boolean, val reach: Int = 0)
 
     /**
      * Where one strip goes. The gravity is the area's own (Right: top and right; Left: top and left; Middle: top and centred),
@@ -275,6 +279,12 @@ internal object BarRules {
      * and with less room than [least] it has no strip: it is owed. A strip that draws nothing, or was never measured, has
      * its spot and takes no room from the others. With no room for a ‹ at all the home area alone is placed, as the one
      * strip was: uncut, its ‹ over its neighbours.
+     *
+     * One exception, for the first strip once its reach is known ([AreaState.reach]): the others stand behind its reach,
+     * not its width, and do so when it draws nothing too. Its ‹ comes and goes for the areas that are owed, so room that
+     * followed its width would follow that ‹: an area would get room because it had none and lose it again because it
+     * had some. The reach is the same with and without the ‹, so nothing behind the first strip can tell. With one area
+     * nothing is behind it.
      */
     fun arrange(
         freeLeft: Int, freeRight: Int, screenW: Int, gap: Int, out: Int, ends: Int, between: Int, least: Int,
@@ -315,7 +325,7 @@ internal object BarRules {
                 val width = maxOf(1, if (first) known.measured else minOf(known.measured, lane.max))
                 spots += Spot(area, x(area, lane, width, first), width, budget(lane.max))
                 // Never measured, its width is the one pixel a window must have: no room to keep clear, and no gap.
-                val used = if (known.empty || known.measured <= 0) 0 else width
+                val used = if (first && known.reach > 0) known.reach else if (known.empty || known.measured <= 0) 0 else width
                 if (area == Position.RIGHT) usedRight = used else if (area == Position.LEFT) usedLeft = used
             }
         }

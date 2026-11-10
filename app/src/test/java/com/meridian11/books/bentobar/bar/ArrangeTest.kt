@@ -216,6 +216,81 @@ class ArrangeTest {
         assertEquals(1, arrange(Bar(1920, 900, 930), LEFT, setOf(LEFT), emptyMap()).spots.single().width)
     }
 
+    // ---- the first strip's reach -----------------------------------------------------------------------------
+
+    /** A first strip that keeps [kept] px of items with a ‹ [chevron] px wide beside them (0: it draws none), and its reach. */
+    private fun fitted(kept: Int, chevron: Int, k: Scale = one) =
+        AreaState(kept + chevron + 2 * k.ends, empty = false, shown = true, pending = false, reach = kept + k.reserve + 2 * k.ends)
+
+    /**
+     * The first strip's ‹ can come and go for another area's sake: an area with no room owes it its items. If the others
+     * stood behind what the first strip measures, that ‹ would move them, and an area could get room because it had none
+     * and lose it because it had some. So they stand behind its reach: its width with a ‹'s whole room beside what it keeps,
+     * which is the same number whether the ‹ is drawn or not.
+     */
+    @Test fun whatStandsBehindTheFirstStripIsTheSameWhetherItDrawsAChevronOrNot() {
+        val narrow = Bar(1920, 600, 1200)
+        var behindIt = 0
+        for ((bar, inUse) in listOf(small to all, small to setOf(RIGHT, LEFT), narrow to all, narrow to setOf(LEFT, CENTER)))
+            for (kept in listOf(0, 1, 150, 188, 400, 560, 1400, 1471)) for (l in listOf(40, 250, 380, 2000)) for (m in listOf(40, 250)) {
+                val first = ROOM_ORDER.first { it in inUse }
+                val home = if (RIGHT in inUse) RIGHT else CENTER
+                fun placed(state: AreaState) = arrange(bar, home, inUse, mapOf(LEFT to drawing(l), CENTER to drawing(m)) + (first to state))
+                val none = placed(fitted(kept, chevron = 0))
+                val say = { "$first first on $bar keeping $kept, left $l, middle $m" }
+                for (chevron in 1..one.reserve) {
+                    val state = fitted(kept, chevron)
+                    val a = placed(state)
+                    hold(a.spots.drop(1) == none.spots.drop(1) && a.owed == none.owed) { "${say()}, a ‹ of $chevron: ${a.spots} ${a.owed} for ${none.spots} ${none.owed}" }
+                    hold(a.spots.first().width == state.measured) { "${say()}: the first is as wide as it was measured, ${a.spots.first()}" }
+                    // And nothing behind it comes nearer than the gap to what it really draws.
+                    for (s in a.spots.drop(1)) {
+                        behindIt++
+                        val clear = if (first == RIGHT) hi(bar, pill = false) - state.measured - (s.left(bar.screenW) + s.width)
+                        else s.left(bar.screenW) - (lo(bar, pill = false) + state.measured)
+                        hold(clear >= one.gap) { "${say()}, a ‹ of $chevron: $s is $clear px from the first strip" }
+                    }
+                }
+                // It is the room of a first strip exactly as wide as its reach.
+                val wide = placed(drawing(fitted(kept, 0).reach))
+                hold(wide.spots.drop(1) == none.spots.drop(1) && wide.owed == none.owed) { "${say()}: ${none.spots} for ${wide.spots}" }
+                // A first strip with nothing to draw has no ends either, and its ‹ would bring them: the same reach.
+                if (kept == 0) {
+                    val quiet = placed(blank().copy(reach = fitted(0, 0).reach))
+                    hold(quiet.spots.drop(1) == none.spots.drop(1) && quiet.owed == none.owed) { "${say()}, drawing nothing: ${quiet.spots} for ${none.spots}" }
+                }
+            }
+        assertTrue("strips stood behind the first in the sweep", behindIt > 1_000)
+    }
+
+    @Test fun aFirstStripThatDrawsNothingKeepsItsReachClearOnceItIsKnown() {
+        val strips = mapOf(RIGHT to blank(), LEFT to drawing(2000), CENTER to drawing(250))
+        val a = arrange(small, RIGHT, all, strips + (RIGHT to blank().copy(reach = 42)))
+        assertEquals(Spot(RIGHT, 239, 1, 1501), a.spots[0])
+        // Of 1513 px, a ‹ with its ends (42) and the gap are Right's.
+        assertEquals(Spot(LEFT, 168, 1465, 1453), a.spots[1])
+        assertEquals("with no reach known it takes no room, as before", Spot(LEFT, 168, 1513, 1501), arrange(small, RIGHT, all, strips).spots[1])
+    }
+
+    @Test fun onlyTheFirstStripHasAReachAndWithNoRoomForAChevronNoStripHas() {
+        val strips = mapOf(RIGHT to drawing(300), LEFT to drawing(200), CENTER to drawing(250))
+        val plain = arrange(small, RIGHT, all, strips)
+        assertEquals("a strip behind the first takes what it measures", plain, arrange(small, RIGHT, all, strips + (LEFT to drawing(200).copy(reach = 900))))
+        assertEquals(plain.spots.drop(1), arrange(small, RIGHT, all, strips + (RIGHT to drawing(270).copy(reach = 300))).spots.drop(1))
+        val none = Bar(1920, 900, 930)
+        assertEquals(arrange(none, RIGHT, all, strips), arrange(none, RIGHT, all, strips.mapValues { it.value.copy(reach = 400) }))
+    }
+
+    /** With every item in one area nothing stands behind the strip: whatever its reach, it is the strip as it was. */
+    @Test fun oneAreaIsPlacedTheSameWhateverItsReach() {
+        for (bar in listOf(small, large, Bar(1920, 900, 930))) for (area in Position.entries) for (measured in listOf(0, 1, 300, 1513, 2100))
+            for (state in listOf(drawing(measured), blank(measured), waiting(measured))) for (reach in listOf(1, measured + 30, 5000)) {
+                val a = arrange(bar, area, setOf(area), mapOf(area to state.copy(reach = reach)))
+                hold(a == arrange(bar, area, setOf(area), mapOf(area to state))) { "$area on $bar, $state, reach $reach: $a" }
+                hold(a.spots == listOf(today(area, bar, measured, pill = false))) { "$area on $bar, $state, reach $reach: ${a.spots}" }
+            }
+    }
+
     // ---- the Middle --------------------------------------------------------------------------------------
 
     @Test fun theMiddleStaysCentredUntilRightReachesItAndThenMovesAPixelForEachOfRights() {
