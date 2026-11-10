@@ -267,6 +267,12 @@ internal object BarRules {
     private val unknown = AreaState(measured = 0, empty = false, shown = false, pending = false)
 
     /**
+     * The areas that want a strip, in the order they are given room: those in use, and the [home] area as well, so there is
+     * always one. The bar places them ([arrange]) and the settings preview draws one strip for each.
+     */
+    fun wantedAreas(home: Position, inUse: Set<Position>): List<Position> = ROOM_ORDER.filter { it in inUse || it == home }
+
+    /**
      * Which areas have a strip, where and how wide: the one rule of room, which the controller only carries out. In pixels.
      * The free area is [freeLeft] to [freeRight] on a screen [screenW] wide; [gap] is kept to its edges, less [out] (what a
      * strip's own ends may reach into the gap: all of [ends] with no pill, nothing with one); [between] is kept between two
@@ -295,7 +301,7 @@ internal object BarRules {
         val total = maxOf(0, hi - lo)
         // A centred window's x counts from the middle of the screen: the free area's middle against it.
         val x0 = ((freeLeft + freeRight) shr 1) - screenW / 2
-        val wanted = ROOM_ORDER.filter { it in inUse || it == home }
+        val wanted = wantedAreas(home, inUse)
         fun state(area: Position) = strips[area] ?: unknown
         fun budget(max: Int) = maxOf(0, max - 2 * ends)
         fun x(area: Position, lane: Lane, width: Int, first: Boolean) = when (area) {

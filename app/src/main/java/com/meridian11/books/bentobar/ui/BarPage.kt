@@ -102,7 +102,6 @@ import com.meridian11.books.bentobar.data.ColorMode
 import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
-import com.meridian11.books.bentobar.data.ROOM_ORDER
 import com.meridian11.books.bentobar.data.areasInUse
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.HiddenMode
@@ -214,7 +213,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, onSel
     // Each area's own, as each of the bar's strips has its own.
     val dropped = remember { mutableStateMapOf<Position, Set<String>>() }
     // The areas the bar has a strip for, in the order it gives them room: with every item in one area, that one.
-    val areas = ROOM_ORDER.filter { it in cfg.areasInUse() || it == cfg.homeArea() }
+    val areas = BarRules.wantedAreas(cfg.homeArea(), cfg.areasInUse())
     // An area that left the layout takes what it had no room for with it: back later, it starts as a new strip does.
     SideEffect { dropped.keys.retainAll(areas.toSet()) }
     // What the bar shows, by the same function: the preview makes no choice of its own.

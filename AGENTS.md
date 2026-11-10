@@ -443,8 +443,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   press on another strip on view is not outside. `chevronOpensMenu` is the one rule for a press on a ‹: in an area with no hidden item, while another area has
   them, it opens the menu. A drag lands among its own area's items. The empty capsule shows once, in the home area, and
   not beside another area's items (`StripContent.drawn`).
-  The settings preview draws a strip for each area by the same `BarRules.lane` and `middleLeft` (`PreviewAreas` in
-  `ui/BarPage.kt`), and a layout in one area as it always did; `BarPreviewTest` pins both.
+  The settings preview draws a strip for each area the bar wants one for (`BarRules.wantedAreas`, which `arrange` asks
+  too) by the same `BarRules.lane` and `middleLeft` (`PreviewAreas` in `ui/BarPage.kt`), and a layout in one area as it
+  always did; `BarPreviewTest` pins both.
 - **Keyboard:** the "BentoBar menu" launcher entry (`ui/BarMenuActivity`, no window) opens the ‹ menu
   listing every item, focused, under the first strip; an item chosen there opens its menu under the item, in whichever
   strip drew it (`PopupRules.itemMenuStrip`). A focusable accessibility overlay does take key focus after the

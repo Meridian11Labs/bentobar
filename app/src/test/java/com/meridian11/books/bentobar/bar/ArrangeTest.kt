@@ -281,6 +281,26 @@ class ArrangeTest {
         assertEquals(arrange(none, RIGHT, all, strips), arrange(none, RIGHT, all, strips.mapValues { it.value.copy(reach = 400) }))
     }
 
+    @Test fun theAreasThatWantAStripAreThoseInUseAndTheHomeInTheOrderRoomIsGiven() {
+        for (area in Position.entries) assertEquals("one area: that one", listOf(area), BarRules.wantedAreas(area, setOf(area)))
+        for (home in Position.entries) {
+            assertEquals("whichever is home, room goes Right, Left, Middle", ROOM_ORDER, BarRules.wantedAreas(home, all))
+            assertEquals("nothing outside Off: the home area alone, so there is always one", listOf(home), BarRules.wantedAreas(home, emptySet()))
+        }
+        assertEquals(listOf(LEFT, CENTER), BarRules.wantedAreas(CENTER, setOf(CENTER, LEFT)))
+        assertEquals("the home counts once", listOf(RIGHT, CENTER), BarRules.wantedAreas(RIGHT, setOf(CENTER, RIGHT)))
+        assertEquals("a home that is not in use is wanted as well", listOf(RIGHT, LEFT), BarRules.wantedAreas(RIGHT, setOf(LEFT)))
+    }
+
+    /** The bar and the settings preview ask the one list, so the preview has a strip exactly where the bar wants one. */
+    @Test fun whatIsPlacedOrOwedIsExactlyWhatIsWanted() {
+        val strips = mapOf(RIGHT to drawing(300), LEFT to drawing(2000), CENTER to drawing(250))
+        for (home in Position.entries) for (inUse in listOf(emptySet(), setOf(LEFT), setOf(RIGHT, LEFT), setOf(LEFT, CENTER), all)) {
+            val a = arrange(small, home, inUse, strips)
+            assertEquals("$home $inUse", BarRules.wantedAreas(home, inUse), ROOM_ORDER.filter { area -> a.spots.any { it.area == area } || area in a.owed })
+        }
+    }
+
     /** With every item in one area nothing stands behind the strip: whatever its reach, it is the strip as it was. */
     @Test fun oneAreaIsPlacedTheSameWhateverItsReach() {
         for (bar in listOf(small, large, Bar(1920, 900, 930))) for (area in Position.entries) for (measured in listOf(0, 1, 300, 1513, 2100))
