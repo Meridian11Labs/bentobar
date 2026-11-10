@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.bar.SliderMath
 import com.meridian11.books.bentobar.R
+import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.util.SymIcon
 
 /** A labelled group of single-choice chips. */
@@ -65,6 +66,11 @@ fun <T> ChoiceRow(label: String, choices: List<Pair<T, String>>, selected: T, he
         }
     }
 }
+
+/** The bar's three areas as choices, in the order they stand in the status bar. */
+@Composable
+fun areaChoices(): List<Pair<Position, String>> = listOf(Position.LEFT to stringResource(R.string.areas_left),
+    Position.CENTER to stringResource(R.string.areas_middle), Position.RIGHT to stringResource(R.string.areas_right))
 
 @Composable
 fun SwitchRow(label: String, checked: Boolean, help: String? = null, enabled: Boolean = true, onChange: (Boolean) -> Unit) {

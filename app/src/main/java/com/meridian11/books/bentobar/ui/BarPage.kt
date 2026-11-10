@@ -110,6 +110,7 @@ import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.hide
 import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.putIn
+import com.meridian11.books.bentobar.data.putInArea
 import com.meridian11.books.bentobar.data.setWhenActive
 import com.meridian11.books.bentobar.data.show
 import com.meridian11.books.bentobar.data.turnOff
@@ -625,6 +626,8 @@ private fun ItemDetailCard(item: ItemConfig, state: ItemState?, onSelect: (Strin
                 Section.HIDDEN to stringResource(R.string.section_hidden), Section.OFF to stringResource(R.string.common_off)), item.section) { s ->
                 Store.update { it.putIn(item.id, s) }
             }
+            // Which of the bar's areas it is drawn in. An item that is Off has it too: that is where it will be when it comes back.
+            ChoiceRow(stringResource(R.string.areas_label), areaChoices(), item.area) { a -> Store.update { it.putInArea(item.id, a) } }
             val trigger = type.trigger
             if (type.canBeActive && trigger != null) TriggerControl(item, trigger)
             if (!type.iconOnly) ChoiceRow(stringResource(R.string.display_show_as), listOf(Display.ICON_AND_TEXT to stringResource(R.string.display_icon_and_text),

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The bar's three areas, as the item detail, the rows and Look's Position row name them. Every name here starts with areas_. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
+    <string name="areas_label">Area</string>
+    <string name="areas_left">Left</string>
+    <string name="areas_middle">Middle</string>
+    <string name="areas_right">Right</string>
+</resources>
