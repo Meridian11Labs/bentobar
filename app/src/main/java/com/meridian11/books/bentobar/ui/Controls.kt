@@ -1,7 +1,35 @@
 package com.meridian11.books.bentobar.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -213,3 +241,122 @@ private fun KeyField(label: String, save: String, onSave: (String) -> Unit, onCa
         if (onCancel != null) TextButton(onClick = onCancel) { Text(stringResource(R.string.common_cancel), maxLines = 1) }
     }
 }
+
+// The settings window's own controls, on its tokens (Theme.kt). The rows above still serve the bar's popups and the
+// pages that have not been redesigned yet, in Material's shapes.
+
+/**
+ * What a control that takes a click shows of itself: a faint veil under the pointer and a press, and the focus ring
+ * (2 dp of accent, 2 dp off the control) while it has the keyboard. [inset] takes that much off the top and bottom of
+ * what is drawn, for a control whose target is taller than it looks (a tab). Nothing opens or changes on hover.
+ */
+@Composable
+fun Modifier.states(interaction: InteractionSource, radius: Dp = Radius.medium, inset: Dp = 0.dp, ground: Boolean = true,
+                    veil: Color = Bento.colors.ink): Modifier {
+    val focused by interaction.collectIsFocusedAsState()
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    val ring = Bento.colors.accent
+    return drawWithContent {
+        val top = inset.toPx()
+        val r = radius.toPx()
+        drawContent()
+        val depth = if (!ground) 0f else if (pressed) 0.10f else if (hovered) 0.06f else 0f
+        if (depth > 0f) drawRoundRect(veil.copy(alpha = depth), Offset(0f, top), Size(size.width, size.height - 2 * top), CornerRadius(r))
+        if (focused) {
+            val w = 2.dp.toPx()
+            val out = 2.dp.toPx() + w / 2
+            drawRoundRect(ring, Offset(-out, top - out), Size(size.width + 2 * out, size.height - 2 * top + 2 * out), CornerRadius(r + out), style = Stroke(w))
+        }
+    }
+}
+
+/** A switch as it looks: the track, and the thumb that travels. What is around it takes the click (`toggleable`), as with Material's. */
+@Composable
+fun SwitchMark(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val c = Bento.colors
+    val at by animateFloatAsState(if (checked) 1f else 0f, Motion.spec(tween(SWITCH_MS)), label = "switch")
+    Canvas(modifier.size(40.dp, 24.dp).alpha(if (enabled) 1f else DIMMED)) {
+        drawRoundRect(lerp(c.edge, c.accent, at), cornerRadius = CornerRadius(size.height / 2))
+        drawCircle(lerp(c.panel, c.onPrimary, at), 9.dp.toPx(), Offset(12.dp.toPx() + at * 16.dp.toPx(), size.height / 2))
+    }
+}
+
+/** Filled: the one such button on a screen. Tonal: every other command. Text: a quiet one in a line (Undo). Danger: one that can't be taken back. */
+enum class ButtonKind { FILLED, TONAL, TEXT, DANGER }
+
+@Composable
+fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: ButtonKind = ButtonKind.TONAL, icon: String? = null, enabled: Boolean = true) {
+    val c = Bento.colors
+    val interaction = remember { MutableInteractionSource() }
+    val ground = when (kind) { ButtonKind.FILLED -> c.primary; ButtonKind.TONAL -> c.sunk; else -> Color.Transparent }
+    val ink = when (kind) { ButtonKind.FILLED -> c.onPrimary; ButtonKind.TONAL -> c.ink; ButtonKind.TEXT -> c.accent; ButtonKind.DANGER -> c.danger }
+    val pad = when (kind) { ButtonKind.FILLED -> 18.dp; ButtonKind.TONAL -> Space.l; else -> Space.m }
+    Row(modifier.height(Target.control).alpha(if (enabled) 1f else DIMMED)
+        .states(interaction, veil = ink)
+        .background(ground, RoundedCornerShape(Radius.medium))
+        .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+        .padding(horizontal = pad), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            SymIcon(icon, size = 18.sp, color = ink)
+            Spacer(Modifier.width(Space.s))
+        }
+        Text(text, style = Bento.type.strong, color = ink, maxLines = 1)
+    }
+}
+
+/** One part of a [Segment]. A part that can't be chosen right now is dimmed; its reason is said in words beside the segment. */
+class SegmentPart(val label: String, val icon: String? = null, val enabled: Boolean = true)
+
+/**
+ * A segmented choice: equal parts on a sunk track, the chosen one raised and heavier (never by color alone). The raised
+ * part travels to the chosen one. [role] is a tab for the panel switch and a radio button for a choice of values;
+ * [chosen] outside the parts raises none.
+ */
+@Composable
+fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modifier: Modifier = Modifier,
+            role: Role = Role.RadioButton, track: Color = Bento.colors.sunk) {
+    val c = Bento.colors
+    val type = Bento.type
+    val at by animateFloatAsState(chosen.toFloat(), Motion.spec(tween(SEGMENT_MS)), label = "segment")
+    Row(modifier.height(Target.control).background(track, RoundedCornerShape(Radius.medium)).padding(3.dp).selectableGroup().drawBehind {
+        if (chosen !in parts.indices) return@drawBehind
+        val gap = SEGMENT_GAP.toPx()
+        val w = (size.width - gap * (parts.size - 1)) / parts.size
+        val x = at * (w + gap)
+        val r = CornerRadius(Radius.small.toPx())
+        // The contact shadow that lifts it off the track.
+        drawRoundRect(Color.Black.copy(alpha = if (c.dark) 0.40f else 0.14f), Offset(x, 1.dp.toPx()), Size(w, size.height), r)
+        drawRoundRect(c.raised, Offset(x, 0f), Size(w, size.height), r)
+    }, horizontalArrangement = Arrangement.spacedBy(SEGMENT_GAP), verticalAlignment = Alignment.CenterVertically) {
+        parts.forEachIndexed { i, part ->
+            val interaction = remember { MutableInteractionSource() }
+            val up = i == chosen
+            val ink = if (part.enabled) c.ink else c.ink3
+            Row(Modifier.weight(1f).height(34.dp)
+                .states(interaction, radius = Radius.small, ground = !up)
+                .selectable(up, interaction, indication = null, enabled = part.enabled, role = role) { onChoose(i) }
+                .padding(horizontal = 10.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                if (part.icon != null) {
+                    SymIcon(part.icon, size = 15.sp, color = ink)
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(part.label, style = type.small.copy(fontWeight = if (!part.enabled) FontWeight.Normal else if (up) FontWeight.SemiBold else FontWeight.Medium),
+                    color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** A key's name as a cap, in a line of help or at a field's end. */
+@Composable
+fun Keycap(text: String, modifier: Modifier = Modifier) {
+    val c = Bento.colors
+    Text(text, modifier.background(c.sunk, RoundedCornerShape(Radius.small)).padding(horizontal = 5.dp),
+        style = Bento.type.help.copy(fontWeight = FontWeight.Medium), color = c.ink3, maxLines = 1)
+}
+
+private val SEGMENT_GAP = 2.dp
+private const val SEGMENT_MS = 160
+private const val SWITCH_MS = 120
+private const val DIMMED = 0.45f
