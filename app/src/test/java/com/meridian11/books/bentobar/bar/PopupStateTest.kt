@@ -154,6 +154,20 @@ class PopupStateTest {
         assertNull(popups.dropLeaving())
     }
 
+    /**
+     * The ‹ menu has one key in every area. Still folding away under one strip, it is taken away at once before a click
+     * on another strip's ‹ is asked about: that click opens it anew, where it was pressed, and so does any other key's.
+     */
+    @Test fun aPopupTakenAwayWhileItLeavesIsOpenedAnewAndNeverTurnedRound() {
+        open(MenuKey.Bar, "w1")
+        foldAway()
+        assertEquals("left to fold, its own click turns it round where it stands", PopupCommand.Reopen("w1"), popups.toggle(MenuKey.Bar, 100L))
+        assertEquals("w1", popups.dropLeaving())
+        assertEquals(PopupCommand.Open, popups.toggle(MenuKey.Bar, 100L))
+        assertEquals(PopupCommand.Open, popups.toggle(b, 100L))
+        assertNull("nothing is left to take away", popups.dropLeaving())
+    }
+
     @Test fun whatAKeyBelongsToAndWhatItPrints() {
         assertEquals("chevron", MenuKey.Bar.owner)
         assertEquals("a", MenuKey.Item("a").owner)

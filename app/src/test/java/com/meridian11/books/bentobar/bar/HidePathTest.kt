@@ -320,6 +320,19 @@ class HidePathTest {
         assertTrue("menuOpening runs after closeMenu(dissolve = true)", toggle.indexOf("menuOpening", close) > close)
     }
 
+    /**
+     * A popup folding away turns round when its item is clicked again, where it stands. Under another area's strip that is
+     * the wrong place (the ‹ menu has one key in every area): it is taken away at once, before the click is asked about,
+     * and the popup opens anew under the strip that was clicked. What the state then answers is PopupStateTest's.
+     */
+    @Test fun aMenuStillLeavingFromAnotherAreaIsNotTurnedRound() {
+        val toggle = menus.substringAfter("fun toggleMenu(").substringBefore("val loc = strip.locationOnScreen()")
+        val drop = toggle.indexOf("if (leavingStrip != null && leavingStrip !== strip) { popups.dropLeaving()?.close(now = true); leavingStrip = null }")
+        assertTrue("toggleMenu takes away a popup leaving from another strip: $toggle", drop >= 0)
+        assertTrue("before it asks what the click comes to", toggle.indexOf("popups.toggle(") > drop)
+        assertEquals("the click is asked about once", 1, Regex("""popups\.toggle\(""").findAll(menus).count())
+    }
+
     /** A tooltip ends with its item: the LaunchedEffect that says "the hover ended" is cancelled, not run, when the item leaves the strip. */
     @Test fun aTooltipEndsWithItsItem() {
         val ui = File("src/main/java/com/meridian11/books/bentobar/bar/BarUi.kt").readText()
