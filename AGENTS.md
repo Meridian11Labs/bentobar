@@ -427,7 +427,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   The words: the **home area** (`homeArea`) is the first in use of Right, Middle, Left, and where the bar's one-off things
   go (Presenting's ‹, the empty capsule, a new item, the strip when nothing has room). Room goes to Right first, then
   Left, then the Middle (`BarRules.arrange`); the first strip placed in that order is the **carrier** in the code, and
-  does what the bar does once. An area in use with less room than a ‹ and its ends need has no window and is
+  does what the bar does once. The windows are asked for in another order (`BarRules.givingWayFirst`): a strip that gets
+  wider, or comes, last, after whatever moves or narrows for it; the other way round it stood for some frames in room
+  its neighbour had not left. An area in use with less room than a ‹ and its ends need has no window and is
   **owed**: what it would draw now (`owedIds`) is behind the first strip's ‹, in its menu and in Settings' rows as not
   fitting, and its own ‹ is owed with it: what waits behind that one is in the first strip's ‹ menu too, so the first
   strip has a ‹ for it (`carrierOverflow` says when that ‹ stands for more than its own area; `OwedTest`).

@@ -84,7 +84,8 @@ learned the hard way" says why. Run it again on every new draft.
   none as chosen, with a line under the row's title saying that choosing one moves every item there (with one area, or
   no items, the row has no such line). The strips do not overlap, and a press in a gap between them reaches the status
   bar. A ticking item or a timer in Right moves neither Left nor the Middle; a Right that grows (a long Now playing
-  title) pushes the Middle aside smoothly, never in a jump, and it returns to the centre. The picture on the Bar page
+  title) pushes the Middle aside smoothly, never in a jump, and it returns to the centre; in a recording no frame has
+  Right's first item in the place the Middle has not left yet. The picture on the Bar page
   shows the areas where the bar has them; in a narrow settings window Right keeps its room longest, then Left, then the
   Middle, and the line under the picture counts every item not drawn, once.
 - **An area that comes and goes.** Left holding only a Hidden timer with Show when on: starting the timer brings Left up

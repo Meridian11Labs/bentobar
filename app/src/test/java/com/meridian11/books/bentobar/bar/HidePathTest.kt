@@ -27,7 +27,7 @@ class HidePathTest {
 
     private val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
     /** What place() does once every strip it shows has its window. */
-    private val placed = place.substringAfter("for (spot in a.spots) {").substringAfter("\n        }\n")
+    private val placed = place.substringAfter("for (spot in BarRules.givingWayFirst(a.spots, ").substringAfter("\n        }\n")
     private val leave = code.substringAfter("private fun leave(strip: AreaStrip) {").substringBefore("\n    }\n")
     private val measured = code.substringAfter("private fun applyWidth(").substringBefore("\n    }\n")
 
@@ -129,7 +129,7 @@ class HidePathTest {
      * its window, and after the look at whether Android gave it one: not once per strip, and never for a refused window.
      */
     @Test fun whatTheBarDoesOnceWhenItIsBackComesAfterEveryStripHasItsWindow() {
-        val loop = place.substringAfter("for (spot in a.spots) {").substringBefore("\n        }\n")
+        val loop = place.substringAfter("for (spot in BarRules.givingWayFirst(a.spots, ").substringBefore("\n        }\n")
         assertTrue(loop, "strip.show" in loop)
         for (once in listOf("awake.update()", "colors.readSoon(", "Ticker.start(", "BarStatus.STOPPED")) assertFalse("$once in $loop", once in loop)
         inOrder(placed, "BarStatus.STOPPED", "awake.update()", "if (a.first) {", "colors.readSoon(", "Ticker.start(")
@@ -185,9 +185,9 @@ class HidePathTest {
      */
     @Test fun theFirstStripAndWhatIsOwedAreNamedBeforeAnyWindowGoesOrComes() {
         inOrder(place, "carrier = a.carrier", "watchOutside()", "leave(strip)")
-        inOrder(place, "watchOutside()", "for (spot in a.spots) {")
+        inOrder(place, "watchOutside()", "for (spot in BarRules.givingWayFirst(a.spots, ")
         inOrder(place, "owed.value = a.owed", "leave(strip)")
-        inOrder(place, "owed.value = a.owed", "for (spot in a.spots) {")
+        inOrder(place, "owed.value = a.owed", "for (spot in BarRules.givingWayFirst(a.spots, ")
     }
 
     /**

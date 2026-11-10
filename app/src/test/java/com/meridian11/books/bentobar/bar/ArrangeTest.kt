@@ -445,6 +445,34 @@ class ArrangeTest {
         }
     }
 
+    // ---- the order in which the spots are carried out ------------------------------------------------------
+
+    /** Right with a timer just started: 46 px wider, and the Middle that stood against it 46 px further left. */
+    private val grown = listOf(Spot(RIGHT, 112, 942, 1714), Spot(LEFT, 82, 131, 733), Spot(CENTER, -224, 182, 596))
+
+    @Test fun aStripThatGetsWiderTakesItsRoomAfterTheStripsThatMoveOrNarrowForIt() {
+        val order = BarRules.givingWayFirst(grown, mapOf(RIGHT to 896, LEFT to 131, CENTER to 182))
+        assertEquals(listOf(LEFT, CENTER, RIGHT), order.map { it.area })
+        assertEquals("the same spots", grown.toSet(), order.toSet())
+        // Left grows and the Middle narrows for it: the Middle first, though Left comes before it in room order.
+        val left = listOf(Spot(RIGHT, 112, 300, 1714), Spot(LEFT, 82, 700, 1400), Spot(CENTER, 40, 120, 108))
+        assertEquals(listOf(RIGHT, CENTER, LEFT), BarRules.givingWayFirst(left, mapOf(RIGHT to 300, LEFT to 400, CENTER to 250)).map { it.area })
+    }
+
+    @Test fun aStripThatComesTakesItsRoomAfterTheStripsThatAreThere() {
+        val order = BarRules.givingWayFirst(grown, mapOf(RIGHT to 942, CENTER to 250))
+        assertEquals(listOf(RIGHT, CENTER, LEFT), order.map { it.area })
+    }
+
+    @Test fun stripsThatGetNoWiderAndStripsThatAllGetWiderArePlacedInRoomOrder() {
+        // Right narrows again and the Middle moves back: Right has left the room before the Middle stands in it.
+        assertEquals(grown, BarRules.givingWayFirst(grown, mapOf(RIGHT to 988, LEFT to 131, CENTER to 182)))
+        assertEquals(grown, BarRules.givingWayFirst(grown, mapOf(RIGHT to 942, LEFT to 131, CENTER to 182)))
+        // The bar comes back on screen: no window yet, and the first strip's is the first to come.
+        assertEquals(grown, BarRules.givingWayFirst(grown, emptyMap()))
+        assertEquals(grown, BarRules.givingWayFirst(grown, mapOf(RIGHT to 1, LEFT to 1, CENTER to 1)))
+    }
+
     @Test fun noTwoStripsThatTakeRoomOverlapAndNoneLeavesTheFreeSpace() {
         val widths = listOf(0, 1, 40, 150, 400)
         var pairs = 0
