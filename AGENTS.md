@@ -128,7 +128,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     an area (`ItemConfig.area`: Left, Middle, Right; `Position.CENTER` is the Middle) where the whole strip had one place:
     `migrateToV4` puts each item where the strip was. `BarConfig.position` is read by that and, in a layout with no
     items, by `homeArea()` (so by `oneArea()`: the empty bar stands where it says, the first item goes there, and Look's
-    row writes it through `putAllIn`); nothing outside `data/` reads it. Consent lives in a
+    row writes it through `putAllIn`; `without`, the one removal, writes it when the last item goes, so the bar stays
+    where it was); nothing outside `data/` reads it. Consent lives in a
     no-backup file (`Store.loadConsent`). `Online.kt`
     holds what belongs to one install and never travels: whether each online service is switched on
     and the user's own key for one, in a file in Android's no-backup directory (so in no backup, no

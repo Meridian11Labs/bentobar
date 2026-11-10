@@ -129,10 +129,16 @@ class StripContentTest {
 
     /** Finding F59: an empty strip is not "live" (it can have room or not: either way there is nothing to see). */
     @Test fun theStatusSaysEmptyBeforeItSaysAnythingElse() {
-        assertEquals(BarStatus.EMPTY, StripContent.status(empty = true, noRoom = true))
-        assertEquals(BarStatus.EMPTY, StripContent.status(empty = true, noRoom = false))
-        assertEquals(BarStatus.NO_ROOM, StripContent.status(empty = false, noRoom = true))
-        assertEquals(BarStatus.SHOWN, StripContent.status(empty = false, noRoom = false))
+        assertEquals(BarStatus.EMPTY, StripContent.status(refused = false, empty = true, noRoom = true))
+        assertEquals(BarStatus.EMPTY, StripContent.status(refused = false, empty = true, noRoom = false))
+        assertEquals(BarStatus.NO_ROOM, StripContent.status(refused = false, empty = false, noRoom = true))
+        assertEquals(BarStatus.SHOWN, StripContent.status(refused = false, empty = false, noRoom = false))
+    }
+
+    /** A window Android refused comes first: Settings never says "live", "empty" or "no room" of a bar that isn't all there. */
+    @Test fun aRefusedWindowIsSaidBeforeAnythingAStripShows() {
+        for (empty in listOf(true, false)) for (noRoom in listOf(true, false))
+            assertEquals(BarStatus.STOPPED, StripContent.status(refused = true, empty = empty, noRoom = noRoom))
     }
 
     // ---- what only reading the code can show ------------------------------------------------------------

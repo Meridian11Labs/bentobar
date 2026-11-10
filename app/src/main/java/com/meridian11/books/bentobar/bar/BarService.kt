@@ -655,7 +655,7 @@ class BarController(private val service: AccessibilityService) {
     /** An area with a place has no window: Android refused it at the last placing. */
     private var refused = false
 
-    private fun status() = if (refused) BarStatus.STOPPED else StripContent.status(empty = strips.any { it.shown } && stripEmpty, noRoom = firstBudget.intValue == 0)
+    private fun status() = StripContent.status(refused, empty = strips.any { it.shown } && stripEmpty, noRoom = firstBudget.intValue == 0)
 
     /**
      * A strip measured its content: what it measured is kept on the strip, and the bar is placed again by it. [window] is

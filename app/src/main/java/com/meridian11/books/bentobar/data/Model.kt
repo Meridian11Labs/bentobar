@@ -105,7 +105,8 @@ data class BarConfig(
     val items: List<ItemConfig> = emptyList(),
     /**
      * Before version 4: where the whole strip sat. [migrateToV4] gives it to every item as its area. Since then the items'
-     * areas say where the bar is, and this only where a bar with no items is ([homeArea]; [putAllIn] writes it there).
+     * areas say where the bar is, and this only where a bar with no items is ([homeArea]; [putAllIn] writes it there,
+     * and [without] when the last item goes).
      */
     val position: Position = Position.RIGHT,
     /** How the Hidden section works (version 3). */

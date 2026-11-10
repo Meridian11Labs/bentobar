@@ -70,8 +70,12 @@ internal object StripContent {
     /** The strip's window is made invisible: nothing is drawn. [width] is only for sizing; 0 means nothing was measured to show. */
     fun empty(width: Int, drawn: Boolean) = width <= 0 || !drawn
 
-    /** What Settings says about a strip that is on screen. */
-    fun status(empty: Boolean, noRoom: Boolean) = when {
+    /**
+     * What Settings says about a bar that has a place. [refused]: Android gave an area with a place no window, so the bar
+     * isn't all there, whatever the strips that came have to show.
+     */
+    fun status(refused: Boolean, empty: Boolean, noRoom: Boolean) = when {
+        refused -> BarStatus.STOPPED
         empty -> BarStatus.EMPTY
         noRoom -> BarStatus.NO_ROOM
         else -> BarStatus.SHOWN

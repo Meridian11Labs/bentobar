@@ -31,12 +31,27 @@ fun BarConfig.putInArea(id: String, area: Position): BarConfig =
 /**
  * Every item into [area], Off ones too, so the layout is a one-area layout again and what comes back from Off joins the rest.
  * A layout with no items has no area to change: there the place is kept in [BarConfig.position], which says where the
- * empty bar is and where its first item goes ([homeArea]). With items, `position` is left as it was.
+ * empty bar is and where its first item goes ([homeArea]). With items, `position` is left as it was ([without] writes
+ * it when the last one goes).
  */
 fun BarConfig.putAllIn(area: Position): BarConfig = when {
     items.isEmpty() -> if (position == area) this else copy(position = area)
     items.all { it.area == area } -> this
     else -> copy(items = items.map { it.copy(area = area) })
+}
+
+/**
+ * The layout without the item [id]. When the last item goes, the bar stays where it was: `position` takes the
+ * [home area][homeArea] the layout had with it, so the empty bar stands there and the next item goes there, whichever
+ * command had put the items in that area.
+ */
+fun BarConfig.without(id: String): BarConfig {
+    val rest = items.filterNot { it.id == id }
+    return when {
+        rest.size == items.size -> this
+        rest.isEmpty() -> copy(items = rest, position = homeArea())
+        else -> copy(items = rest)
+    }
 }
 
 /**

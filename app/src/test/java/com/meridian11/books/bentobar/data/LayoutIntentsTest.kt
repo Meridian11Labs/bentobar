@@ -129,6 +129,33 @@ class LayoutIntentsTest {
         }
     }
 
+    /**
+     * With items, `position` says nothing and no area command writes it, so it can be out of date. Taking the last item
+     * away must not send the empty bar, and the next item, back to where it last said: the bar stays where it was.
+     */
+    @Test fun takingTheLastItemAwayLeavesTheEmptyBarWhereTheBarWas() {
+        val one = BarConfig(items = listOf(shown))
+        for (area in Position.entries) {
+            for (moved in listOf(one.putAllIn(area), one.putInArea("s", area))) {
+                assertEquals("no area command writes it while there are items", Position.RIGHT, moved.position)
+                val empty = moved.without("s")
+                assertEquals(BarConfig(position = area), empty)
+                assertEquals(area, empty.homeArea())
+                assertEquals(area, empty.oneArea())
+            }
+        }
+        // The last one being Off or Hidden changes nothing: its area is where it would have come back.
+        assertEquals(Position.LEFT, BarConfig(items = listOf(off.copy(area = Position.LEFT))).without("o").position)
+    }
+
+    @Test fun takingAnItemAwayWhileOthersStayChangesNothingElse() {
+        val spread = layout.copy(position = Position.CENTER).putInArea("s", Position.LEFT)
+        val rest = spread.without("s")
+        assertEquals(spread.copy(items = spread.items.filterNot { it.id == "s" }), rest)
+        assertEquals(Position.CENTER, rest.position)
+        assertSame("an id that isn't in the layout changes nothing", spread, spread.without("nope"))
+    }
+
     @Test fun noScreenWritesASectionARuleOrAnAreaOfItsOwn() {
         val handlers = SourceScan.sources.filter { val p = it.path.replace('\\', '/'); "/bentobar/ui/" in p || "/bentobar/bar/" in p }
         assertTrue(handlers.size > 10)

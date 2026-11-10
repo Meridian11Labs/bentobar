@@ -145,7 +145,7 @@ object Store {
     /** The item type kept at the far left of its area (see [added]). */
     const val PINNED_LEFT = "event"
 
-    fun remove(id: String) = update { c -> c.copy(items = c.items.filterNot { it.id == id }) }
+    fun remove(id: String) = update { it.without(id) }
 
     /** Moves [id] into [section] at [index] within that section (end if out of range). */
     fun move(id: String, section: Section, index: Int) = update { c -> c.copy(items = c.items.moved(id, section, index)) }
