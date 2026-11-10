@@ -359,8 +359,9 @@ class BarController(private val service: AccessibilityService) {
         if (dragFrom?.strip === strip) cancelDrag() // its window takes the release with it
         if (strip.area in hoverAreas) events.getValue(strip).hover(false) // and the Exit
         strip.hide()
+        strip.dropped = emptySet() // what it had no room for goes with it
         noteDrawing()
-        publishOverflow() // what it had no room for went with it
+        publishOverflow()
     }
 
     /** Which strips draw is asked again: a strip was measured, or went. The first of them hears a press outside the bar. */
@@ -516,6 +517,10 @@ class BarController(private val service: AccessibilityService) {
         // The window that keeps the screen on is about to go: the flag is on the next one first, or the wake lock holds.
         if (held != null && held in a.leave) awake.update()
         for (strip in strips) if (strip.area in a.leave) leave(strip)
+        // A strip keeps what it had no room for while the bar is off the screen. An area that went out of use or lost its
+        // room meanwhile has no window to say otherwise: nothing of it is left to publish.
+        val stale = strips.filter { s -> s.dropped.isNotEmpty() && a.spots.none { it.area == s.area } }
+        if (stale.isNotEmpty()) { for (strip in stale) strip.dropped = emptySet(); publishOverflow() }
         for (spot in a.spots) {
             val strip = strips.first { it.area == spot.area }
             val p = strip.params

@@ -64,7 +64,9 @@ learned the hard way" says why. Run it again on every new draft.
 - **Unlock.** Lock and unlock: within about ten seconds the strip's colour matches the bar's again (it once stayed white
   after the lock screen's light icons).
 - **Full screen.** An app in full screen hides the strip when the bar hides (at once on some systems, up to about 2 s on others)
-  and brings it back when the bar returns; a shade or the keyboard's full-screen key behave the same.
+  and brings it back when the bar returns; a shade or the keyboard's full-screen key behave the same. A bar with more
+  items than fit (so with a ‹ for them) comes back with its ‹ in its first frame, and its window is sized once
+  (`debug trace on`: one `width` line on the return; a recording shows no frame with a cut ‹).
 - **The empty strip.** With every item hidden or empty there is no stray window and no invisible overlay (Play Protect
   flagged one); Settings shows the strip as empty. With a pill background and items in several areas, a bar with
   nothing to draw is one empty capsule, and an area with nothing to draw has none beside another area's items.

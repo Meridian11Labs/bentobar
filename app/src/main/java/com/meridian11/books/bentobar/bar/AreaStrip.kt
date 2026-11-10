@@ -26,7 +26,8 @@ internal class AreaStrip(val area: Position, val window: Overlay) {
     var pending = false
     /** The most its content may take, in px. */
     val maxWidth = mutableIntStateOf(0)
-    /** The items it had no room for. */
+    /** The items it had no room for. Kept while the bar is off the screen, so that it comes back with its ‹ in its first
+     *  frame; emptied when the area's own window goes while the bar stays, or the area has no window when the bar is back. */
     var dropped by mutableStateOf(emptySet<String>())
     /** Where each item was last drawn (window coordinates): a popup opens under its item, and a press is told to the item it is on. */
     val placed = mutableMapOf<String, Rect>()
@@ -48,7 +49,7 @@ internal class AreaStrip(val area: Position, val window: Overlay) {
         pending = true
     }
 
-    fun hide() { window.hide(); pending = false; dropped = emptySet(); placed.clear() }
+    fun hide() { window.hide(); pending = false; placed.clear() }
     fun setContentVisible(visible: Boolean) = window.setContentVisible(visible)
     fun relayout() = window.relayout()
     fun locationOnScreen() = window.locationOnScreen()
