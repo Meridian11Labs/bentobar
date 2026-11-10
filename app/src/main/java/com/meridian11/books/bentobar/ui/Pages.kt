@@ -67,6 +67,8 @@ import com.meridian11.books.bentobar.data.Online
 import com.meridian11.books.bentobar.data.Uses
 import com.meridian11.books.bentobar.data.TextSize
 import com.meridian11.books.bentobar.data.SPACING_DP
+import com.meridian11.books.bentobar.data.oneArea
+import com.meridian11.books.bentobar.data.putAllIn
 import com.meridian11.books.bentobar.data.spacingDp
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.ItemGroup
@@ -159,9 +161,11 @@ fun LookPage() {
     val res = androidx.compose.ui.platform.LocalResources.current
     Page {
         SectionLabel(stringResource(R.string.look_placement))
-        ChoiceRow(stringResource(R.string.look_position), listOf(Position.RIGHT to stringResource(R.string.look_position_right),
-            Position.CENTER to stringResource(R.string.look_position_center), Position.LEFT to stringResource(R.string.look_position_left)),
-            cfg.position) { p -> Store.update { it.copy(position = p) } }
+        // A command more than a setting: a press puts every item in that area, and one is chosen only while they all are in it
+        // (none, a null here, while the items are in several).
+        ChoiceRow<Position?>(stringResource(R.string.look_position), areaChoices(), cfg.oneArea()) { area ->
+            if (area != null) Store.update { it.putAllIn(area) }
+        }
         SliderRow(stringResource(R.string.look_spacing), cfg.spacingDp, SPACING_DP, { res.getString(R.string.common_dp, it) }) { v -> Store.update { it.copy(spacing = v) } }
         SwitchRow(stringResource(R.string.look_presenting), cfg.presenting, help = stringResource(R.string.look_presenting_help)) { on ->
             Store.update { it.copy(presenting = on) }

@@ -467,9 +467,6 @@
     <string name="add_added_rule">Added %1$s · %2$s</string>
     <string name="look_placement">Placement</string>
     <string name="look_position">Where BentoBar sits</string>
-    <string name="look_position_right">Next to the system icons</string>
-    <string name="look_position_center">Center</string>
-    <string name="look_position_left">After the clock</string>
     <string name="look_spacing">Space between items</string>
     <string name="look_look">Look</string>
     <string name="look_text_size">Text size</string>

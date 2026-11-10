@@ -2,6 +2,7 @@ package com.meridian11.books.bentobar.data
 
 import com.meridian11.books.bentobar.SourceScan
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -117,11 +118,14 @@ class LayoutIntentsTest {
         assertEquals(Position.CENTER, old.putAllIn(Position.LEFT).position)
     }
 
-    @Test fun noScreenWritesASectionOrARuleOfItsOwn() {
+    @Test fun noScreenWritesASectionARuleOrAnAreaOfItsOwn() {
         val handlers = SourceScan.sources.filter { val p = it.path.replace('\\', '/'); "/bentobar/ui/" in p || "/bentobar/bar/" in p }
         assertTrue(handlers.size > 10)
-        val byHand = Regex("""\.copy\([^)]*\b(section|whenActive)\s*=|,\s*999\s*\)""")
+        // `position` with them: it is the area the whole strip had before version 4, and a screen that wrote it would change nothing.
+        val byHand = Regex("""\.copy\([^)]*\b(section|whenActive|area|position)\s*=(?!=)|,\s*999\s*\)""")
+        assertTrue("the scan sees a write", byHand.containsMatchIn("c.copy(items = c.items.map { it.copy(area = Position.LEFT) })"))
+        assertFalse("and not a comparison", byHand.containsMatchIn("it.copy(display = if (it.area == Position.LEFT) a else b)"))
         val found = handlers.filter { byHand.containsMatchIn(SourceScan.code(it)) }.map { it.name }
-        assertEquals("a section or a Show when rule is written in a screen: add a Layout intent instead", emptyList<String>(), found)
+        assertEquals("a section, a Show when rule or an area is written in a screen: add a Layout intent instead", emptyList<String>(), found)
     }
 }

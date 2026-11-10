@@ -19,6 +19,7 @@ import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.ui.BarPage
+import com.meridian11.books.bentobar.ui.LookPage
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -30,8 +31,9 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Where Settings says and changes an item's area: the chooser in the item's detail and the word on its row. Drawn through
- * the Bar page as the app draws it, wide enough for the list and the detail side by side.
+ * Where Settings says and changes an item's area: the chooser in the item's detail, the word on its row, and Look's
+ * Position row, which puts every item in one area. Drawn through the Bar page and the Look page as the app draws them,
+ * wide enough for the list and the detail side by side.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -107,5 +109,33 @@ class AreaChoosersTest {
         barPage(null, item("a", Position.RIGHT), ItemConfig("n", "from-a-newer-version", area = Position.LEFT))
         rowsSaying(left).assertCountEquals(1)
         rowsSaying(right).assertCountEquals(1)
+    }
+
+    private fun lookPage(vararg items: ItemConfig): BarConfig {
+        val layout = BarConfig(items = items.toList(), position = Position.RIGHT)
+        Store.update { layout }
+        rule.setContent { LookPage() }
+        rule.waitForIdle()
+        return layout
+    }
+
+    @Test fun lookShowsNoAreaAsChosenWhileTwoAreInUseAndAPressPutsEveryItemInThatOne() {
+        val layout = lookPage(item("a", Position.RIGHT), item("b", Position.LEFT, Section.HIDDEN), item("c", Position.LEFT, Section.OFF))
+        for (word in listOf(left, middle, right)) choice(word).assertIsNotSelected()
+
+        choice(middle).performClick()
+        rule.waitForIdle()
+        assertEquals("every item's area, the one that is Off too, and nothing else",
+            layout.copy(items = layout.items.map { it.copy(area = Position.CENTER) }), Store.config.value)
+        choice(middle).assertIsSelected()
+        choice(left).assertIsNotSelected()
+        choice(right).assertIsNotSelected()
+    }
+
+    @Test fun lookShowsTheOneAreaEveryItemOutsideOffIsInWhateverTheOldPositionSays() {
+        lookPage(item("a", Position.LEFT), item("b", Position.LEFT, Section.HIDDEN), item("c", Position.CENTER, Section.OFF))
+        choice(left).assertIsSelected()
+        choice(middle).assertIsNotSelected()
+        choice(right).assertIsNotSelected()
     }
 }

@@ -13,7 +13,6 @@
     <string name="page_look">Look and behaviour</string>
 
     <!-- pages -->
-    <string name="look_position_center">Centre</string>
     <string name="look_color">Colour</string>
     <string name="look_color_help">Matching reads the colour of the status bar clock</string>
     <string name="look_system_tint">Tint with system colours</string>
