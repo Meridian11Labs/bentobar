@@ -188,7 +188,7 @@ class HidePathTest {
         val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
         assertTrue(place, "home = cfg.homeArea(), inUse = cfg.areasInUse()," in place)
         val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
-        for (own in listOf(".stripPlan(strip.area, ", "home = strip.area == cfg.homeArea() && (drawing.value - strip.area).isEmpty())", "bias = when (strip.area) {", "chevronOnLeft = strip.area != Position.LEFT,"))
+        for (own in listOf(".stripPlan(strip.area, ", "home = strip.area == cfg.homeArea() && (onView.value - strip.area).isEmpty())", "bias = when (strip.area) {", "chevronOnLeft = strip.area != Position.LEFT,"))
             assertTrue("$own in $host", own in host)
         val menu = code.substringAfter("fun openBarMenu(): Boolean {").substringBefore("\n    }\n")
         assertTrue("the keyboard's menu hangs from the carrier, at the end its area says: $menu", "val strip = carrierStrip()" in menu && "if (strip.area == Position.LEFT)" in menu)
@@ -237,16 +237,16 @@ class HidePathTest {
      */
     @Test fun theEmptyCapsuleIsTheHomeAreasAndOnlyWhileNoOtherStripDraws() {
         val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
-        assertTrue(host, "home = strip.area == cfg.homeArea() && (drawing.value - strip.area).isEmpty())" in host)
-        assertTrue("private val drawing = mutableStateOf(emptySet<Position>())" in code)
-        val note = code.substringAfter("private fun noteDrawing() {").substringBefore("\n    }\n")
-        assertTrue(note, "drawing.value = strips.filter { it.shown && !it.pending && !it.empty }.mapTo(mutableSetOf()) { it.area }" in note)
+        assertTrue(host, "home = strip.area == cfg.homeArea() && (onView.value - strip.area).isEmpty())" in host)
+        assertTrue("private val onView = mutableStateOf(emptySet<Position>())" in code)
+        val note = code.substringAfter("private fun noteOnView() {").substringBefore("\n    }\n")
+        assertTrue(note, "onView.value = strips.filter { it.shown && !it.pending && !it.empty }.mapTo(mutableSetOf()) { it.area }" in note)
         val apply = code.substringAfter("private fun applyWidth(").substringBefore("private var dragFrom")
-        assertTrue(apply, apply.indexOf("noteDrawing()") > apply.indexOf("strip.setContentVisible(!empty)"))
+        assertTrue(apply, apply.indexOf("noteOnView()") > apply.indexOf("strip.setContentVisible(!empty)"))
         val leave = code.substringAfter("private fun leave(strip: AreaStrip) {").substringBefore("\n    }\n")
-        assertTrue(leave, leave.indexOf("noteDrawing()") > leave.indexOf("strip.hide()"))
-        assertTrue(hide, hide.indexOf("noteDrawing()") > hide.indexOf("for (strip in strips) strip.hide()"))
-        assertEquals("nowhere else: a strip newly shown has not been measured", 3, Regex("""\bnoteDrawing\(\)(?! \{)""").findAll(code).count())
+        assertTrue(leave, leave.indexOf("noteOnView()") > leave.indexOf("strip.hide()"))
+        assertTrue(hide, hide.indexOf("noteOnView()") > hide.indexOf("for (strip in strips) strip.hide()"))
+        assertEquals("nowhere else: a strip newly shown has not been measured", 3, Regex("""\bnoteOnView\(\)(?! \{)""").findAll(code).count())
     }
 
     /**
@@ -367,7 +367,7 @@ class HidePathTest {
     @Test fun keepAwakesFlagIsOnTheStripThatCarriesItBeforeItLeavesAnyOther() {
         val awake = File("src/main/java/com/meridian11/books/bentobar/bar/KeepAwake.kt").readText()
         val update = awake.substringAfter("fun update() {").substringBefore("\n    }\n")
-        val asked = update.indexOf("KeepAwakeRule.choose(on, if (on) carrier() else null, pm.isInteractive, km.isKeyguardLocked)")
+        val asked = update.indexOf("KeepAwakeRule.choose(on, if (on) holder() else null, pm.isInteractive, km.isKeyguardLocked)")
         assertTrue("update() asks the one rule: $update", asked >= 0)
         val set = update.indexOf("flag(it, true)", asked)
         assertTrue(update, set >= 0 && update.indexOf("flag(window, false)", set) > set)
@@ -409,7 +409,7 @@ class HidePathTest {
             at = i + step.length
         }
         val where = code.substringAfter("private fun stripAt(x: Float, y: Float): AreaStrip? {").substringBefore("\n    }\n")
-        assertTrue("only strips on view are asked: $where", "strips.filter { it.area in drawing.value }" in where && "PopupRules.pressedArea(x, y, " in where)
+        assertTrue("only strips on view are asked: $where", "strips.filter { it.area in onView.value }" in where && "PopupRules.pressedArea(x, y, " in where)
         // The window hands the press on, so that where it was can be asked.
         val overlay = File("src/main/java/com/meridian11/books/bentobar/bar/Overlay.kt").readText()
         assertTrue("private val onOutside: ((MotionEvent) -> Unit)? = null," in overlay)
