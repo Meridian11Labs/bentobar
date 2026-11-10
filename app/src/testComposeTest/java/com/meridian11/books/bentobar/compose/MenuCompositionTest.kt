@@ -161,9 +161,21 @@ class MenuCompositionTest {
     private fun contextHost() {
         Env.init(ApplicationProvider.getApplicationContext<Application>())
         rule.setContent {
+            view = androidx.compose.ui.platform.LocalView.current
             val c = shown
             if (c != null) MenuSurface(c.type.menuWidthDp.dp, 2000.dp, null) { ItemContextMenu(c.item.id, Host) {} }
         }
+    }
+
+    private var view: android.view.View? = null
+
+    /** With `BENTOBAR_PICTURES=<directory>`, the menu as drawn, to look at beside its design; else nothing. */
+    private fun picture(name: String) {
+        val dir = System.getenv("BENTOBAR_PICTURES")?.takeIf { it.isNotBlank() } ?: return
+        val v = view ?: return
+        val bitmap = rule.runOnIdle { android.graphics.Bitmap.createBitmap(v.width, v.height, android.graphics.Bitmap.Config.ARGB_8888).also { v.draw(android.graphics.Canvas(it)) } }
+        java.io.File(dir).mkdirs()
+        java.io.File(dir, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     @Test fun theRightClickMenuSaysWhatVisibilitySaysInEveryModeAndNeverOffOrHidden() {
@@ -194,6 +206,7 @@ class MenuCompositionTest {
             val type = Items.of(w.type)!!
             val lines = contextMenu(ItemConfig("x", w.type, w.section, whenActive = w.on), w.mode)
             val said = "$w drew $lines"
+            if (w.type == rule && w.section == Section.HIDDEN && w.on && w.mode != HiddenMode.HOVER) picture(if (w.mode == HiddenMode.CLICK) "menu-behind" else "menu-when-active")
             assertEquals(said, listOf(type.title, w.subtitle), lines.take(2))
             val entries = lines.drop(2)
             for (t in w.has) assertTrue("$said: no \"$t\"", t in entries)
