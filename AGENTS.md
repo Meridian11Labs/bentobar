@@ -16,19 +16,25 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
 ## Layout
 - `app/src/main/java/com/meridian11/books/bentobar/`
   - `bar/BarService.kt`: the AccessibilityService plus `BarController`. It scans the status bar,
-    places the strip, hides it (fullscreen, keyguard, screen off, a shade covering the bar), and
-    has adb `debug()` hooks.
+    places the strips (one for each area in use that has room, see "The bar is one, in up to three windows" below),
+    hides them (fullscreen, keyguard, screen off, a shade covering the bar), and has adb `debug()` hooks.
+  - `bar/AreaStrip.kt`: one area's strip: its window and what the controller knows of it (what it last measured, whether
+    it draws anything, its reach, the items it had no room for, where its items stand). The controller holds three, in
+    room order, and everything it does to "the strip" it does to one of them or to all.
   - `bar/MenuCoordinator.kt`: the strip's popups and its tooltip: when they come and go; `PopupState` decides.
   - `bar/StripContent.kt`: what an item draws and whether the strip draws anything (pure, unit-tested): the one rule for
     an empty or blank strip, whose window is made invisible. Never from how many entries it has: an entry can draw nothing.
-  - `bar/KeepAwake.kt`: keep awake: `FLAG_KEEP_SCREEN_ON` on the strip's window, a screen wake lock while it has none.
+  - `bar/KeepAwake.kt`: keep awake: `FLAG_KEEP_SCREEN_ON` on one strip's window (the first placed that draws something;
+    it is on the next before that window goes), a screen wake lock while none can carry it.
   - `bar/ColorReader.kt`: the strip's colours: when the bar is read (`ColorWatch` says), what a reading makes of the
     look (`StripLook`), the hints when there is no reading. The screenshot itself is `StatusBarScan.shoot`.
   - `bar/StatusBarScan.kt`: the edge of the window reading: the window list as `WindowFact`s (kind, id, bounds) and
     the status bar window's node tree as `BarNode`s, for `BarRules`, and the status bar's screenshot (`shoot`).
   - `bar/BarRules.kt`: what those facts mean, pure and unit-tested: which window is the status bar (TYPE_SYSTEM at
     y=0), the free area (the `DesktopStatusBarSpacer` node on Googlebook OS, else the widest gap), and `decide`: whether the
-    strip shows, why not, what covers it, what to read. `BarController.check` collects the facts, asks, and does the
+    strip shows, why not, what covers it, what to read. `arrange` is the one rule of room: which areas have a strip, where
+    and how wide (`lane` is an area's room, `middleLeft` where a Middle strip stands in it; `ArrangeTest`), and
+    `BarController.place` only carries it out. `BarController.check` collects the facts, asks, and does the
     Android part in the order that matters; `BarRulesTest` replays window lists in the form of `./bento debug windows`,
     one test per window finding below. `bar/PopupState.kt` is the same for a press, a click and a window's end: it
     says what to do (`PopupCommand`), `MenuKey` names the popup, and the window's own phases stay in `MenuWindow`.
@@ -109,16 +115,18 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     One 429 or Retry-After holds the whole service (`Http.get` answers for it), and what the transport would refuse is `Why.REFUSED`, counted as nothing sent.
   - `items/OnlineBase.kt` and `items/Places.kt` are what the online items share: the reply-to-failure mapping (`Failures`), the pace (`Pace`), the states (`Status`), the staged sample (`Staged`), what a place is. A sixth service
     is a load, a rules file and a menu file; `OnlineServiceContract` in the tests gives it the failure tests.
-  - `data/LayoutIntents.kt`: what a command does to an item (`show`, `hide`, `turnOff`, `putIn`, `setWhenActive`), as pure
-    steps from one layout to the next: it changes the section and never the place in the list, which only a Move, drag or drop
-    does (`moved`). A screen calls `Store.update { it.hide(id) }` and writes no section or rule of its own
-    (`LayoutIntentsTest` holds them to it). `stripPlan` (in `Model.kt`) is the one choice of what the strip and the settings
-    preview show (`StripPlanTest`).
+  - `data/LayoutIntents.kt`: what a command does to an item (`show`, `hide`, `turnOff`, `putIn`, `setWhenActive`, and for
+    its area `putInArea`, and `putAllIn` for every item's), as pure steps from one layout to the next: it changes the section
+    or the area and never the place in the list, which only a Move, drag or drop does (`moved`). A screen calls
+    `Store.update { it.hide(id) }` and writes no section, rule or area of its own (`LayoutIntentsTest` holds them to it).
+    `stripPlan` (in `Model.kt`) is the one choice of what an area's strip and the settings preview show (`StripPlanTest`).
   - `data/`: `Model.kt` (`BarConfig`, `ItemConfig`, `Section`…) and `Store` (JSON in
     SharedPreferences, a process-wide StateFlow shared by the service and settings; `Store.open` takes a `Prefs`, so a test
     runs it on a map). `Layout.kt` holds `readLayout`, the one reader of a stored or pasted layout: decode, migrate, repeated
     ids dropped; a layout from a newer version (`LAYOUT_VERSION`) is refused, never clamped, and kept for Backup to offer.
-    A schema change adds a file to `test/resources/layouts` (write-once, `LayoutFixturesTest`). Consent lives in a
+    A schema change adds a file to `test/resources/layouts` (write-once, `LayoutFixturesTest`). Version 4 gave every item
+    an area (`ItemConfig.area`: Left, Middle, Right; `Position.CENTER` is the Middle) where the whole strip had one place:
+    `migrateToV4` puts each item where the strip was, and `BarConfig.position` is read by nothing else. Consent lives in a
     no-backup file (`Store.loadConsent`). `Online.kt`
     holds what belongs to one install and never travels: whether each online service is switched on
     and the user's own key for one, in a file in Android's no-backup directory (so in no backup, no
@@ -130,6 +138,10 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     `Disclosure` (the accessibility disclosure and consent Google Play requires, and the one list of
     what the service does that Setup shows too; `ConsentRules` says when it comes up), `Theme`, `MenuKit` and
     `Controls` (shared UI pieces).
+    Areas in Settings: an item's detail has the Area chooser; a row says its area only while more than one is in use
+    (`usesAreas`); Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
+    while they all are in it (`oneArea`). Those two count an item of a type this version doesn't know, which `areasInUse` does
+    not: Settings has its row, the bar nothing of it. `Controls.areaChoices` is the one order and wording; `AreaChoosersTest`.
   - "Show when…": a type's `trigger` (in `ItemType.kt`) words its pop-out rule, and its `Threshold`
     is the one source of the option key and default for both `state()` and the settings slider.
     An option generally is an `Opt` (`items/Opt.kt`): the key, the default and the checks on what a layout may say, declared
@@ -177,13 +189,18 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   each state in its type's `stages`; Compose has no error boundary, so this is what stands between a throwing menu and the service.
 - Editing the manifest or a string re-runs the tests that read them; a green run that says UP-TO-DATE after such an
   edit is wrong, so look.
-- Anything only hardware shows (colours after an unlock, full screen, the empty strip, Play Protect) is on the device
-  list in `docs/RELEASING.md`; run it for changes that touch the strip, the windows or the colour watch.
+- Anything only hardware shows (colours after an unlock, full screen, the empty strip, a bar in several areas, Play
+  Protect) is on the device list in `docs/RELEASING.md`; run it for changes that touch the strip, the windows or the
+  colour watch.
 
 ## Dev loop
 - `./bento app` builds the debug APK, installs it, enables the service and opens settings.
-- `./bento debug dump|open TYPE|ctx TYPE|chevron|barmenu|hover on|off|scroll TYPE N|timer MIN|awake [MIN|off]|bar on|off|finish|reset|add TYPE [section]|remove ID|set ID k=v|look KEY VALUE|windows`.
+- `./bento debug dump|open TYPE|ctx TYPE|chevron [AREA]|barmenu|hover on|off [AREA]|scroll TYPE N|timer MIN|awake [MIN|off]|bar on|off|finish|reset|add TYPE [section] [AREA]|remove ID|set ID k=v|look KEY VALUE|windows`.
   The receiver (`src/debug`, debug builds only) is guarded by DUMP, so only adb can call it.
+  AREA is `left`, `middle` or `right`. `set ID area=AREA` puts one item in an area and `look position AREA` every item
+  (a layout in one area again); `add` with no area adds to the home area. `chevron` and `hover` go to that area's strip,
+  with none to the first one, and answer `no such strip` for an area that has none on screen. `dump` says which strip is
+  the first (`carrier=`), which areas have no room (`owed=[…]`) and each strip's state (`right[…] left[…] middle[…]`).
   `solid on|off`: popups as if the platform had no blur (the solid card). `look switch on|off`: "Switch popups on hover"; `look animations on|off`: "No animations". Each frame of a popup's opening and its
   blur region go to the log with `adb shell setprop log.tag.BentoBarMotion DEBUG`.
   On a test device with a released BentoBar, `./gradlew assembleDebug -PreleaseSignedDebug` signs the debug build
@@ -400,8 +417,31 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   and Open). A broadcast receiver that then starts an activity is a notification trampoline, blocked
   for targetSdk 31+, and the chip shows exactly when the accessibility service (whose binding allows
   background starts) may be off.
+- **The bar is one, in up to three windows.** Every item has an area (Left, Middle, Right) and each area in use (one
+  with an item outside Off) has a strip window of its own: "BentoBar" is Right's, "BentoBar left" and "BentoBar middle"
+  the others'. A layout in one area is the one strip there always was, to the pixel; hold every change to that.
+  The words: the **home area** (`homeArea`) is the first in use of Right, Middle, Left, and where the bar's one-off things
+  go (Presenting's ‹, the empty capsule, a new item, the strip when nothing has room). Room goes to Right first, then
+  Left, then the Middle (`BarRules.arrange`); the first strip placed in that order is the **carrier** in the code, and
+  does what the bar does once. An area in use with less room than a ‹ and its ends need has no window and is
+  **owed**: what it would draw now (`owedIds`) is behind the first strip's ‹, in its menu and in Settings' rows as not
+  fitting (`carrierOverflow` says when that ‹ stands for more than its own area; `OwedTest`).
+  The first strip's ‹ so comes and goes for other areas, and room that followed its width would follow that ‹: an area
+  would get room because it had none and lose it because it had some. So with more than one area in use the first strip
+  fits its items as if it always had a ‹, and the others stand behind its **reach**, not its width: the items it keeps,
+  a ‹'s room and its two ends, the same number with a ‹ and without. The price is a ‹'s room the first strip may not
+  use.
+  What is one for the whole bar stays one in the controller, never one per strip: ‹ open or folded (`expanded`), the
+  hover (`PopupRules.hoverChanged`: one strip's Exit can arrive after the next one's Enter, and ends nothing then), the
+  tooltip, the popup (it hangs from the strip of its item), the drag. A press outside the bar is heard by the first
+  strip's window alone, and only while hidden items are out, so one press folds once; a press on another strip is not
+  outside. `chevronOpensMenu` is the one rule for a press on a ‹: in an area with no hidden item, while another area has
+  them, it opens the menu. A drag lands among its own area's items. The empty capsule shows once, in the home area, and
+  not beside another area's items (`StripContent.drawn`).
+  The settings preview draws a strip for each area by the same `BarRules.lane` and `middleLeft` (`PreviewAreas` in
+  `ui/BarPage.kt`), and a layout in one area as it always did; `BarPreviewTest` pins both.
 - **Keyboard:** the "BentoBar menu" launcher entry (`ui/BarMenuActivity`, no window) opens the ‹ menu
-  listing every item, focused. A focusable accessibility overlay does take key focus after the
+  listing every item, focused, under the first strip. A focusable accessibility overlay does take key focus after the
   activity finishes (checked on the Acer). Users bind it in the Shortcut Helper; on the Acer, Action
   with B, C, E, F, P and U launch apps and can't be reassigned, and A, G, H, I, L, N, Q, S, V and W
   are system shortcuts; D, J, K, M, O, R, T, X, Y and Z are free.
@@ -412,5 +452,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   FLAG_KEEP_SCREEN_ON on the visible strip, a screen wake lock only while the strip is hidden or
   empty, never on the lock screen; an empty strip's window is made invisible), status bar
   screenshots only on a change and only while the strip shows (never on a timer), every overlay visible and there because the user asked for it, and no adb hooks in release.
+  With areas the same holds for each window: an area in use that draws nothing right now keeps its window with an
+  invisible root, as the one strip always did (it is still measured, and shows as soon as it has something to draw); an
+  area with no item outside Off has no window at all. That is up to three such windows where there was one: the device
+  list in `docs/RELEASING.md` checks it overnight.
 - `./bento enable` and `disable` add or remove only BentoBar's entry in `enabled_accessibility_services` (short or full
   component form); overwriting the whole list once switched other accessibility services off.
