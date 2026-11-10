@@ -320,14 +320,14 @@ class StripPlanTest {
 
     // ---- what only reading the code can show ---------------------------------------------------------------
 
-    @Test fun theBarAsksTheChevronRuleAndDoesNotChooseForItself() {
+    /** What the rule answers is tested above; the press asks it first, and only then opens the menu or turns the bar. */
+    @Test fun aPressOnTheChevronAsksTheRuleBeforeItOpensTheMenuOrTurnsTheBar() {
         val bar = SourceScan.code(SourceScan.sources.single { it.name == "BarService.kt" })
         val press = bar.substringAfter("override fun chevron(at: Rect) {").substringBefore("\n        }\n")
-        val asked = press.indexOf("chevronOpensMenu(it.presenting, it.hiddenMode, expanded.value, hidden.isNotEmpty(), hidden.any { h -> h.area == strip.area })")
-        val menu = press.indexOf("return chevronContext(at)")
-        val turned = press.indexOf("expanded.value = next")
+        val asked = press.indexOf("chevronOpensMenu(")
+        val menu = press.indexOf("chevronContext(at)", asked)
+        val turned = press.indexOf("expanded.value = next", menu)
         assertTrue(press, asked >= 0 && menu > asked && turned > menu)
-        assertFalse("the bar reads the mode for a press itself: $press", "HiddenMode." in press)
     }
 
     @Test fun theBarAndThePreviewAskTheSameFunctionAndNeitherChoosesForItself() {

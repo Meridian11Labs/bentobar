@@ -66,7 +66,7 @@ learned the hard way" says why. Run it again on every new draft.
 - **Full screen.** An app in full screen hides the strip when the bar hides (at once on some systems, up to about 2 s on others)
   and brings it back when the bar returns; a shade or the keyboard's full-screen key behave the same. A bar with more
   items than fit (so with a ‹ for them) comes back with its ‹ in its first frame, and its window is sized once
-  (`debug trace on`: one `width` line on the return; a recording shows no frame with a cut ‹).
+  (`debug trace on`: no more than one `width` line on the return; a recording shows no frame with a cut ‹).
 - **The empty strip.** With every item hidden or empty there is no stray window and no invisible overlay (Play Protect
   flagged one); Settings shows the strip as empty. With a pill background and items in several areas, a bar with
   nothing to draw is one empty capsule, and an area with nothing to draw has none beside another area's items.
@@ -88,7 +88,10 @@ learned the hard way" says why. Run it again on every new draft.
   shows the areas where the bar has them; in a narrow settings window Right keeps its room longest, then Left, then the
   Middle, and the line under the picture counts every item not drawn, once.
 - **An area that comes and goes.** Left holding only a Hidden timer with Show when on: starting the timer brings Left up
-  within a second, stopping it takes Left away, and the other areas do not move either time. The same with Presenting on.
+  within a second, stopping it takes Left away, and the other areas do not move either time and go on ticking. The same
+  with Presenting on. Start and stop the timer several times within a second or two: Left never shows blank or at
+  another width for a frame (a recording), and with `debug trace on` no more than one `left width` line follows each
+  return.
 - **No room.** Narrow the free part of the status bar (snap windows, or a larger display size) until an area has no room:
   its items are in the first strip's ‹ menu and their rows in Settings say they don't fit right now; the other strips do
   not move when that ‹ comes and goes, and nothing flickers at the edge of room. With Presenting on, a ‹ that ends it
