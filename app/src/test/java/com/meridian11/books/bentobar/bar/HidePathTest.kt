@@ -110,6 +110,30 @@ class HidePathTest {
         assertTrue(apply, measured >= 0 && apply.indexOf("strip.setContentVisible(!empty)", measured) > measured)
     }
 
+    /**
+     * What the bar does once when it is back (keep awake, the reading it owes, the ticker) is done after every strip has
+     * its window, and after the look at whether Android gave it one: not once per strip, and never for a refused window.
+     */
+    @Test fun whatTheBarDoesOnceWhenItIsBackComesAfterEveryStripHasItsWindow() {
+        val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
+        val loop = place.substringAfter("for (spot in a.spots) {").substringBefore("\n        }\n")
+        assertTrue(loop, "strip.show" in loop)
+        for (once in listOf("awake.update()", "colors.readSoon(", "Ticker.start(", "BarStatus.STOPPED")) assertFalse("$once in $loop", once in loop)
+        val after = place.substringAfter(loop)
+        val order = listOf("if (strips.none { it.shown }) { BarStatus.current.value = BarStatus.STOPPED; return }", "awake.update()",
+            "if (a.first) {", "colors.readSoon(ColorWatch.Cause.SLOW, 250)", "Ticker.start(\"bar\")").map { after.indexOf(it) }
+        assertTrue("$order in $after", order.all { it >= 0 } && order == order.sorted())
+    }
+
+    /** One strip going while the bar stays: what hangs from it goes before its window, and the bar's own ending is not run. */
+    @Test fun aStripThatLeavesAloneTakesItsPopupsFirstAndDoesNotEndTheBar() {
+        val leave = code.substringAfter("private fun leave(strip: AreaStrip) {").substringBefore("\n    }\n")
+        val order = listOf("menus.closeFor(strip)", "cancelDrag()", "strip.hide()").map { leave.indexOf(it) }
+        assertTrue("$order in $leave", order.all { it >= 0 } && order == order.sorted())
+        for (bars in listOf("Ticker.stop", "colors.stripLeft()", "expanded.value = false")) assertFalse("$bars in $leave", bars in leave)
+        assertTrue(hide, "for (strip in strips) strip.hide()" in hide)
+    }
+
     /** With no window carrying the flag for a moment, the screen could go off in it. */
     @Test fun keepAwakesFlagIsOnTheStripThatCarriesItBeforeItLeavesAnyOther() {
         val awake = File("src/main/java/com/meridian11/books/bentobar/bar/KeepAwake.kt").readText()
