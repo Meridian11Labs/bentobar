@@ -96,6 +96,55 @@ class PopupRulesTest {
         for (y in listOf(41f, 500f)) assertNull("under the strip", PopupRules.pressedArea(1500f, y, one))
     }
 
+    // ---- the pointer over a bar that is in several windows ---------------------------------------------------
+
+    private val right = Position.RIGHT
+    private val left = Position.LEFT
+    private val middle = Position.CENTER
+
+    @Test fun thePointerComingOntoTheFirstStripComesOntoTheBarAndLeavingTheLastOneLeavesIt() {
+        assertEquals(setOf(right) to true, PopupRules.hoverChanged(emptySet(), right, inside = true))
+        assertEquals(emptySet<Position>() to false, PopupRules.hoverChanged(setOf(right), right, inside = false))
+    }
+
+    @Test fun enteringASecondAreaWhileInAFirstChangesNothingForTheBar() {
+        assertEquals(setOf(right, left) to null, PopupRules.hoverChanged(setOf(right), left, inside = true))
+        assertEquals(setOf(right, left, middle) to null, PopupRules.hoverChanged(setOf(right, left), middle, inside = true))
+    }
+
+    @Test fun leavingOneOfTwoAreasDoesNotEndTheHover() {
+        assertEquals(setOf(right) to null, PopupRules.hoverChanged(setOf(right, left), left, inside = false))
+        assertEquals(setOf(left) to null, PopupRules.hoverChanged(setOf(right, left), right, inside = false))
+    }
+
+    /** What one flag for the bar got wrong: the Exit of the strip the pointer came from, heard after the Enter of the next. */
+    @Test fun anExitThatArrivesAfterTheNextStripsEnterEndsNothing() {
+        var over = setOf(right)
+        val said = mutableListOf<Boolean?>()
+        for ((area, inside) in listOf(left to true, right to false, left to false)) {
+            val (now, bar) = PopupRules.hoverChanged(over, area, inside)
+            over = now; said += bar
+        }
+        assertEquals("only Left's own Exit ends it", listOf(null, null, false), said)
+        assertEquals(emptySet<Position>(), over)
+    }
+
+    /** A layout in one area has one strip: whatever it says of the pointer, in any order, is said of the bar, as it always was. */
+    @Test fun withOneStripEveryEnterAndExitIsTheBars() {
+        var runs = 0
+        for (area in Position.entries) for (length in 1..6) for (mask in 0 until (1 shl length)) {
+            var over = emptySet<Position>()
+            for (i in 0 until length) {
+                val inside = (mask shr i) and 1 == 1
+                val (now, bar) = PopupRules.hoverChanged(over, area, inside)
+                assertEquals("$area $mask at $i", inside, bar)
+                assertEquals(if (inside) setOf(area) else emptySet(), now)
+                over = now; runs++
+            }
+        }
+        assertTrue("$runs events", runs > 1_000)
+    }
+
     // ---- what a press outside the open popup is on -----------------------------------------------------------
 
     @Test fun aPressOnThePopupsOwnStripIsOnTheItemItNames() {

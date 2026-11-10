@@ -64,6 +64,15 @@ internal object PopupRules {
     }
 
     /**
+     * The pointer came onto the strip of [area] or left it ([inside]), having been over the strips of [areas]: the areas it
+     * is over now, and what that is to the bar, which is one in however many windows. True: it came onto the bar; false: it
+     * left it; null: it is over another strip as well, and to the bar nothing happened. So a strip's Exit that arrives after
+     * the next strip's Enter ends nothing, and with one strip every Enter and Exit is the bar's, as it always was.
+     */
+    fun hoverChanged(areas: Set<Position>, area: Position, inside: Boolean): Pair<Set<Position>, Boolean?> =
+        (if (inside) areas + area else areas - area) to inside.takeIf { (areas - area).isEmpty() }
+
+    /**
      * What a press on [item] of the strip in [on] is called to the open popup, which hangs from the strip in [popup]
      * ([PopupState.press] knows a popup's own item by that name). An item is in one strip and is itself everywhere. Every
      * area has a ‹ of its own, and only the popup's strip's is the ‹ menu's own: another strip's is another item, so its

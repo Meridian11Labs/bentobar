@@ -30,7 +30,7 @@ class HidePathTest {
 
     @Test fun theBarHidesInItsOneOrderAndLetsGoOfThePointerBeforeTheWindowGoes() {
         var at = 0
-        for (step in listOf("closeMenu(now = true)", "hideTip()", "cancelDrag()", "hovering = false", "main.removeCallbacks(expandOnHover)",
+        for (step in listOf("closeMenu(now = true)", "hideTip()", "cancelDrag()", "hoverAreas = emptySet()", "main.removeCallbacks(expandOnHover)",
             "strip.hide()", "colors.stripLeft()", "awake.update()", "Ticker.stop(\"bar\")")) {
             val i = hide.indexOf(step, at)
             assertTrue("$step is missing, or out of order, in the hide path", i >= 0)
@@ -134,14 +134,37 @@ class HidePathTest {
         assertTrue(hide, "for (strip in strips) strip.hide()" in hide)
     }
 
-    /** The pointer is on one strip at a time: another strip going must not end a hover, or a drag, that is not in it. */
+    /**
+     * Another strip going must not end a hover, or a drag, that is not in it. The hover is kept as the areas the pointer
+     * is over (an Exit can come after the next strip's Enter), and what they are to the bar is PopupRules.hoverChanged
+     * (PopupRulesTest): the strip that goes says its own Exit, and the bar's hover ends when it was the last.
+     */
     @Test fun aStripThatLeavesEndsOnlyWhatThePointerHeldInIt() {
         val leave = code.substringAfter("private fun leave(strip: AreaStrip) {").substringBefore("\n    }\n")
         assertTrue(leave, "if (dragFrom?.first in strip.placed) cancelDrag()" in leave)
-        assertTrue(leave, "if (hovering && hoverStrip === strip) events.getValue(strip).hover(false)" in leave)
+        assertTrue(leave, "if (strip.area in hoverAreas) events.getValue(strip).hover(false)" in leave)
         val hover = code.substringAfter("override fun hover(inside: Boolean) {").substringBefore("\n        }\n")
-        assertTrue("a hover says which strip it is on: $hover", "hovering = inside; hoverStrip = if (inside) strip else null" in hover)
-        assertTrue("the bar leaving ends it whichever strip it was on: $hide", "hovering = false; hoverStrip = null" in hide)
+        assertTrue("a hover says which strip it is on: $hover", "val (areas, bar) = PopupRules.hoverChanged(hoverAreas, strip.area, inside)" in hover && "hoverAreas = areas" in hover)
+        assertTrue("the bar leaving ends it whichever strips it was on: $hide", "hoverAreas = emptySet()" in hide)
+        assertTrue("the pointer is over the bar while it is over any strip", "private val hovering get() = hoverAreas.isNotEmpty()" in code)
+    }
+
+    /**
+     * What a hover's end does is in one place, run for the pointer going and for the last strip under it going alike
+     * (leave(strip) says that strip's Exit): nothing beside it starts the fold's timer for a hover, or folds by itself.
+     */
+    @Test fun aHoversEndIsOneFunctionWhicheverStripSaidIt() {
+        val hover = code.substringAfter("override fun hover(inside: Boolean) {").substringBefore("\n        }\n")
+        val asked = hover.indexOf("PopupRules.hoverChanged(")
+        val nothing = hover.indexOf("if (bar == null) return", asked)
+        assertTrue("over another strip as well, nothing happened to the bar: $hover", asked >= 0 && nothing > asked)
+        assertTrue(hover, hover.indexOf("barHover(bar)", nothing) > nothing)
+        for (own in listOf("postDelayed", "removeCallbacks", "expanded.value")) assertFalse("hover() does $own itself", own in hover)
+        assertEquals("the one call", 1, Regex("""(?<!fun )\bbarHover\(""").findAll(code).count())
+        val end = code.substringAfter("private fun barHover(inside: Boolean) {").substringBefore("\n    }\n")
+        for (step in listOf("main.removeCallbacks(expandOnHover); main.removeCallbacks(collapse)", "main.postDelayed(expandOnHover, 350)", "else if (!pinned) main.postDelayed(collapse, 900)"))
+            assertTrue("$step in $end", step in end)
+        assertEquals("a hover's fold is timed nowhere else", 1, Regex("""postDelayed\(collapse, 900\)""").findAll(code).count())
     }
 
     /** The areas' windows: one for each area in use that has room, each planned, measured and drawn by its own area. */

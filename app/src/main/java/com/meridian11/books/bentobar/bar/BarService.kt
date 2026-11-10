@@ -196,9 +196,10 @@ class BarController(private val service: AccessibilityService) {
     }
     private var snap: BarSnapshot? = null
     private var overlayIds = emptySet<Int>()
-    private var hovering = false
-    /** The strip the pointer is over while [hovering]. */
-    private var hoverStrip: AreaStrip? = null
+    /** The areas whose strip the pointer is over: an Exit from one strip can arrive after the Enter of the next. */
+    private var hoverAreas = emptySet<Position>()
+    /** The pointer is over the bar. */
+    private val hovering get() = hoverAreas.isNotEmpty()
     private var pinned = false
     private var started = false
     /** The bar is on screen as far as the last look at it said. A strip's measure can arrive after the bar has left. */
@@ -253,6 +254,20 @@ class BarController(private val service: AccessibilityService) {
                 Log.i(tag, "collapse (pinned=$pinned autoCollapse=${Store.config.value.autoCollapseSec}s)")
                 fold()
             }
+        }
+    }
+    /**
+     * The pointer came onto the bar or left it ([inside]), whichever strip said so: what a hover brings out, and what
+     * its end lets fold away. A hover ends here only, for the pointer going and for the last strip under it going.
+     */
+    private fun barHover(inside: Boolean) {
+        main.removeCallbacks(expandOnHover); main.removeCallbacks(collapse)
+        if (inside) {
+            if (Store.config.value.hiddenMode == HiddenMode.HOVER && !expanded.value && hiddenItems().isNotEmpty()) main.postDelayed(expandOnHover, 350)
+        } else if (!pinned) main.postDelayed(collapse, 900)
+        else {
+            val secs = Store.config.value.autoCollapseSec
+            if (secs > 0) main.postDelayed(collapse, secs * 1000L)
         }
     }
     /** A pointer holds an item's slider: between its first report and the one that says `done`. */
@@ -315,7 +330,7 @@ class BarController(private val service: AccessibilityService) {
         menus.hideTip()
         cancelDrag() // the strip's window goes, and with it the release that would end a drag
         // and the Exit that would end a hover: what only the pointer held out doesn't come back with the bar.
-        hovering = false; hoverStrip = null; main.removeCallbacks(expandOnHover)
+        hoverAreas = emptySet(); main.removeCallbacks(expandOnHover)
         if (!pinned && expanded.value) expanded.value = false
         showing = false // before the windows go: a measure on its way finds the bar gone
         for (strip in strips) strip.hide()
@@ -335,7 +350,7 @@ class BarController(private val service: AccessibilityService) {
         if (!strip.shown) return
         menus.closeFor(strip)
         if (dragFrom?.first in strip.placed) cancelDrag() // its window takes the release with it
-        if (hovering && hoverStrip === strip) events.getValue(strip).hover(false) // and the Exit
+        if (strip.area in hoverAreas) events.getValue(strip).hover(false) // and the Exit
         strip.hide()
         noteDrawing()
         publishOverflow() // what it had no room for went with it
@@ -747,17 +762,13 @@ class BarController(private val service: AccessibilityService) {
         override fun itemHover(item: ItemConfig, at: Rect, inside: Boolean) = menus.itemHover(strip, item, at, inside, sliding)
 
         override fun hover(inside: Boolean) {
-            trace("hover $inside")
-            hovering = inside; hoverStrip = if (inside) strip else null
-            if (!inside) menus.hideTip() // the pointer left the strip: even an item that has gone, and can't say so itself
-            main.removeCallbacks(expandOnHover); main.removeCallbacks(collapse)
-            if (inside) {
-                if (Store.config.value.hiddenMode == HiddenMode.HOVER && !expanded.value && hiddenItems().isNotEmpty()) main.postDelayed(expandOnHover, 350)
-            } else if (!pinned) main.postDelayed(collapse, 900)
-            else {
-                val secs = Store.config.value.autoCollapseSec
-                if (secs > 0) main.postDelayed(collapse, secs * 1000L)
-            }
+            trace("hover $inside ${word(strip.area)}")
+            val (areas, bar) = PopupRules.hoverChanged(hoverAreas, strip.area, inside)
+            hoverAreas = areas
+            // Onto this strip or off it with the pointer over another one as well: to the bar it is where it was.
+            if (bar == null) return
+            if (!inside) menus.hideTip() // the pointer left the bar: even an item that has gone, and can't say so itself
+            barHover(bar)
         }
     }
 
