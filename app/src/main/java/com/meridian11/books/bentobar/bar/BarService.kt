@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.stripPlan
 import com.meridian11.books.bentobar.data.behindChevron
+import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.moved
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Pill
@@ -436,7 +437,7 @@ class BarController(private val service: AccessibilityService) {
         // While dragging, the bar shows the order the item would land in.
         val items = dragPreview.value?.let { (id, at) -> cfg.items.moved(id, Section.SHOWN, at) } ?: cfg.items
         val overflow by BarOverflow.ids.collectAsState()
-        val plan = cfg.copy(items = items).stripPlan({ states[it.id]?.active == true }, expanded.value, overflow.isNotEmpty())
+        val plan = cfg.copy(items = items).stripPlan(cfg.homeArea(), { states[it.id]?.active == true }, expanded.value, overflow.isNotEmpty())
         val shownEntries = entries(plan.visible)
         val revealedEntries = entries(plan.revealed)
         // The one rule for an empty strip: what it puts on the screen, never how many entries it has.

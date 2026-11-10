@@ -288,18 +288,25 @@ data class StripPlan(
 }
 
 /**
- * The strip's one choice of what to show, for the bar and the settings preview alike. [active]: whether an item has something
- * to say. [expanded]: ‹ was opened. [overflow]: items didn't fit, and are offered behind ‹ (a preview, narrower than a bar,
- * has its own). Next meeting stays at the far left: its text changes width most, and there it moves nothing else.
+ * One area's choice of what its strip shows, for the bar and the settings preview alike: the items of [area], so a layout
+ * with every item in one area gets there what the one strip always got. [active]: whether an item has something to say.
+ * [expanded]: ‹ was opened, which is one state for the whole bar. [overflow]: the caller's, items that didn't fit and are
+ * offered behind this area's ‹ (a preview, narrower than a bar, has its own). Next meeting stays at the far left of its own
+ * area: its text changes width most, and there it moves nothing else.
  */
-fun BarConfig.stripPlan(active: (ItemConfig) -> Boolean, expanded: Boolean, overflow: Boolean): StripPlan {
-    val visible = items.filter { shows(it, active(it)) }.sortedBy { if (it.type == Store.PINNED_LEFT) 0 else 1 }
-    val hidden = if (presenting) emptyList() else behindChevron(active)
+fun BarConfig.stripPlan(area: Position, active: (ItemConfig) -> Boolean, expanded: Boolean, overflow: Boolean): StripPlan {
+    val visible = items.filter { it.area == area && shows(it, active(it)) }.sortedBy { if (it.type == Store.PINNED_LEFT) 0 else 1 }
+    val behind = if (presenting) emptyList() else behindChevron(active) // the whole bar's
+    val hidden = behind.filter { it.area == area }
+    // Presenting's ‹ is one for the bar, not one for each area.
+    val home = area == homeArea()
     return StripPlan(
         visible, hidden,
-        // Show everything has no ‹ to fold them back with, and presenting's ‹ only opens the menu.
-        open = expanded && hiddenMode != HiddenMode.SHOW_ALL && !presenting,
-        chevron = presenting || overflow || hidden.isNotEmpty(),
-        chevronAlways = presenting || hidden.isNotEmpty(),
+        // Show everything has no ‹ to fold them back with, and presenting's ‹ only opens the menu. An area's ‹ looks open only
+        // where it has hidden items to bring out; and, as it always was, where the open bar has none left at all (the last
+        // one's rule ended): a ‹ still drawn for what doesn't fit then shows as open, and a press folds.
+        open = expanded && hiddenMode != HiddenMode.SHOW_ALL && !presenting && (hidden.isNotEmpty() || behind.isEmpty()),
+        chevron = (presenting && home) || overflow || hidden.isNotEmpty(),
+        chevronAlways = (presenting && home) || hidden.isNotEmpty(),
     )
 }

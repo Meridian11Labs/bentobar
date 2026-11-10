@@ -35,8 +35,8 @@ class LayoutIntentsTest {
         // The default mode draws Hidden items, so an item that jumped to the section's end would jump along the strip.
         val c = BarConfig(items = listOf(shown, hidden.copy(section = Section.SHOWN), shown2))
         assertEquals(HiddenMode.SHOW_ALL, c.hiddenMode)
-        val before = c.stripPlan({ false }, expanded = false, overflow = false).visible.map { it.id }
-        assertEquals(before, c.hide("h").stripPlan({ false }, expanded = false, overflow = false).visible.map { it.id })
+        val before = c.stripPlan(c.homeArea(), { false }, expanded = false, overflow = false).visible.map { it.id }
+        assertEquals(before, c.hide("h").stripPlan(c.homeArea(), { false }, expanded = false, overflow = false).visible.map { it.id })
     }
 
     @Test fun hideThenShowLeavesAnItemWhereItWas() {

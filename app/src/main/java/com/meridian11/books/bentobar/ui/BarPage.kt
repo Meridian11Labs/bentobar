@@ -98,6 +98,7 @@ import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.hide
+import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.putIn
 import com.meridian11.books.bentobar.data.setWhenActive
 import com.meridian11.books.bentobar.data.show
@@ -197,7 +198,7 @@ private fun BarPreview(states: Map<String, ItemState>, selected: String?, onSele
     // that is in the list and not in the picture looks lost.
     var dropped by remember { mutableStateOf(emptySet<String>()) }
     // What the bar shows, by the same function: the preview makes no choice of its own.
-    val plan = cfg.stripPlan({ states[it.id]?.active == true }, expanded, dropped.isNotEmpty())
+    val plan = cfg.stripPlan(cfg.homeArea(), { states[it.id]?.active == true }, expanded, dropped.isNotEmpty())
     val entries = { list: List<ItemConfig> -> list.map { StripEntry(it, states[it.id] ?: Ticker.placeholder(it)) } }
     // The preview uses the strip's real colours: the sampled bar when BentoBar is running and the
     // colour is automatic, else the forced Light or Dark choice.
