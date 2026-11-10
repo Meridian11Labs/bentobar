@@ -705,7 +705,9 @@ private fun ItemView(entry: StripEntry, look: StripLook, events: StripEvents, gl
         if (showText) {
             // Texts that take turns sit in a place as wide as the widest of them; a ticking number in one sized for its widest reading.
             val templates = s.turns ?: if (s.widthKey != null) listOf(Fmt.widthTemplate(s.text!!)) else null
-            val slot = templates?.let { tpls -> remember(tpls, textStyle) { tpls.maxOf { measurer.measure(it, textStyle, maxLines = 1).size.width } } }
+            // In pixels, so measured again when the display's size or the font size changes under a strip that stays: the
+            // measurer is a new one then.
+            val slot = templates?.let { tpls -> remember(tpls, textStyle, measurer) { tpls.maxOf { measurer.measure(it, textStyle, maxLines = 1).size.width } } }
             // With an icon, the number stays next to it and the spare room trails; text alone sits at the end.
             val iconShown = parts.leadInBeforeText
             // An item that promises a length is held to it in width too: 8.5 dp a character at the usual text

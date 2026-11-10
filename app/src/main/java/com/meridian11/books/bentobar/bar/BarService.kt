@@ -532,7 +532,9 @@ class BarController(private val service: AccessibilityService) {
         // room meanwhile has no window to say otherwise: nothing of it is left to publish.
         val stale = strips.filter { s -> s.dropped.isNotEmpty() && a.spots.none { it.area == s.area } }
         if (stale.isNotEmpty()) { for (strip in stale) strip.dropped = emptySet(); publishOverflow() }
-        for (spot in a.spots) {
+        // A strip that gets wider, or comes, takes its room after the others have moved or narrowed: asked for the other way
+        // round, it stood for a frame or two in room its neighbour had not left yet.
+        for (spot in BarRules.givingWayFirst(a.spots, strips.filter { it.shown }.associate { it.area to it.params.width })) {
             val strip = strips.first { it.area == spot.area }
             val p = strip.params
             p.height = s.bar.height()

@@ -237,6 +237,13 @@ internal object BarRules {
         val first: Boolean,
     )
 
+    /**
+     * The order in which [spots] are carried out. [widths] is how wide each area's window is on screen now; an area with
+     * no window is not in it. A strip that gets wider, or comes, takes room, and takes it last: by then whatever it pushes
+     * has moved or narrowed, so it never stands in room a neighbour has not left yet. Room order otherwise.
+     */
+    fun givingWayFirst(spots: List<Spot>, widths: Map<Position, Int>): List<Spot> = spots.sortedBy { it.width > (widths[it.area] ?: 0) }
+
     /** The room an area may use, from [left] to [right] on the screen: for [arrange], and for the settings preview. */
     data class Lane(val left: Int, val right: Int) {
         val max get() = right - left
