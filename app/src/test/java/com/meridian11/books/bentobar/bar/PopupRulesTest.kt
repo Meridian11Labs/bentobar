@@ -1,7 +1,9 @@
 package com.meridian11.books.bentobar.bar
 
+import com.meridian11.books.bentobar.data.Position
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -50,5 +52,44 @@ class PopupRulesTest {
         assertFalse(PopupRules.hoverOpens(open = MenuKey.Item("weather1"), hovered = "weather1", hasPopup = true, on = true))
         // A right-click menu belongs to its item: pointing elsewhere doesn't swap it for a popup.
         assertFalse(PopupRules.hoverOpens(open = MenuKey.ItemContext("weather1"), hovered = "calendar1", hasPopup = true, on = true))
+    }
+
+    // ---- which area's strip a press landed on ----------------------------------------------------------------
+
+    /** Three strips in a 41 px bar: Left from 168, the Middle from 800, Right up to 1681. */
+    private val frames = listOf(
+        StripFrame(Position.LEFT, left = 168, top = 0, width = 200, height = 41),
+        StripFrame(Position.CENTER, left = 800, top = 0, width = 250, height = 41),
+        StripFrame(Position.RIGHT, left = 1381, top = 0, width = 300, height = 41),
+    )
+
+    @Test fun aPressBelongsToTheAreaWhoseStripItLandsOn() {
+        assertEquals(Position.LEFT, PopupRules.pressedArea(200f, 20f, frames))
+        assertEquals(Position.CENTER, PopupRules.pressedArea(925f, 20f, frames))
+        assertEquals(Position.RIGHT, PopupRules.pressedArea(1680.5f, 40.5f, frames))
+        // A strip's first pixel is its own and the one after its last is not, as the one strip's rule had it.
+        assertEquals(Position.CENTER, PopupRules.pressedArea(800f, 0f, frames))
+        assertNull(PopupRules.pressedArea(1050f, 20f, frames))
+        assertNull(PopupRules.pressedArea(1681f, 20f, frames))
+    }
+
+    @Test fun aPressBetweenTwoStripsOrAboveOrBelowThemIsInNoArea() {
+        assertNull("between Left and the Middle", PopupRules.pressedArea(500f, 20f, frames))
+        assertNull("left of them all", PopupRules.pressedArea(100f, 20f, frames))
+        assertNull("below the bar", PopupRules.pressedArea(925f, 41f, frames))
+        assertNull("below the bar", PopupRules.pressedArea(925f, 300f, frames))
+        // A bar that does not begin at the screen's top edge.
+        val lower = frames.map { it.copy(top = 10) }
+        assertNull("above the strips", PopupRules.pressedArea(925f, 9.5f, lower))
+        assertEquals(Position.CENTER, PopupRules.pressedArea(925f, 10f, lower))
+        assertNull("no strip is on screen", PopupRules.pressedArea(925f, 20f, emptyList()))
+    }
+
+    @Test fun aPressWithoutCoordinatesIsInNoAreaEvenWithAStripInTheScreensCorner() {
+        // A press on another app's window comes as 0, 0: it is not a press on a strip that begins there.
+        val corner = listOf(StripFrame(Position.LEFT, left = 0, top = 0, width = 200, height = 41))
+        assertNull(PopupRules.pressedArea(0f, 0f, corner))
+        assertEquals(Position.LEFT, PopupRules.pressedArea(1f, 0f, corner))
+        assertEquals(Position.LEFT, PopupRules.pressedArea(0f, 1f, corner))
     }
 }

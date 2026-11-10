@@ -1,5 +1,7 @@
 package com.meridian11.books.bentobar.bar
 
+import com.meridian11.books.bentobar.data.Position
+
 /** Which popup is meant: the ‹ menu, an item's popup, or an item's right-click menu. [toString] is what the debug hooks print. */
 sealed interface MenuKey {
     /** What the popup belongs to, under the name the strip knows it by: an item's id, or "chevron" for ‹. */
@@ -20,6 +22,9 @@ sealed interface MenuKey {
         override fun toString() = "ctx:$id"
     }
 }
+
+/** Where one area's strip is on the screen, in pixels: what [PopupRules.pressedArea] needs of a strip's window. */
+data class StripFrame(val area: Position, val left: Int, val top: Int, val width: Int, val height: Int)
 
 /** When pointing at an item opens its popup. Pure, so the rules are tested (`PopupRulesTest`). */
 internal object PopupRules {
@@ -47,4 +52,14 @@ internal object PopupRules {
      * the item on its side of the middle. An item that has gone must not be in [drawn]: its old box would take the press.
      */
     fun pressedItem(x: Float, drawn: List<Span>): String? = StripHighlight.target(x, drawn.sortedBy { it.left }, null)
+
+    /**
+     * The area whose strip a press at [x], [y] on the screen landed on, of the strips on screen now ([frames]); null for a
+     * press on none of them. A press on another app's window comes without coordinates, as 0, 0: that is on no strip, even
+     * one that begins in the screen's corner.
+     */
+    fun pressedArea(x: Float, y: Float, frames: List<StripFrame>): Position? {
+        if (x == 0f && y == 0f) return null
+        return frames.firstOrNull { f -> x >= f.left && x < f.left + f.width && y >= f.top && y < f.top + f.height }?.area
+    }
 }
