@@ -337,6 +337,28 @@ class HidePathTest {
     }
 
     /**
+     * A press on ‹ and the pointer coming and going are one strip's, so their hooks can name an area, whose strip must be
+     * on screen; with no word they go to the first strip, as they did when there was one. The hooks for the whole bar
+     * (the keyboard's menu, the wheel) stay with the first strip, and the keyboard's menu says false when that one is not
+     * on screen, which sends its activity to Settings.
+     */
+    @Test fun aDebugHookForAStripCanNameItsAreaAndTheKeyboardsMenuNeedsTheFirstStripOnScreen() {
+        val debug = code.substringAfter("fun debug(cmd: List<String>): String {")
+        assertTrue("fun stripOf(area: String?) = if (area == null) strip else strips.firstOrNull { it.shown && word(it.area) == area }" in debug)
+        assertTrue("\"chevron\" -> { val on = stripOf(cmd.getOrNull(1)) ?: return \"no such strip\"; this.events.getValue(on).chevron(Rect()); \"expanded=\${expanded.value}\" }" in debug)
+        assertTrue("\"hover\" -> { val on = stripOf(cmd.getOrNull(2)) ?: return \"no such strip\"; this.events.getValue(on).hover(cmd.getOrNull(1) == \"on\"); \"ok\" }" in debug)
+        assertTrue("\"barmenu\" -> { events.chevronContext(strip.placed[\"chevron\"] ?: Rect(0, 0, 40, 40)); \"ok\" }" in debug)
+        val before = debug.substringBefore("return when (cmd.firstOrNull()) {")
+        assertTrue(before, "val strip = carrierStrip()" in before && "val events = events.getValue(strip)" in before)
+        val menu = code.substringAfter("fun openBarMenu(): Boolean {").substringBefore("\n    }\n")
+        val first = menu.indexOf("val strip = carrierStrip()")
+        val no = menu.indexOf("if (!started || !strip.shown) return false", first)
+        assertTrue(menu, first >= 0 && no > first && menu.indexOf("menus.barMenu(strip, at, everything = true)", no) > no)
+        val header = File("../bento").readLines().takeWhile { it.startsWith("#") }.joinToString("\n")
+        for (hook in listOf("chevron [left|middle|right]", "hover on|off [left|middle|right]")) assertTrue("the script's list says $hook", hook in header)
+    }
+
+    /**
      * With no window carrying the flag for a moment, the screen could go off in it. Which window and when the wake lock
      * holds instead is `KeepAwakeRule.choose` (KeepAwakeTest); what only the code shows is that update() does as it says,
      * in that order.

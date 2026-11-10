@@ -805,6 +805,9 @@ class BarController(private val service: AccessibilityService) {
         // What names no item goes to the carrier's strip; what names one, to the strip that drew it.
         val strip = carrierStrip()
         val events = events.getValue(strip)
+        // A hook for one strip can name its area (left, middle, right), whose strip must be on screen; with no word it is the
+        // carrier's, as it was with one strip.
+        fun stripOf(area: String?) = if (area == null) strip else strips.firstOrNull { it.shown && word(it.area) == area }
         return when (cmd.firstOrNull()) {
             "dump" -> "snap=$snap look=${look.value} expanded=${expanded.value} menu=${menus.menuKey} shown=${strips.any { it.shown }} empty=$stripEmpty " +
                 "carrier=${word(carrier)} owed=${owed.value.map { word(it) }} " + strips.joinToString(" ") {
@@ -817,13 +820,13 @@ class BarController(private val service: AccessibilityService) {
                 val at = drew.placed.getValue(item.id)
                 this.events.getValue(drew).let { if (cmd[0] == "open") it.click(item, at) else it.context(item, at) }; "ok"
             }
-            "chevron" -> { events.chevron(Rect()); "expanded=${expanded.value}" }
+            "chevron" -> { val on = stripOf(cmd.getOrNull(1)) ?: return "no such strip"; this.events.getValue(on).chevron(Rect()); "expanded=${expanded.value}" }
             "scroll" -> {
                 val item = first(cmd.getOrElse(1) { "" }) ?: return "no such item"
                 events.scroll(item, cmd.getOrNull(2)?.toIntOrNull() ?: 1); "ok"
             }
             "barmenu" -> { events.chevronContext(strip.placed["chevron"] ?: Rect(0, 0, 40, 40)); "ok" }
-            "hover" -> { events.hover(cmd.getOrNull(1) == "on"); "ok" }
+            "hover" -> { val on = stripOf(cmd.getOrNull(2)) ?: return "no such strip"; this.events.getValue(on).hover(cmd.getOrNull(1) == "on"); "ok" }
             "close" -> { menus.closeMenu(); "ok" }
             "solid" -> { MenuWindow.solid = cmd.getOrNull(1) != "off"; "solid=${MenuWindow.solid}" }
             "scan" -> { scan(); "snap=$snap" }
