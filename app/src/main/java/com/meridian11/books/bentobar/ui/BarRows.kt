@@ -84,6 +84,8 @@ import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
 import kotlin.math.roundToInt
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 
 /** A removed row's place, held open with Undo in it: the item as it was, the zone it stood in and its place there. */
 data class Slip(val item: ItemConfig, val zone: Zone, val index: Int)
@@ -249,15 +251,29 @@ private fun PartLine(mode: HiddenMode, modifier: Modifier) {
         HiddenMode.HOVER -> R.string.section_hidden_reveal_both
     })
     val spoken = title + ". " + help.replace("‹", stringResource(R.string.chevron_spoken))
-    Row(modifier.fillMaxWidth().heightIn(min = 32.dp).padding(horizontal = Space.xl)
-        .clearAndSetSemantics { heading(); contentDescription = spoken }.testTag("part-line"), verticalAlignment = Alignment.CenterVertically) {
+    // The words take what they need and the hairline the rest, to the card's edge: weights would split the room instead.
+    Layout({
         Text(title, style = Bento.type.help.copy(fontWeight = FontWeight.SemiBold), color = c.ink, maxLines = 1)
-        Spacer(Modifier.width(Space.s))
-        Text(help, Modifier.weight(3f, fill = false), style = Bento.type.help, color = c.ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.width(Space.m))
-        Box(Modifier.weight(1f).height(1.dp).background(c.line))
+        Text(help, style = Bento.type.help, color = c.ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Box(Modifier.background(c.line))
+    }, modifier.fillMaxWidth().padding(horizontal = Space.xl).clearAndSetSemantics { heading(); contentDescription = spoken }.testTag("part-line")) { m, cs ->
+        val gap = Space.s.roundToPx()
+        val lineGap = Space.m.roundToPx()
+        val name = m[0].measure(Constraints(maxWidth = cs.maxWidth))
+        val words = m[1].measure(Constraints(maxWidth = (cs.maxWidth - name.width - gap - lineGap - PART_LINE_MIN.roundToPx()).coerceAtLeast(0)))
+        val lineAt = name.width + gap + words.width + lineGap
+        val line = m[2].measure(Constraints.fixed((cs.maxWidth - lineAt).coerceAtLeast(0), 1.dp.roundToPx()))
+        val height = maxOf(name.height, words.height, PART_LINE_HEIGHT.roundToPx())
+        layout(cs.maxWidth, height) {
+            name.placeRelative(0, (height - name.height) / 2)
+            words.placeRelative(name.width + gap, (height - words.height) / 2)
+            line.placeRelative(lineAt, (height - line.height) / 2)
+        }
     }
 }
+
+private val PART_LINE_HEIGHT = 32.dp
+private val PART_LINE_MIN = 24.dp
 
 /** The dragged row's place: an opening the size of the row, where it would land. */
 @Composable
@@ -360,7 +376,7 @@ private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, cale
             else -> null
         },
     ).joinToString(" · ")
-    Row(modifier.fillMaxWidth().height(if (narrow) 56.dp else Target.row).padding(start = 6.dp, end = Space.m), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().then(if (narrow) Modifier.heightIn(min = Target.row) else Modifier.height(Target.row)).padding(start = 6.dp, end = Space.m), verticalAlignment = Alignment.CenterVertically) {
         grip()
         SymIcon(type?.icon ?: Sym.UPDATE, size = 18.sp, color = c.ink)
         Spacer(Modifier.width(10.dp))

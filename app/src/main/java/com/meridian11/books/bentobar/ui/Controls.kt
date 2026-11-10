@@ -83,6 +83,8 @@ import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 
 /** A labelled group of single-choice chips. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -291,15 +293,27 @@ fun SwitchMark(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean
  * Filled: the one such button on a screen. Tonal: every other command. Text: a quiet one in a line (Undo). Plain: a command
  * as plain words, where nothing is lost by it (Remove from the bar). Danger: one that can't be taken back.
  */
-enum class ButtonKind { FILLED, TONAL, TEXT, PLAIN, DANGER }
+/** [WARN] is the one button of an amber notice, in the notice's own ink. */
+enum class ButtonKind { FILLED, TONAL, TEXT, PLAIN, DANGER, WARN }
 
 @Composable
 fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: ButtonKind = ButtonKind.TONAL, icon: String? = null, enabled: Boolean = true) {
     val c = Bento.colors
     val interaction = remember { MutableInteractionSource() }
-    val ground = when (kind) { ButtonKind.FILLED -> c.primary; ButtonKind.TONAL -> c.sunk; else -> Color.Transparent }
-    val ink = when (kind) { ButtonKind.FILLED -> c.onPrimary; ButtonKind.TONAL, ButtonKind.PLAIN -> c.ink; ButtonKind.TEXT -> c.accent; ButtonKind.DANGER -> c.danger }
-    val pad = when (kind) { ButtonKind.FILLED -> 18.dp; ButtonKind.TONAL -> Space.l; else -> Space.m }
+    val ground = when (kind) {
+        ButtonKind.FILLED -> c.primary
+        ButtonKind.TONAL -> c.sunk
+        ButtonKind.WARN -> c.warnInk.copy(alpha = 0.14f)
+        else -> Color.Transparent
+    }
+    val ink = when (kind) {
+        ButtonKind.FILLED -> c.onPrimary
+        ButtonKind.TONAL, ButtonKind.PLAIN -> c.ink
+        ButtonKind.TEXT -> c.accent
+        ButtonKind.DANGER -> c.danger
+        ButtonKind.WARN -> c.warnInk
+    }
+    val pad = when (kind) { ButtonKind.FILLED -> 18.dp; ButtonKind.TONAL, ButtonKind.WARN -> Space.l; else -> Space.m }
     Row(modifier.height(Target.control).alpha(if (enabled) 1f else DIMMED)
         .states(interaction, veil = ink)
         .background(ground, RoundedCornerShape(Radius.medium))
@@ -356,31 +370,25 @@ fun <T> MenuButton(choices: List<Pair<T, String>>, chosen: T, onChoose: (T) -> U
 class SegmentPart(val label: String, val icon: String? = null, val enabled: Boolean = true, val spoken: String? = null)
 
 /**
- * A segmented choice: equal parts on a sunk track, the chosen one raised and heavier (never by color alone). The raised
- * part travels to the chosen one. [role] is a tab for the panel switch and a radio button for a choice of values;
- * [chosen] outside the parts raises none.
+ * A segmented choice: parts on a sunk track, the chosen one raised and heavier (never by color alone). The raised part
+ * travels to the chosen one. [role] is a tab for the panel switch and a radio button for a choice of values; [chosen]
+ * outside the parts raises none. The parts are [equal] in width, or each as wide as its words with the room left over
+ * shared out evenly, so a long choice beside a short one is not cut short.
  */
 @Composable
 fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modifier: Modifier = Modifier,
-            role: Role = Role.RadioButton, track: Color = Bento.colors.sunk) {
+            role: Role = Role.RadioButton, track: Color = Bento.colors.sunk, equal: Boolean = true) {
     val c = Bento.colors
     val type = Bento.type
     val at by animateFloatAsState(chosen.toFloat(), Motion.spec(tween(SEGMENT_MS)), label = "segment")
-    Row(modifier.height(Target.control).background(track, RoundedCornerShape(Radius.medium)).padding(3.dp).selectableGroup().drawBehind {
-        if (chosen !in parts.indices) return@drawBehind
-        val gap = SEGMENT_GAP.toPx()
-        val w = (size.width - gap * (parts.size - 1)) / parts.size
-        val x = at * (w + gap)
-        val r = CornerRadius(Radius.small.toPx())
-        // The contact shadow that lifts it off the track.
-        drawRoundRect(Color.Black.copy(alpha = if (c.dark) 0.40f else 0.14f), Offset(x, 1.dp.toPx()), Size(w, size.height), r)
-        drawRoundRect(c.raised, Offset(x, 0f), Size(w, size.height), r)
-    }, horizontalArrangement = Arrangement.spacedBy(SEGMENT_GAP), verticalAlignment = Alignment.CenterVertically) {
+    // Where each part was placed and how wide, for the raised part that is drawn behind them.
+    var spans by remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
+    Layout({
         parts.forEachIndexed { i, part ->
             val interaction = remember { MutableInteractionSource() }
             val up = i == chosen
             val ink = if (part.enabled) c.ink else c.ink3
-            Row(Modifier.weight(1f).height(34.dp)
+            Row(Modifier.height(34.dp)
                 .states(interaction, radius = Radius.small, ground = !up)
                 .selectable(up, interaction, indication = null, enabled = part.enabled, role = role) { onChoose(i) }
                 .then(if (part.spoken != null) Modifier.clearAndSetSemantics { contentDescription = part.spoken } else Modifier)
@@ -392,6 +400,38 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
                 Text(part.label, style = type.small.copy(fontWeight = if (!part.enabled) FontWeight.Normal else if (up) FontWeight.SemiBold else FontWeight.Medium),
                     color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+        }
+    }, modifier.height(Target.control).background(track, RoundedCornerShape(Radius.medium)).padding(3.dp).selectableGroup().drawBehind {
+        if (chosen !in parts.indices || spans.size != parts.size) return@drawBehind
+        val from = spans[at.toInt().coerceIn(parts.indices)]
+        val to = spans[kotlin.math.ceil(at).toInt().coerceIn(parts.indices)]
+        val f = at - at.toInt()
+        val x = from.first + (to.first - from.first) * f
+        val w = from.second + (to.second - from.second) * f
+        val r = CornerRadius(Radius.small.toPx())
+        // The contact shadow that lifts it off the track.
+        drawRoundRect(Color.Black.copy(alpha = if (c.dark) 0.40f else 0.14f), Offset(x, 1.dp.toPx()), Size(w, size.height), r)
+        drawRoundRect(c.raised, Offset(x, 0f), Size(w, size.height), r)
+    }) { measurables, cs ->
+        val n = measurables.size
+        val gap = SEGMENT_GAP.roundToPx()
+        val wants = measurables.map { it.maxIntrinsicWidth(cs.maxHeight) }
+        val room = if (cs.hasBoundedWidth) (cs.maxWidth - gap * (n - 1)).coerceAtLeast(0) else wants.sum()
+        val widths = when {
+            n == 0 -> emptyList()
+            equal -> List(n) { room / n }
+            wants.sum() <= room -> wants.map { it + (room - wants.sum()) / n }
+            else -> wants.map { (it.toLong() * room / wants.sum()).toInt() }
+        }.toMutableList()
+        // What rounding left over goes to the last part, so the parts end where the track does.
+        if (n > 0) widths[n - 1] += room - widths.sum()
+        val placed = measurables.mapIndexed { i, m -> m.measure(Constraints.fixedWidth(widths[i].coerceAtLeast(0))) }
+        val height = if (cs.hasBoundedHeight) cs.maxHeight else placed.maxOfOrNull { it.height } ?: 0
+        var x = 0
+        val now = placed.map { p -> (x to p.width).also { x += p.width + gap } }
+        if (now != spans) spans = now
+        layout(room + gap * (n - 1).coerceAtLeast(0), height) {
+            placed.forEachIndexed { i, p -> p.placeRelative(now[i].first, (height - p.height) / 2) }
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.meridian11.books.bentobar.ui
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,16 +71,28 @@ fun rememberNotices(): SnackbarHostState {
 
 /**
  * A notice that stays in the page where it applies (an area that has no room right now, a permission an item waits
- * for): amber, with its icon, so it is never told by color alone. [action] is a button at its end, if it has one.
+ * for): amber, with its icon, so it is never told by color alone. [action] is a button at its end, if it has one, or
+ * under the words where they are long ([stacked]).
  */
 @Composable
-fun NoticeLine(text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+fun NoticeLine(text: String, modifier: Modifier = Modifier, stacked: Boolean = false, action: (@Composable () -> Unit)? = null) {
     val c = Bento.colors
     Row(modifier.fillMaxWidth().heightIn(min = Target.control).background(c.warnGround, RoundedCornerShape(Radius.medium))
-        .padding(start = Space.m, top = Space.s, end = Space.s, bottom = Space.s), verticalAlignment = Alignment.CenterVertically) {
-        SymIcon(Sym.INFO, size = 18.sp, color = c.warnInk)
+        .padding(start = Space.m, top = Space.s, end = Space.s, bottom = Space.s), verticalAlignment = if (stacked) Alignment.Top else Alignment.CenterVertically) {
+        SymIcon(Sym.WARNING, size = 18.sp, color = c.warnInk)
         Spacer(Modifier.width(10.dp))
-        Text(text, Modifier.weight(1f), style = Bento.type.small, color = c.warnInk)
-        action?.invoke()
+        if (stacked) Column(Modifier.weight(1f)) {
+            Text(text, style = Bento.type.small, color = c.warnInk)
+            if (action != null) {
+                Spacer(Modifier.height(Space.s))
+                action()
+            }
+        } else {
+            Text(text, Modifier.weight(1f), style = Bento.type.small, color = c.warnInk)
+            if (action != null) {
+                Spacer(Modifier.width(Space.s))
+                action()
+            }
+        }
     }
 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -244,6 +245,8 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
 
 private val CARD = RoundedCornerShape(Radius.large)
 private const val TURN_MS = 180
+/** The switch of three parts where the page is one wide pane: as wide as it needs, not as the page. */
+private val SWITCH_MID = 452.dp
 
 /**
  * The Bar page: the preview, the bar's one list, and a panel that is the library or the selected item's options. From
@@ -291,7 +294,7 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, onAdded: (S
         Box(Modifier.size(1.dp).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = edit.announced })
         Spacer(Modifier.height(Space.m))
         if (wide) Row(Modifier.weight(1f)) {
-            BarList(cfg, states, item?.id, edit, reorder, Modifier.weight(1f))
+            BarList(cfg, states, item?.id, edit, reorder, Modifier.weight(1f).fillMaxHeight())
             Spacer(Modifier.width(Space.xl))
             Column(Modifier.width(layout.panelDp.dp)) {
                 PanelSwitch(side, item, wide, edit)
@@ -329,7 +332,7 @@ private fun PanelSwitch(side: PanelSide, item: ItemConfig?, wide: Boolean, edit:
             PanelSide.ADD -> edit.toLibrary()
             PanelSide.OPTIONS -> edit.side = PanelSide.OPTIONS
         }
-    }, Modifier.fillMaxWidth().testTag("panel-switch"), role = Role.Tab)
+    }, (if (LocalWindowLayout.current.kind == WindowClass.MID) Modifier.width(SWITCH_MID) else Modifier.fillMaxWidth()).testTag("panel-switch"), role = Role.Tab)
 }
 
 /** The panel's card. The card stays; only what is in it travels, a short way, when the side changes. */

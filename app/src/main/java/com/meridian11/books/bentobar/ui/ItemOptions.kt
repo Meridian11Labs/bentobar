@@ -1,5 +1,16 @@
 package com.meridian11.books.bentobar.ui
 
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import androidx.compose.foundation.background
@@ -19,7 +30,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -155,7 +165,7 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
                     Segment(looks.map { SegmentPart(stringResource(it.second)) }, looks.indexOfFirst { it.first == item.display }, { i ->
                         Store.updateItem(item.id) { it.copy(display = looks[i].first) }
                         Ticker.refresh()
-                    }, Modifier.weight(1f).testTag("show-as"))
+                    }, Modifier.weight(1f).testTag("show-as"), equal = false)
                 }
                 type.options?.let { opts ->
                     SectionLabel(stringResource(type.optionsTitle))
@@ -210,13 +220,13 @@ private fun Needs(type: ItemType) {
                     (context as? android.app.Activity)?.requestPermissions(arrayOf(android.Manifest.permission.READ_CALENDAR), 2)
                 Setup.refresh(context)
                 Ticker.refresh()
-            })
+            }, kind = ButtonKind.WARN)
         }
     }
     if (type.notificationAccess && !setup.mediaAccess) {
         val text = stringResource(R.string.media_access_explain) + if (setup.sideloaded) "\n" + stringResource(R.string.media_access_restricted) else ""
-        NoticeLine(text, Modifier.padding(bottom = Space.s)) {
-            BentoButton(stringResource(R.string.media_access_allow), { MediaAccess.openSettings(context) })
+        NoticeLine(text, Modifier.padding(bottom = Space.s), stacked = true) {
+            BentoButton(stringResource(R.string.media_access_allow), { MediaAccess.openSettings(context) }, kind = ButtonKind.WARN)
         }
     }
 }
@@ -236,7 +246,7 @@ private fun Visibility(item: ItemConfig, cfg: BarConfig, type: ItemType?, edit: 
         else SegmentPart(stringResource(R.string.visibility_when_active), enabled = cfg.canGoBelow(item, type))
     OptionRow(stringResource(R.string.visibility_label)) {
         Segment(listOf(SegmentPart(stringResource(R.string.visibility_always)), second), if (standing == Standing.ALWAYS) 0 else 1,
-            { if (it == 0) edit.always(item.id) else edit.below(item.id) }, Modifier.weight(1f).testTag("visibility"))
+            { if (it == 0) edit.always(item.id) else edit.below(item.id) }, Modifier.weight(1f).testTag("visibility"), equal = false)
     }
     val trigger = type?.trigger
     Column(Modifier.fillMaxWidth().padding(start = 96.dp)) {
@@ -275,19 +285,43 @@ private fun Rule(item: ItemConfig, trigger: Trigger, words: Int, switch: Boolean
     }
     if (threshold != null && (!switch || item.whenActive)) {
         val r = threshold.range
-        Slider(
-            value = live.toFloat(), onValueChange = { live = threshold.snap(it) },
-            onValueChangeFinished = {
-                if (live != threshold.of(item)) {
-                    Store.updateItem(item.id) { it.with(threshold.key, live.toString()) }
-                    Ticker.refresh()
-                }
-            },
-            steps = ((r.last - r.first) / threshold.step - 1).coerceAtLeast(0),
-            track = { SliderDefaults.Track(it, drawTick = { _, _ -> }) },
-            valueRange = r.first.toFloat()..r.last.toFloat(),
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = sentence },
-        )
+        val interaction = remember { MutableInteractionSource() }
+        val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Slider(
+                value = live.toFloat(), onValueChange = { live = threshold.snap(it) },
+                onValueChangeFinished = {
+                    if (live != threshold.of(item)) {
+                        Store.updateItem(item.id) { it.with(threshold.key, live.toString()) }
+                        Ticker.refresh()
+                    }
+                },
+                steps = ((r.last - r.first) / threshold.step - 1).coerceAtLeast(0),
+                valueRange = r.first.toFloat()..r.last.toFloat(),
+                interactionSource = interaction,
+                // A thin line and a round thumb: the value is in the sentence and at the line's end, not in the track.
+                thumb = { Box(Modifier.size(RULE_THUMB).states(interaction, radius = RULE_THUMB / 2, ground = false).background(c.accent, CircleShape)) },
+                track = { state ->
+                    val span = state.valueRange.endInclusive - state.valueRange.start
+                    val done = if (span > 0f) ((state.value - state.valueRange.start) / span).coerceIn(0f, 1f) else 0f
+                    Box(Modifier.fillMaxWidth().height(4.dp).drawBehind {
+                        val round = CornerRadius(size.height / 2)
+                        val w = size.width * done
+                        drawRoundRect(c.edge, size = size, cornerRadius = round)
+                        drawRoundRect(c.accent, Offset(if (rtl) size.width - w else 0f, 0f), Size(w, size.height), round)
+                    })
+                },
+                modifier = Modifier.weight(1f).semantics { contentDescription = sentence },
+            )
+            Spacer(Modifier.width(Space.m))
+            // As wide as its widest value, so the line keeps its length while the thumb is carried. Spoken with the sentence.
+            Box(Modifier.clearAndSetSemantics { }, contentAlignment = Alignment.CenterEnd) {
+                Text(listOf(threshold.format(r.first), threshold.format(r.last)).maxBy { it.length }, style = Bento.type.small.tabular, color = Color.Transparent, maxLines = 1)
+                Text(threshold.format(live), style = Bento.type.small.tabular, color = c.ink, maxLines = 1)
+            }
+        }
     }
     Spacer(Modifier.height(Space.xs))
 }
+
+private val RULE_THUMB = 16.dp
