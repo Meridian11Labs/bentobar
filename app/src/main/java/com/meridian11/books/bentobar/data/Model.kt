@@ -103,7 +103,10 @@ data class BarConfig(
     /** Master switch (the Quick Settings tile flips it, e.g. for presenting). */
     val enabled: Boolean = true,
     val items: List<ItemConfig> = emptyList(),
-    /** Before version 4: where the whole strip sat. [migrateToV4] gives it to every item as its area. */
+    /**
+     * Before version 4: where the whole strip sat. [migrateToV4] gives it to every item as its area. Since then the items'
+     * areas say where the bar is, and this only where a bar with no items is ([homeArea]; [putAllIn] writes it there).
+     */
     val position: Position = Position.RIGHT,
     /** How the Hidden section works (version 3). */
     val hiddenMode: HiddenMode = HiddenMode.SHOW_ALL,
@@ -252,15 +255,21 @@ fun BarConfig.notDrawn(active: (ItemConfig) -> Boolean): List<ItemConfig> =
 fun BarConfig.areasInUse(): Set<Position> =
     items.filter { it.section != Section.OFF && Items.of(it.type) != null }.map { it.area }.toSet()
 
-/** Where the bar's one-off things go: Presenting's ‹, the empty capsule, a new item, the strip when nothing has room. */
+/**
+ * Where the bar's one-off things go: Presenting's ‹, the empty capsule, a new item, the strip when nothing has room. A
+ * layout with no items has no area to say it, so [BarConfig.position] does, as it did when the whole bar had one place.
+ */
 fun BarConfig.homeArea(): Position = areasInUse().let { used ->
-    HOME_ORDER.firstOrNull { it in used } ?: items.firstOrNull()?.area ?: Position.RIGHT
+    HOME_ORDER.firstOrNull { it in used } ?: items.firstOrNull()?.area ?: position
 }
 
 /** For Settings: more than one area holds an item outside Off. */
 fun BarConfig.usesAreas(): Boolean = items.filter { it.section != Section.OFF }.map { it.area }.distinct().size > 1
 
-/** For Look's Position row: the one area every item outside Off is in, or null; with none outside Off, the home area. */
+/**
+ * For Look's Position row: the one area every item outside Off is in, or null; with none outside Off, the home area (with
+ * no items at all, that is where [BarConfig.position] says).
+ */
 fun BarConfig.oneArea(): Position? =
     items.filter { it.section != Section.OFF }.map { it.area }.distinct().let { if (it.isEmpty()) homeArea() else it.singleOrNull() }
 

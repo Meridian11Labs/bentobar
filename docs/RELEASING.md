@@ -78,6 +78,8 @@ learned the hard way" says why. Run it again on every new draft.
   a click outside closes them; the glass and its shadow sit together.
 - **One area.** Look › Where BentoBar sits puts every item in Left, Middle or Right and shows that one as chosen. In each
   the bar is one strip that looks and behaves as the previous release did there, and no row in Settings names an area.
+  With every item removed and a pill background, the row still shows a place as chosen, a press on another moves the
+  empty capsule there, and the next item added goes there.
 - **Three areas.** Put items in Left, Middle and Right (an item's detail › Area): rows name their areas and Look shows
   none as chosen. The strips do not overlap, and a press in a gap between them reaches the status bar. A ticking item or
   a timer in Right moves neither Left nor the Middle; a Right that grows (a long Now playing title) pushes the Middle

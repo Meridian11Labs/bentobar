@@ -126,7 +126,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     ids dropped; a layout from a newer version (`LAYOUT_VERSION`) is refused, never clamped, and kept for Backup to offer.
     A schema change adds a file to `test/resources/layouts` (write-once, `LayoutFixturesTest`). Version 4 gave every item
     an area (`ItemConfig.area`: Left, Middle, Right; `Position.CENTER` is the Middle) where the whole strip had one place:
-    `migrateToV4` puts each item where the strip was, and `BarConfig.position` is read by nothing else. Consent lives in a
+    `migrateToV4` puts each item where the strip was. `BarConfig.position` is read by that and, in a layout with no
+    items, by `homeArea()` (so by `oneArea()`: the empty bar stands where it says, the first item goes there, and Look's
+    row writes it through `putAllIn`); nothing outside `data/` reads it. Consent lives in a
     no-backup file (`Store.loadConsent`). `Online.kt`
     holds what belongs to one install and never travels: whether each online service is switched on
     and the user's own key for one, in a file in Android's no-backup directory (so in no backup, no

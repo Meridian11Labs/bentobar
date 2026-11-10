@@ -141,8 +141,18 @@ class ImportTest {
             val read = readLayout(pasted) as LayoutRead.Ok
             assertEquals(4, read.config.version)
             assertEquals(listOf(position, position, position), read.config.items.map { it.area })
-            assertEquals(position, read.config.position) // kept as it was: only the migration reads it
+            assertEquals(position, read.config.position) // kept as it was: the migration reads it, and a layout with no items
             assertEquals(true, read.changed)
+        }
+    }
+
+    /** An upgraded layout with no items has no item to carry its place: its empty bar stays where it was. */
+    @Test fun aVersion3LayoutWithNoItemsKeepsItsPlace() {
+        for (position in Position.entries) {
+            val read = readLayout("""{"version":3,"position":"$position","items":[]}""") as LayoutRead.Ok
+            assertEquals(4, read.config.version)
+            assertEquals(position, read.config.homeArea())
+            assertEquals(position, read.config.oneArea())
         }
     }
 

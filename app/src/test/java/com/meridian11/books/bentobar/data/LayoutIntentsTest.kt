@@ -111,11 +111,22 @@ class LayoutIntentsTest {
         assertSame(all, all.putAllIn(Position.LEFT))
     }
 
-    @Test fun neitherAreaCommandTouchesTheOldPosition() {
-        // Only the migration reads it: a version 4 layout's Position is whatever it was when the layout was migrated.
+    @Test fun withItemsNeitherAreaCommandTouchesTheOldPosition() {
+        // The migration reads it, and a layout with no items: with items, the areas are theirs and it says nothing.
         val old = layout.copy(position = Position.CENTER)
         assertEquals(Position.CENTER, old.putInArea("s", Position.LEFT).position)
         assertEquals(Position.CENTER, old.putAllIn(Position.LEFT).position)
+    }
+
+    /** With no items there is no area to change: the place is kept in `position`, which says where an empty bar is. */
+    @Test fun puttingAllInAnAreaOnALayoutWithNoItemsSaysWhereTheEmptyBarIs() {
+        for (area in Position.entries) {
+            val moved = BarConfig().putAllIn(area)
+            assertEquals(BarConfig(position = area), moved)
+            assertEquals(area, moved.oneArea())
+            assertEquals(area, moved.homeArea())
+            assertSame("already there: nothing changes", moved, moved.putAllIn(area))
+        }
     }
 
     @Test fun noScreenWritesASectionARuleOrAnAreaOfItsOwn() {

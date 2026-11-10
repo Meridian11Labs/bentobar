@@ -38,9 +38,15 @@ class AreasTest {
         assertEquals(Position.CENTER, layout(item("m", Position.CENTER, Section.OFF), item("l", Position.LEFT, Section.OFF)).homeArea())
     }
 
-    @Test fun withNoItemsTheHomeAreaIsRight() {
+    /** A layout with no items has no area to speak for it: the place the whole bar was last given does, as it always did. */
+    @Test fun withNoItemsTheHomeAreaIsWherePositionSays() {
         assertEquals(Position.RIGHT, BarConfig().homeArea())
-        assertEquals(Position.RIGHT, BarConfig(position = Position.LEFT).homeArea()) // the old Position says nothing any more
+        for (position in Position.entries) assertEquals(position, BarConfig(position = position).homeArea())
+    }
+
+    @Test fun withAnItemPositionSaysNothingAboutTheHomeArea() {
+        assertEquals(Position.RIGHT, layout(item("r", Position.RIGHT)).copy(position = Position.LEFT).homeArea())
+        assertEquals(Position.CENTER, layout(item("m", Position.CENTER, Section.OFF)).copy(position = Position.LEFT).homeArea())
     }
 
     @Test fun anItemOfATypeThisVersionDoesntKnowDoesNotMakeItsAreaHome() {
@@ -66,6 +72,11 @@ class AreasTest {
         assertEquals(off.homeArea(), off.oneArea())
         assertEquals(Position.CENTER, off.oneArea())
         assertEquals(Position.RIGHT, BarConfig().oneArea())
+    }
+
+    /** Look's row shows a place as chosen on a layout with no items too: the one Position says. */
+    @Test fun withNoItemsTheOneAreaIsWherePositionSays() {
+        for (position in Position.entries) assertEquals(position, BarConfig(position = position).oneArea())
     }
 
     @Test fun roomGoesRightLeftMiddleAndHomeGoesRightMiddleLeft() {

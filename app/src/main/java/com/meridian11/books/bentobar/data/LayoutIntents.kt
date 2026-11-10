@@ -28,9 +28,16 @@ fun BarConfig.turnOff(id: String): BarConfig = putIn(id, Section.OFF)
 fun BarConfig.putInArea(id: String, area: Position): BarConfig =
     if (items.none { it.id == id && it.area != area }) this else copy(items = items.map { if (it.id == id) it.copy(area = area) else it })
 
-/** Every item into [area], Off ones too, so the layout is a one-area layout again and what comes back from Off joins the rest. */
-fun BarConfig.putAllIn(area: Position): BarConfig =
-    if (items.all { it.area == area }) this else copy(items = items.map { it.copy(area = area) })
+/**
+ * Every item into [area], Off ones too, so the layout is a one-area layout again and what comes back from Off joins the rest.
+ * A layout with no items has no area to change: there the place is kept in [BarConfig.position], which says where the
+ * empty bar is and where its first item goes ([homeArea]). With items, `position` is left as it was.
+ */
+fun BarConfig.putAllIn(area: Position): BarConfig = when {
+    items.isEmpty() -> if (position == area) this else copy(position = area)
+    items.all { it.area == area } -> this
+    else -> copy(items = items.map { it.copy(area = area) })
+}
 
 /**
  * The "Show when…" rule on or off. Only hidden items pop into the bar, so turning it on brings a shown or turned-off item
