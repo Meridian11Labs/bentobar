@@ -570,8 +570,12 @@ class BarController(private val service: AccessibilityService) {
             }
             val from = dragFrom?.second
             val cfg = Store.config.value
+            // It lands among its own area's items; with every item in one area those are all the others, as they always were.
+            val others = cfg.items.filter { it.section == Section.SHOWN && it.id != item.id }
             val index = if (item.section != Section.SHOWN || from == null) null
-                else StripDrag.index(from.exactCenterX() + dx, cfg.items.filter { it.section == Section.SHOWN && it.id != item.id }.map { it.id }, BarOverflow.ids.value, dragCenters)
+                else StripDrag.index(from.exactCenterX() + dx, others.map { it.id }, BarOverflow.ids.value, dragCenters,
+                    mine = others.filter { it.area == item.area }.map { it.id }.toSet(),
+                    now = cfg.items.takeWhile { it.id != item.id }.count { it.section == Section.SHOWN })
             if (!done) {
                 if (index != null && dragPreview.value != (item.id to index)) dragPreview.value = item.id to index
                 return
