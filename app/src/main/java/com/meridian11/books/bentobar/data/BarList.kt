@@ -78,3 +78,20 @@ fun BarConfig.listAreas(): List<Position> =
  */
 fun BarConfig.canGoBelow(item: ItemConfig, type: ItemType? = Items.of(item.type)): Boolean =
     type != null && (hiddenMode != HiddenMode.SHOW_ALL || type.canBeActive)
+
+/** How an item stands in the bar, as Visibility words it in settings and in the bar's own menu. */
+enum class Standing {
+    /** Always in the bar. */
+    ALWAYS,
+    /** The default mode's lower part: in the bar only while its "Show when…" rule applies. */
+    WHEN_ACTIVE,
+    /** Behind ‹ (and popping out by its rule, if that is on). */
+    BEHIND,
+}
+
+/** How [item] stands, or null for one that is not in the bar: its [part][partOf], in the words of the hidden mode. */
+fun BarConfig.standing(item: ItemConfig): Standing? = when (partOf(item)) {
+    null -> null
+    Part.UPPER -> Standing.ALWAYS
+    Part.LOWER -> if (hiddenMode == HiddenMode.SHOW_ALL) Standing.WHEN_ACTIVE else Standing.BEHIND
+}

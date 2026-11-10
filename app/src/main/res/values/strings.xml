@@ -348,11 +348,16 @@
     <string name="tile_left">%1$s left</string>
 
     <!-- menus -->
-    <string name="context_shown">Shown in the bar</string>
-    <string name="context_hidden_when_active">Hidden, shows when active</string>
     <string name="section_hidden">Hidden</string>
-    <string name="context_always_show">Always show</string>
-    <string name="context_show_when_active">Show when active</string>
+    <string name="context_always_in_bar">Always in the bar</string>
+    <string name="context_pops_out">Pops out when active</string>
+    <string name="visibility_label">Visibility</string>
+    <string name="visibility_always">Always</string>
+    <string name="visibility_when_active">Only when active</string>
+    <string name="visibility_behind">Behind ‹</string>
+    <!-- Read out in place of the ‹ in a label. -->
+    <string name="chevron_spoken">the hidden-items arrow</string>
+    <string name="detail_remove">Remove from the bar</string>
     <string name="display_show_as">Show as</string>
     <string name="display_icon_and_text">Icon and text</string>
     <string name="display_text">Text</string>

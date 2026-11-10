@@ -9,6 +9,22 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isToggleable
+import androidx.compose.ui.test.performClick
+import com.meridian11.books.bentobar.R
+import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.Display
+import com.meridian11.books.bentobar.data.HiddenMode
+import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.data.fresh
+import com.meridian11.books.bentobar.data.removed
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.bar.ItemContextMenu
@@ -120,6 +136,125 @@ class MenuCompositionTest {
         assertNull("no stocks to draw rows for", StocksItem.debug(listOf("stage", "up")))
         assertNotNull("this one needs no stocks", StocksItem.debug(listOf("stage", "none")))
         StocksItem.debug(listOf("off"))
+    }
+
+    // ---- The right-click menu's words and entries: Visibility's, per hidden mode, where the item stands and its type ----
+
+    private fun str(id: Int) = Env.str(id)
+
+    @After fun forget() { Store.update { BarConfig() } }
+
+    /** The right-click menu of one [item] under [mode], and its lines. */
+    private fun contextMenu(item: ItemConfig, mode: HiddenMode, others: List<ItemConfig> = emptyList()): List<String> {
+        rule.runOnUiThread { shown = null }
+        rule.waitForIdle()
+        Store.update { it.copy(hiddenMode = mode, items = listOf(item) + others) }
+        rule.runOnUiThread { shown = Case(Items.of(item.type)!!, item, null, context = true) }
+        rule.waitForIdle()
+        return drawn().lines()
+    }
+
+    private fun entry(label: String) = rule.onNode(hasText(label) and (hasClickAction() or isToggleable()))
+    private fun androidx.compose.ui.test.SemanticsNodeInteraction.assertIsOnOrOff(on: Boolean) = if (on) assertIsOn() else assertIsOff()
+    private fun stored(id: String) = Store.config.value.items.firstOrNull { it.id == id }
+
+    private fun contextHost() {
+        Env.init(ApplicationProvider.getApplicationContext<Application>())
+        rule.setContent {
+            val c = shown
+            if (c != null) MenuSurface(c.type.menuWidthDp.dp, 2000.dp, null) { ItemContextMenu(c.item.id, Host) {} }
+        }
+    }
+
+    @Test fun theRightClickMenuSaysWhatVisibilitySaysInEveryModeAndNeverOffOrHidden() {
+        contextHost()
+        val always = str(R.string.visibility_always); val whenActive = str(R.string.visibility_when_active)
+        val behind = str(R.string.visibility_behind); val popsOut = str(R.string.context_pops_out)
+        val inBar = str(R.string.context_always_in_bar); val remove = str(R.string.detail_remove)
+        // (type, section, rule on) -> subtitle and the visibility entries, for the default mode and for ‹.
+        val rule = "devices"; val plain = "calendar"
+        assertTrue(Items.of(rule)!!.canBeActive); assertFalse(Items.of(plain)!!.canBeActive)
+        data class Want(val type: String, val section: Section, val on: Boolean, val mode: HiddenMode, val subtitle: String, val has: List<String>, val hasNot: List<String>)
+        val cases = listOf(
+            Want(rule, Section.SHOWN, false, HiddenMode.SHOW_ALL, inBar, listOf(whenActive), listOf(always, behind, popsOut)),
+            Want(rule, Section.HIDDEN, true, HiddenMode.SHOW_ALL, whenActive, listOf(whenActive), listOf(always, behind, popsOut, inBar)),
+            // Hidden without a rule is drawn all the time in the default mode: always in the bar, the tick off.
+            Want(rule, Section.HIDDEN, false, HiddenMode.SHOW_ALL, inBar, listOf(whenActive), listOf(always, behind, popsOut)),
+            Want(rule, Section.SHOWN, true, HiddenMode.SHOW_ALL, inBar, listOf(whenActive), listOf(always, behind, popsOut)),
+            Want(plain, Section.SHOWN, false, HiddenMode.SHOW_ALL, inBar, emptyList(), listOf(always, whenActive, behind, popsOut)),
+            Want(plain, Section.HIDDEN, false, HiddenMode.SHOW_ALL, inBar, emptyList(), listOf(always, whenActive, behind, popsOut)),
+        ) + listOf(HiddenMode.CLICK, HiddenMode.HOVER).flatMap { mode -> listOf(
+            Want(rule, Section.SHOWN, false, mode, inBar, listOf(behind), listOf(always, whenActive, popsOut)),
+            Want(rule, Section.HIDDEN, false, mode, behind, listOf(always, popsOut), listOf(whenActive, inBar)),
+            Want(rule, Section.HIDDEN, true, mode, behind, listOf(always, popsOut), listOf(whenActive, inBar)),
+            Want(plain, Section.SHOWN, false, mode, inBar, listOf(behind), listOf(always, whenActive, popsOut)),
+            Want(plain, Section.HIDDEN, false, mode, behind, listOf(always), listOf(whenActive, popsOut, inBar)),
+        ) }
+        for (w in cases) {
+            val type = Items.of(w.type)!!
+            val lines = contextMenu(ItemConfig("x", w.type, w.section, whenActive = w.on), w.mode)
+            val said = "$w drew $lines"
+            assertEquals(said, listOf(type.title, w.subtitle), lines.take(2))
+            val entries = lines.drop(2)
+            for (t in w.has) assertTrue("$said: no \"$t\"", t in entries)
+            for (t in w.hasNot) assertFalse("$said: \"$t\" is there", t in entries)
+            assertEquals(said, remove, entries.last())
+            // The tick is the entry's state, as a reader is told it: on exactly while the item waits on its rule.
+            if (w.mode == HiddenMode.SHOW_ALL && type.canBeActive) entry(whenActive).assertIsOnOrOff(w.section == Section.HIDDEN && w.on)
+            if (popsOut in w.has) entry(popsOut).assertIsOnOrOff(w.on)
+            assertTrue(said, str(R.string.context_item_settings) in entries)
+            for (old in listOf("Off", "Hidden", "Turn off", "Delete")) assertFalse("$said: it says \"$old\"", lines.any { Regex("\\b$old\\b").containsMatchIn(it) })
+        }
+        // ‹ is read out by name.
+        val spoken = behind.replace("‹", str(R.string.chevron_spoken))
+        assertTrue(spoken in contextMenu(ItemConfig("x", plain), HiddenMode.CLICK))
+    }
+
+    @Test fun theRightClickMenusEntriesAreTheSettingsCommands() {
+        contextHost()
+        val devices = ItemConfig("x", "devices", Section.SHOWN)
+        // The default mode: one tick, on is the rule, off is Always.
+        contextMenu(devices, HiddenMode.SHOW_ALL)
+        entry(str(R.string.visibility_when_active)).performClick()
+        rule.waitForIdle()
+        assertEquals(devices.copy(section = Section.HIDDEN, whenActive = true), stored("x"))
+        entry(str(R.string.visibility_when_active)).performClick()
+        rule.waitForIdle()
+        assertEquals(Section.SHOWN, stored("x")!!.section)
+        // With ‹: Behind ‹ hides, Always shows, and the rule is the pop-out switch of an item that is behind.
+        contextMenu(devices, HiddenMode.CLICK)
+        entry(str(R.string.visibility_behind)).performClick()
+        rule.waitForIdle()
+        assertEquals(devices.copy(section = Section.HIDDEN), stored("x"))
+        entry(str(R.string.context_pops_out)).performClick()
+        rule.waitForIdle()
+        assertEquals(devices.copy(section = Section.HIDDEN, whenActive = true), stored("x"))
+        entry(str(R.string.context_pops_out)).performClick()
+        rule.waitForIdle()
+        assertEquals(devices.copy(section = Section.HIDDEN), stored("x"))
+        entry(str(R.string.visibility_always)).performClick()
+        rule.waitForIdle()
+        assertEquals(devices, stored("x"))
+    }
+
+    @Test fun removeFromTheBarInTheRightClickMenuIsTheSettingsStep() {
+        contextHost()
+        val other = ItemConfig("other", "clock")
+        // As the + made it: it leaves the layout.
+        val fresh = Items.of("devices")!!.fresh("x", Position.RIGHT)
+        contextMenu(fresh, HiddenMode.SHOW_ALL, listOf(other))
+        entry(str(R.string.detail_remove)).performClick()
+        rule.waitForIdle()
+        assertNull(stored("x"))
+        // Set up: it waits for the library, with what it had.
+        val setUp = fresh.copy(display = Display.ICON)
+        contextMenu(setUp, HiddenMode.SHOW_ALL, listOf(other))
+        entry(str(R.string.detail_remove)).performClick()
+        rule.waitForIdle()
+        assertEquals(Store.config.value.copy(items = listOf(setUp, other)).removed("x").items, Store.config.value.items)
+        assertEquals(setUp.copy(section = Section.OFF), stored("x"))
+        // And the menu of an item that is not in the bar draws nothing at all.
+        assertEquals(listOf(""), drawn().lines())
     }
 
     /** What the menu on screen says and what a screen reader is told of it, in the order it is drawn. */
