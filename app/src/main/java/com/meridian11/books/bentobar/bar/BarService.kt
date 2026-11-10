@@ -512,6 +512,13 @@ class BarController(private val service: AccessibilityService) {
         val where = "free=${s.free.toShortString()} ${a.spots.joinToString(" ") { "${word(it.area)} x=${it.x} maxW=${it.budget}" }} [${s.summary}]"
         if (where != lastWhere) { trace("place $where"); lastWhere = where }
         val was = stripEmpty
+        // Which strip is the first and which areas are owed only name areas, and are said before any window goes or comes:
+        // a window that is added has the watch for presses outside the bar in its params already, as the one strip's had.
+        val before = carrier
+        carrier = a.carrier
+        // Hidden items are out and the first strip is another now: that one hears a press outside the bar.
+        if (carrier != before) watchOutside()
+        owed.value = a.owed
         val held = awakeArea
         awakeArea = a.awake
         // The window that keeps the screen on is about to go: the flag is on the next one first, or the wake lock holds.
@@ -533,11 +540,6 @@ class BarController(private val service: AccessibilityService) {
             strip.maxWidth.intValue = spot.budget
             if (!strip.shown) strip.show { StripHost(strip) } else strip.relayout()
         }
-        val before = carrier
-        carrier = a.carrier
-        // Hidden items are out and the first strip is another now: that one hears a press outside the bar.
-        if (carrier != before) watchOutside()
-        owed.value = a.owed
         // Android refused an area's window while the others have theirs: the status says so, and the next placing tries again.
         refused = a.spots.any { spot -> strips.none { it.area == spot.area && it.shown } }
         // Strips came and went: whether the bar draws anything is asked again. A new window counts as drawing until its

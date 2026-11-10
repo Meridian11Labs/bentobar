@@ -397,7 +397,10 @@ class HidePathTest {
         assertTrue(setter, "watchOutside()" in setter)
         val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
         val carrier = place.indexOf("carrier = a.carrier")
-        assertTrue(place, carrier >= 0 && place.indexOf("if (carrier != before) watchOutside()", carrier) > carrier)
+        val watched = place.indexOf("if (carrier != before) watchOutside()", carrier)
+        assertTrue(place, carrier >= 0 && watched > carrier)
+        // Before any window goes or comes: a window that is added has the watch in its params already, as the one strip's had.
+        assertTrue(place, watched < place.indexOf("leave(strip)") && watched < place.indexOf("for (spot in a.spots) {"))
         val click = code.substringAfter("private fun outsideClick(ev: MotionEvent) {").substringBefore("\n    }\n")
         var at = 0
         for (step in listOf("if (menus.menuKey != null || !expanded.value) return", "if (stripAt(ev.rawX, ev.rawY) != null) return", "fold()")) {
