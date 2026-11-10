@@ -247,7 +247,7 @@ private fun BarPreview(states: Map<String, ItemState>, selected: String?, onSele
                 if (cfg.position == Position.LEFT) Spacer(Modifier.width(16.dp)) else Spacer(Modifier.weight(1f))
                 Strip(entries(plan.visible), entries(plan.revealed), plan.chevron,
                     chevronAlways = plan.chevronAlways, chevronReservePx = 0, expanded = plan.open,
-                    chevronOnLeft = cfg.position != Position.LEFT, look = look, maxWidthPx = maxPx, heightDp = 52.dp, events = events,
+                    chevronOnLeft = cfg.homeArea() != Position.LEFT, look = look, maxWidthPx = maxPx, heightDp = 52.dp, events = events,
                     onOverflow = { dropped = it })
                 if (cfg.position == Position.LEFT) Spacer(Modifier.weight(1f)) else if (cfg.position == Position.CENTER) Spacer(Modifier.weight(1f))
                 Spacer(Modifier.width(12.dp))

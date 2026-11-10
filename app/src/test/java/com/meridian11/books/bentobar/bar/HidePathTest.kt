@@ -134,6 +134,97 @@ class HidePathTest {
         assertTrue(hide, "for (strip in strips) strip.hide()" in hide)
     }
 
+    /** The pointer is on one strip at a time: another strip going must not end a hover, or a drag, that is not in it. */
+    @Test fun aStripThatLeavesEndsOnlyWhatThePointerHeldInIt() {
+        val leave = code.substringAfter("private fun leave(strip: AreaStrip) {").substringBefore("\n    }\n")
+        assertTrue(leave, "if (dragFrom?.first in strip.placed) cancelDrag()" in leave)
+        assertTrue(leave, "if (hovering && hoverStrip === strip) events.getValue(strip).hover(false)" in leave)
+        val hover = code.substringAfter("override fun hover(inside: Boolean) {").substringBefore("\n        }\n")
+        assertTrue("a hover says which strip it is on: $hover", "hovering = inside; hoverStrip = if (inside) strip else null" in hover)
+        assertTrue("the bar leaving ends it whichever strip it was on: $hide", "hovering = false; hoverStrip = null" in hide)
+    }
+
+    /** The areas' windows: one for each area in use that has room, each planned, measured and drawn by its own area. */
+    @Test fun everyStripIsItsOwnAreasAndNothingInTheBarAsksWherePositionSays() {
+        val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
+        assertTrue(place, "home = cfg.homeArea(), inUse = cfg.areasInUse()," in place)
+        val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
+        for (own in listOf(".stripPlan(strip.area, ", "home = strip.area == cfg.homeArea())", "bias = when (strip.area) {", "chevronOnLeft = strip.area != Position.LEFT,"))
+            assertTrue("$own in $host", own in host)
+        val menu = code.substringAfter("fun openBarMenu(): Boolean {").substringBefore("\n    }\n")
+        assertTrue("the keyboard's menu hangs from the carrier, at the end its area says: $menu", "val strip = carrierStrip()" in menu && "if (strip.area == Position.LEFT)" in menu)
+        // The old one setting moves nothing in the bar: only the migration of an old layout reads it (data/).
+        for (file in File("src/main/java/com/meridian11/books/bentobar/bar").listFiles()!!.filter { it.extension == "kt" })
+            assertFalse("${file.name} reads Position's old setting", Regex("""\b(cfg|value|config)\.position\b""").containsMatchIn(file.readText()))
+        val preview = File("src/main/java/com/meridian11/books/bentobar/ui/BarPage.kt").readText()
+        assertTrue("the preview's ‹ stands where the bar's does", "chevronOnLeft = cfg.homeArea() != Position.LEFT," in preview)
+    }
+
+    /**
+     * What a strip has no room for is its own: its ‹ is for its own items, and a strip with room says nothing about
+     * another's. Settings and the ‹ menu get every strip's as one set, from one place.
+     */
+    @Test fun whatAStripHasNoRoomForIsItsOwnAndIsPublishedAsOneSet() {
+        val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
+        assertTrue(host, "expanded.value, strip.dropped.isNotEmpty())" in host)
+        assertTrue(host, "onOverflow = { ids -> main.post { if (strip.shown) { strip.dropped = ids; publishOverflow() } } }," in host)
+        assertFalse("no strip plans by what another has no room for: $host", "BarOverflow" in host)
+        val publish = code.substringAfter("private fun publishOverflow() {").substringBefore("\n    }\n")
+        assertTrue(publish, "strips.flatMapTo(mutableSetOf()) { it.dropped }" in publish)
+        assertTrue("the bar is read again only when the set changed: $publish", "if (BarOverflow.ids.value != ids) { BarOverflow.ids.value = ids; main.post(scanNow) }" in publish)
+        assertEquals("written by stop() and by publishOverflow() alone", 2, Regex("""BarOverflow\.ids\.value = """).findAll(code).count())
+        // A strip that left has nothing left over: its items are no longer said not to fit (task 6 says they are owed).
+        val leave = code.substringAfter("private fun leave(strip: AreaStrip) {").substringBefore("\n    }\n")
+        val gone = leave.indexOf("strip.hide()")
+        assertTrue(leave, gone >= 0 && leave.indexOf("publishOverflow()", gone) > gone)
+    }
+
+    /**
+     * Strips come and go in a placing, so whether the bar draws anything is asked again there. That adds no reading of
+     * the bar: the colour reader hears of it only when the answer changed, and a first show has its one slow reading.
+     */
+    @Test fun stripsComingAndGoingAskAgainWhetherTheBarDrawsAndAddNoReading() {
+        val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
+        val after = place.substringAfter(place.substringAfter("for (spot in a.spots) {").substringBefore("\n        }\n"))
+        val asked = after.indexOf("stripEmpty = strips.none { it.draws }")
+        assertTrue(after, asked >= 0 && asked < after.indexOf("BarStatus.current.value = status()"))
+        assertTrue(after, "if (a.first || a.awake != held || stripEmpty != was) awake.update()" in after)
+        val first = after.indexOf("if (a.first) {")
+        val told = after.indexOf("} else if (stripEmpty != was) {", first)
+        assertTrue("only a change, and never at a first show: $after", first >= 0 && told > first && after.indexOf("colors.contentChanged(stripEmpty)", told) > told)
+        assertEquals(1, Regex("""colors\.contentChanged\(""").findAll(place).count())
+        assertEquals("one reading asked for in a placing, the first show's", 1, Regex("""colors\.readSoon\(""").findAll(place).count())
+        assertFalse("a placing takes no reading itself", "sampleNow" in place || "windowsMoved" in place)
+    }
+
+    /**
+     * Android can refuse one area's window and give the others theirs: the status says so and the next placing tries
+     * again. And when the strips that were up have left and their successors were refused, the bar is off the screen:
+     * it leaves the one way it always does, so nothing runs behind a bar that is not there.
+     */
+    @Test fun aRefusedWindowIsSaidAndABarWithNoWindowLeftLeavesTheOneWay() {
+        val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
+        val loop = place.substringAfter("for (spot in a.spots) {").substringBefore("\n        }\n")
+        val after = place.substringAfter(loop)
+        val refused = after.indexOf("refused = a.spots.any { spot -> strips.none { it.area == spot.area && it.shown } }")
+        assertTrue(after, refused >= 0 && refused < after.indexOf("BarStatus.current.value = status()"))
+        assertTrue("every status the bar gives says it", "private fun status() = if (refused) BarStatus.STOPPED else StripContent.status(" in code)
+        val left = after.indexOf("if (!a.first && strips.none { it.shown }) leaveScreen()")
+        assertTrue(after, left >= 0 && left < after.indexOf("if (strips.none { it.shown }) { BarStatus.current.value = BarStatus.STOPPED; return }"))
+    }
+
+    /**
+     * The window that keeps the screen on is about to go while the bar stays: the flag is on the next one, or the wake
+     * lock holds, before it does.
+     */
+    @Test fun keepAwakeIsHandedOnBeforeTheWindowThatHeldItGoes() {
+        val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
+        val order = listOf("val held = awakeArea", "awakeArea = a.awake", "if (held != null && held in a.leave) awake.update()",
+            "for (strip in strips) if (strip.area in a.leave) leave(strip)").map { place.indexOf(it) }
+        assertTrue("$order in $place", order.all { it >= 0 } && order == order.sorted())
+        assertTrue("the flag goes only to a strip that draws", "{ strips.firstOrNull { it.area == awakeArea }?.takeIf { it.draws }?.window }" in code)
+    }
+
     /**
      * With no window carrying the flag for a moment, the screen could go off in it. Which window and when the wake lock
      * holds instead is `KeepAwakeRule.choose` (KeepAwakeTest); what only the code shows is that update() does as it says,
