@@ -66,20 +66,46 @@ learned the hard way" says why. Run it again on every new draft.
 - **Full screen.** An app in full screen hides the strip when the bar hides (at once on some systems, up to about 2 s on others)
   and brings it back when the bar returns; a shade or the keyboard's full-screen key behave the same.
 - **The empty strip.** With every item hidden or empty there is no stray window and no invisible overlay (Play Protect
-  flagged one); Settings shows the strip as empty.
+  flagged one); Settings shows the strip as empty. With a pill background and items in several areas, a bar with
+  nothing to draw is one empty capsule, and an area with nothing to draw has none beside another area's items.
 - **Play Protect.** After the install, Safety Center (Settings > Security) shows no "App displays over other apps" or
-  other warning for BentoBar.
+  other warning for BentoBar. Then overnight, with an area that draws nothing (Left holding only a Hidden item whose Show
+  when rule does not apply), Presenting switched on and off a few times and the screen on for part of the night: still
+  none in the morning.
 - **Menus.** The ‹ chevron and an item open their menus at the right width (not cut off, not pushed under the chevron);
   a click outside closes them; the glass and its shadow sit together.
+- **One area.** Look › Where BentoBar sits puts every item in Left, Middle or Right and shows that one as chosen. In each
+  the bar is one strip that looks and behaves as the previous release did there, and no row in Settings names an area.
+- **Three areas.** Put items in Left, Middle and Right (an item's detail › Area): rows name their areas and Look shows
+  none as chosen. The strips do not overlap, and a press in a gap between them reaches the status bar. A ticking item or
+  a timer in Right moves neither Left nor the Middle; a Right that grows (a long Now playing title) pushes the Middle
+  aside smoothly, never in a jump, and it returns to the centre. The picture on the Bar page shows the areas where the
+  bar has them; in a narrow settings window Right keeps its room longest, then Left, then the Middle, and the line under
+  the picture counts every item not drawn, once.
+- **An area that comes and goes.** Left holding only a Hidden timer with Show when on: starting the timer brings Left up
+  within a second, stopping it takes Left away, and the other areas do not move either time. The same with Presenting on.
+- **No room.** Narrow the free part of the status bar (snap windows, or a larger display size) until an area has no room:
+  its items are in the first strip's ‹ menu and their rows in Settings say they don't fit right now; the other strips do
+  not move when that ‹ comes and goes, and nothing flickers at the edge of room. With Presenting on, a ‹ that ends it
+  stays on screen. With room for nothing, the home area's ‹ is drawn as it was with one strip, and the keyboard's
+  "BentoBar menu" opens it. Give the room back: the areas return and the rows clear.
+- **One bar across areas.** With hidden items out, a click on another app folds them, once; a click on an item in
+  another area opens its popup and folds nothing. A press on another area's item closes an open popup and opens its own
+  (one click). The pointer moving from one strip straight to the next keeps hidden items out, takes the highlight with
+  it and leaves no tooltip behind; the next item's tooltip still comes. A ‹ in an area with nothing hidden opens the menu
+  while another area's ‹ opens and folds the bar. A drag stays among its own area's items.
 - **Live Update chip.** A timer or a meeting shows its chip with BentoBar's settings window closed.
 - **Items that tick.** A clock and a network speed item do not make neighbours move; the bar's CPU use stays low
   (about 1% of one core on a release build).
-- **Keep awake and timers.** Keep awake keeps the screen on and ends when switched off. A finished timer rings once, through
-  its notification (only with notifications allowed), and the ring ends when that notification is dismissed or the item's
-  Stop is pressed. The Clock app's `DISMISS_TIMER` intent does not reach BentoBar's ring, so do not use it to stop one on
-  the device; dismiss the notification. Allow notifications for a timer test only, and take the permission back after.
+- **Keep awake and timers.** Keep awake keeps the screen on and ends when switched off. With three areas exactly one strip
+  window carries the keep-screen-on flag (`adb shell dumpsys window windows`); empty that area and the screen still stays
+  on, also with nothing drawn in any area (a wake lock then, `dumpsys power`), and never on the lock screen. A finished
+  timer rings once, through its notification (only with notifications allowed), and the ring ends when that notification
+  is dismissed or the item's Stop is pressed. The Clock app's `DISMISS_TIMER` intent does not reach BentoBar's ring, so do
+  not use it to stop one on the device; dismiss the notification. Allow notifications for a timer test only, and take the
+  permission back after.
 - **Update over the old release.** Installed over the previous release (same key), the layout and the accessibility
-  switch are still there.
+  switch are still there, and a strip that stood on the left or in the middle stands where it did.
 - **Online services.** With them off nothing is asked; weather shows the placeholder, not an error.
 
 ## What the tag does
