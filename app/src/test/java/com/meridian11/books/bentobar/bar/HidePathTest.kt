@@ -389,7 +389,7 @@ class HidePathTest {
      */
     @Test fun onlyTheFirstStripHearsPressesOutsideTheBarAndAPressOnAnotherStripIsNotOne() {
         val watch = code.substringAfter("private fun watchOutside() {").substringBefore("\n    }\n")
-        assertTrue(watch, "for (strip in strips) strip.watchOutside(expanded.value && strip.area == carrier)" in watch)
+        assertTrue(watch, "for (strip in strips) strip.watchOutside(expanded.value && strip.area == watching)" in watch)
         assertEquals("no window is told to watch anywhere else", 1, Regex("""strip\.watchOutside\(""").findAll(code).count())
         assertTrue("every window starts without the watch", "params.width = 1; watchOutside(false)" in code)
         // Asked again when either half of the rule changes: hidden items come out or go, the first strip is another.
@@ -406,7 +406,7 @@ class HidePathTest {
             at = i + step.length
         }
         val where = code.substringAfter("private fun stripAt(x: Float, y: Float): AreaStrip? {").substringBefore("\n    }\n")
-        assertTrue("only strips on screen are asked: $where", "strips.filter { it.shown }" in where && "PopupRules.pressedArea(x, y, " in where)
+        assertTrue("only strips on view are asked: $where", "strips.filter { it.area in drawing.value }" in where && "PopupRules.pressedArea(x, y, " in where)
         // The window hands the press on, so that where it was can be asked.
         val overlay = File("src/main/java/com/meridian11/books/bentobar/bar/Overlay.kt").readText()
         assertTrue("private val onOutside: ((MotionEvent) -> Unit)? = null," in overlay)

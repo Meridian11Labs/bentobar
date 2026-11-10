@@ -167,6 +167,26 @@ class PopupRulesTest {
         assertEquals(PopupCommand.Dissolve, popups.press(other, 100L))
     }
 
+    // ---- which strip's window hears a press outside the bar --------------------------------------------------
+
+    @Test fun theFirstStripOnViewInRoomOrderHearsPressesOutsideTheBar() {
+        assertEquals(Position.RIGHT, PopupRules.watchingArea(setOf(Position.RIGHT, Position.LEFT, Position.CENTER), carrier = Position.RIGHT))
+        // The first strip draws nothing right now (its window is invisible): the next one on view hears them.
+        assertEquals(Position.LEFT, PopupRules.watchingArea(setOf(Position.LEFT, Position.CENTER), carrier = Position.RIGHT))
+        assertEquals(Position.CENTER, PopupRules.watchingArea(setOf(Position.CENTER), carrier = Position.RIGHT))
+        assertEquals(Position.CENTER, PopupRules.watchingArea(setOf(Position.CENTER), carrier = Position.LEFT))
+    }
+
+    @Test fun withNoStripOnViewTheFirstStripsWindowKeepsTheWatch() {
+        for (carrier in Position.entries) assertEquals(carrier, PopupRules.watchingArea(emptySet(), carrier))
+    }
+
+    /** A layout in one area: its one strip is the first strip, and it watches whether it is on view or not, as it always did. */
+    @Test fun withOneStripThatStripHearsPressesOutsideTheBarOnViewOrNot() {
+        for (area in Position.entries) for (onView in listOf(emptySet(), setOf(area)))
+            assertEquals("$area $onView", area, PopupRules.watchingArea(onView, carrier = area))
+    }
+
     // ---- where an item's menu opens when it is chosen in the ‹ menu -------------------------------------------
 
     @Test fun fromTheListOfEveryItemAnItemsMenuOpensUnderTheStripThatDrewTheItem() {

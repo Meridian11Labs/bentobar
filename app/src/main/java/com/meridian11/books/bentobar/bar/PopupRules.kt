@@ -1,6 +1,7 @@
 package com.meridian11.books.bentobar.bar
 
 import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.data.ROOM_ORDER
 
 /** Which popup is meant: the ‹ menu, an item's popup, or an item's right-click menu. [toString] is what the debug hooks print. */
 sealed interface MenuKey {
@@ -54,7 +55,7 @@ internal object PopupRules {
     fun pressedItem(x: Float, drawn: List<Span>): String? = StripHighlight.target(x, drawn.sortedBy { it.left }, null)
 
     /**
-     * The area whose strip a press at [x], [y] on the screen landed on, of the strips on screen now ([frames]); null for a
+     * The area whose strip a press at [x], [y] on the screen landed on, of the strips on view now ([frames]); null for a
      * press on none of them. A press on another app's window comes without coordinates, as 0, 0: that is on no strip, even
      * one that begins in the screen's corner.
      */
@@ -62,6 +63,14 @@ internal object PopupRules {
         if (x == 0f && y == 0f) return null
         return frames.firstOrNull { f -> x >= f.left && x < f.left + f.width && y >= f.top && y < f.top + f.height }?.area
     }
+
+    /**
+     * The area whose strip's window hears a press outside the bar while hidden items are out: one window, so one press is
+     * heard once. It is the first in room order of the strips [onView] (on screen, measured and drawing something), since a
+     * window that draws nothing is invisible and may be told of no press; while none is on view, the [carrier]'s, the first
+     * strip placed. With one strip that strip is both, on view or not: it watches as it always did.
+     */
+    fun watchingArea(onView: Set<Position>, carrier: Position): Position = ROOM_ORDER.firstOrNull { it in onView } ?: carrier
 
     /**
      * The strip an item's menu opens under when the item is chosen in the ‹ menu that stood under [menu]. From the list of

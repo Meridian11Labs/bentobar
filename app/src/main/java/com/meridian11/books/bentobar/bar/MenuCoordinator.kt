@@ -37,7 +37,7 @@ internal class MenuCoordinator(
         val snapshot: BarSnapshot?
         /** Hidden items are out. */
         val expanded: Boolean
-        /** The strip a press at [x], [y] on the screen landed on, of those on screen; null for a press on none of them. */
+        /** The strip a press at [x], [y] on the screen landed on, of those on view; null for a press on none of them. */
         fun stripAt(x: Float, y: Float): AreaStrip?
         /** The strip that drew the item [id], if one did. */
         fun stripOf(id: String): AreaStrip?

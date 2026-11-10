@@ -165,19 +165,24 @@ class BarController(private val service: AccessibilityService) {
     private val awake = KeepAwake(main, pm, km, scope, strips.map { it.window }) { strips.firstOrNull { it.area == awakeArea }?.takeIf { it.draws }?.window }
 
     /**
-     * Presses outside the bar are heard by the first strip's window alone, and only while hidden items are out: one press
-     * is heard once, in however many windows the bar is. Asked again when either changes.
+     * Presses outside the bar are heard by one strip's window alone (the first on view: [PopupRules.watchingArea]), and
+     * only while hidden items are out: one press is heard once, in however many windows the bar is. Asked again when
+     * hidden items come out or go, when the first strip is another and when what is on view changes.
      */
     private fun watchOutside() {
-        for (strip in strips) strip.watchOutside(expanded.value && strip.area == carrier)
+        val watching = PopupRules.watchingArea(drawing.value, carrier)
+        for (strip in strips) strip.watchOutside(expanded.value && strip.area == watching)
     }
 
-    /** The strip a press at [x], [y] on the screen landed on, of those on screen; null for a press on none of them. */
+    /**
+     * The strip a press at [x], [y] on the screen landed on, of those on view (a press where an invisible window lies goes
+     * to what is below it, and is not on the bar); null for a press on none of them.
+     */
     private fun stripAt(x: Float, y: Float): AreaStrip? {
         val height = snap?.bar?.height() ?: 0
-        val shown = strips.filter { it.shown }
-        val area = PopupRules.pressedArea(x, y, shown.map { s -> s.locationOnScreen().let { StripFrame(s.area, it[0], it[1], s.params.width, height) } })
-        return shown.firstOrNull { it.area == area }
+        val seen = strips.filter { it.area in drawing.value }
+        val area = PopupRules.pressedArea(x, y, seen.map { s -> s.locationOnScreen().let { StripFrame(s.area, it[0], it[1], s.params.width, height) } })
+        return seen.firstOrNull { it.area == area }
     }
 
     /**
@@ -358,9 +363,10 @@ class BarController(private val service: AccessibilityService) {
         publishOverflow() // what it had no room for went with it
     }
 
-    /** Which strips draw is asked again: a strip was measured, or went. */
+    /** Which strips draw is asked again: a strip was measured, or went. The first of them hears a press outside the bar. */
     private fun noteDrawing() {
         drawing.value = strips.filter { it.shown && !it.pending && !it.empty }.mapTo(mutableSetOf()) { it.area }
+        watchOutside()
     }
 
     /** The first strip says what the areas with no window would draw now, each time it is composed. */

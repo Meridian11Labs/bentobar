@@ -92,8 +92,9 @@ learned the hard way" says why. Run it again on every new draft.
   room for nothing, the home area's ‹ is drawn as it was with one strip, and the keyboard's "BentoBar menu" opens it.
   Give the room back: the areas return and the rows clear.
 - **One bar across areas.** With hidden items out, a click on another app folds them, once; a click on an item in
-  another area opens its popup and folds nothing. A press on another area's item closes an open popup and opens its own
-  (one click). The pointer moving from one strip straight to the next keeps hidden items out, takes the highlight with
+  another area opens its popup and folds nothing. A click on another app folds them also while the first strip draws
+  nothing (Right holding only a spacer with no line, Left with a Hidden item: click Left's ‹, then another app). A press
+  on another area's item closes an open popup and opens its own (one click). The pointer moving from one strip straight to the next keeps hidden items out, takes the highlight with
   it and leaves no tooltip behind; the next item's tooltip still comes. A ‹ in an area with nothing hidden opens the menu
   while another area's ‹ opens and folds the bar. A drag stays among its own area's items. From the keyboard's "BentoBar
   menu", an item drawn in another area than the first strip's opens its menu under that item, which shows as open.
