@@ -142,7 +142,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     `Controls` (shared UI pieces).
     Areas in Settings: an item's detail has the Area chooser; a row says its area only while more than one is in use
     (`usesAreas`); Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
-    while they all are in it (`oneArea`). Those two count an item of a type this version doesn't know, which `areasInUse` does
+    while they all are in it (`oneArea`); while they are in several, and only then, a line under its title says what a
+    choice does. Those two count an item of a type this version doesn't know, which `areasInUse` does
     not: Settings has its row, the bar nothing of it. `Controls.areaChoices` is the one order and wording; `AreaChoosersTest`.
   - "Show when…": a type's `trigger` (in `ItemType.kt`) words its pop-out rule, and its `Threshold`
     is the one source of the option key and default for both `state()` and the settings slider.

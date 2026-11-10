@@ -81,11 +81,12 @@ learned the hard way" says why. Run it again on every new draft.
   With every item removed and a pill background, the row still shows a place as chosen, a press on another moves the
   empty capsule there, and the next item added goes there.
 - **Three areas.** Put items in Left, Middle and Right (an item's detail › Area): rows name their areas and Look shows
-  none as chosen. The strips do not overlap, and a press in a gap between them reaches the status bar. A ticking item or
-  a timer in Right moves neither Left nor the Middle; a Right that grows (a long Now playing title) pushes the Middle
-  aside smoothly, never in a jump, and it returns to the centre. The picture on the Bar page shows the areas where the
-  bar has them; in a narrow settings window Right keeps its room longest, then Left, then the Middle, and the line under
-  the picture counts every item not drawn, once.
+  none as chosen, with a line under the row's title saying that choosing one moves every item there (with one area, or
+  no items, the row has no such line). The strips do not overlap, and a press in a gap between them reaches the status
+  bar. A ticking item or a timer in Right moves neither Left nor the Middle; a Right that grows (a long Now playing
+  title) pushes the Middle aside smoothly, never in a jump, and it returns to the centre. The picture on the Bar page
+  shows the areas where the bar has them; in a narrow settings window Right keeps its room longest, then Left, then the
+  Middle, and the line under the picture counts every item not drawn, once.
 - **An area that comes and goes.** Left holding only a Hidden timer with Show when on: starting the timer brings Left up
   within a second, stopping it takes Left away, and the other areas do not move either time. The same with Presenting on.
 - **No room.** Narrow the free part of the status bar (snap windows, or a larger display size) until an area has no room:

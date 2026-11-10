@@ -162,8 +162,11 @@ fun LookPage() {
     Page {
         SectionLabel(stringResource(R.string.look_placement))
         // A command more than a setting: a press puts every item in that area, and one is chosen only while they all are in it
-        // (none, a null here, while the items are in several).
-        ChoiceRow<Position?>(stringResource(R.string.look_position), areaChoices(), cfg.oneArea()) { area ->
+        // (none, a null here, while the items are in several). Only then does the row say what a press does: with one area,
+        // or no items, it reads as it always did.
+        val one = cfg.oneArea()
+        ChoiceRow<Position?>(stringResource(R.string.look_position), areaChoices(), one,
+            help = if (one == null) stringResource(R.string.areas_look_several) else null) { area ->
             if (area != null) Store.update { it.putAllIn(area) }
         }
         SliderRow(stringResource(R.string.look_spacing), cfg.spacingDp, SPACING_DP, { res.getString(R.string.common_dp, it) }) { v -> Store.update { it.copy(spacing = v) } }

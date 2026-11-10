@@ -132,6 +132,23 @@ class AreaChoosersTest {
         choice(right).assertIsNotSelected()
     }
 
+    @Test fun lookSaysThatAChoiceMovesEveryItemOnlyWhileTheItemsAreInSeveralAreas() {
+        val several = hasText(app.getString(R.string.areas_look_several))
+        lookPage(item("a", Position.RIGHT), item("b", Position.LEFT, Section.HIDDEN))
+        rule.onNode(several).assertExists()
+
+        // One area: the row reads as it did before there were areas.
+        choice(middle).performClick()
+        rule.waitForIdle()
+        rule.onNode(several).assertDoesNotExist()
+
+        // No items: a place is chosen, and nothing is said.
+        Store.update { it.copy(items = emptyList()) }
+        rule.waitForIdle()
+        rule.onNode(several).assertDoesNotExist()
+        choice(right).assertIsSelected()
+    }
+
     @Test fun lookShowsTheOneAreaEveryItemOutsideOffIsInWhateverTheOldPositionSays() {
         lookPage(item("a", Position.LEFT), item("b", Position.LEFT, Section.HIDDEN), item("c", Position.CENTER, Section.OFF))
         choice(left).assertIsSelected()
