@@ -88,6 +88,28 @@ class HidePathTest {
         assertTrue("follow(false) comes before Ticker.stop, in the way off the screen", off < stop.indexOf("leaveScreen()") && "Ticker.stop(\"bar\")" in hide)
     }
 
+    /** A measure posted before the bar left arrives after it: it finds a bar that is gone, and places nothing. */
+    @Test fun aMeasureThatComesLateNeverPutsBackABarThatHasLeft() {
+        val gone = hide.indexOf("showing = false")
+        assertTrue(hide, gone >= 0 && hide.indexOf("strip.hide()", gone) > gone)
+        val apply = code.substringAfter("private fun applyWidth(").substringBefore("private var dragFrom")
+        assertTrue(apply, "if (!strip.shown) return" in apply)
+        assertTrue(apply, "if (showing) lastPlace?.let { (s, screenW) -> place(s, screenW) }" in apply)
+        assertEquals("the strip is placed nowhere else in it: $apply", 1, Regex("""\bplace\(""").findAll(apply).count())
+    }
+
+    /** A window that has not been measured has nothing to say about what it draws: it is not on show until it has. */
+    @Test fun aStripsWindowStaysInvisibleFromItsShowUntilItsFirstMeasure() {
+        val strip = File("src/main/java/com/meridian11/books/bentobar/bar/AreaStrip.kt").readText()
+        val show = strip.substringAfter("fun show(").substringBefore("\n    }\n")
+        val shown = show.indexOf("window.show(content)")
+        assertTrue(show, shown >= 0 && show.indexOf("window.setContentVisible(false)", shown) > shown)
+        assertTrue(show, "pending = true" in show)
+        val apply = code.substringAfter("private fun applyWidth(").substringBefore("private var dragFrom")
+        val measured = apply.indexOf("strip.pending = false")
+        assertTrue(apply, measured >= 0 && apply.indexOf("strip.setContentVisible(!empty)", measured) > measured)
+    }
+
     /** With no window carrying the flag for a moment, the screen could go off in it. */
     @Test fun keepAwakesFlagIsOnTheStripThatCarriesItBeforeItLeavesAnyOther() {
         val awake = File("src/main/java/com/meridian11/books/bentobar/bar/KeepAwake.kt").readText()

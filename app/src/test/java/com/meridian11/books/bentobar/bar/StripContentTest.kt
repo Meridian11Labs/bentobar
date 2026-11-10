@@ -181,8 +181,8 @@ class StripContentTest {
 
     /** Finding F08: while invisible nothing draws, and Compose's remeasure waits for a draw, so it is asked for by hand. */
     @Test fun aStripMadeInvisibleStillMeasuresWhatItsCompositionChanged() {
-        val host = code.substringAfter("private fun StripHost()").substringBefore("private var stripEmpty")
-        assertTrue(host, Regex("""SideEffect \{ if \(stripEmpty\) view\.requestLayout\(\) \}""").containsMatchIn(host))
+        val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
+        assertTrue(host, Regex("""SideEffect \{ if \(strip\.empty\) view\.requestLayout\(\) \}""").containsMatchIn(host))
         assertTrue(host, "StripContent.empty(w, drawn)" in host)
     }
 
