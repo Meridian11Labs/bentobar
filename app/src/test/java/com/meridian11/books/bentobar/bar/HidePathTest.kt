@@ -196,7 +196,8 @@ class HidePathTest {
         for (file in File("src/main/java/com/meridian11/books/bentobar/bar").listFiles()!!.filter { it.extension == "kt" })
             assertFalse("${file.name} reads Position's old setting", Regex("""\b(cfg|value|config)\.position\b""").containsMatchIn(file.readText()))
         val preview = File("src/main/java/com/meridian11/books/bentobar/ui/BarPage.kt").readText()
-        assertTrue("the preview's ‹ stands where the bar's does", "chevronOnLeft = cfg.homeArea() != Position.LEFT," in preview)
+        assertTrue("the preview's ‹ stands where the bar's does", "chevronOnLeft = area != Position.LEFT," in preview)
+        assertFalse("the preview reads Position's old setting", Regex("""\b(cfg|value|config)\.position\b""").containsMatchIn(preview))
     }
 
     /**

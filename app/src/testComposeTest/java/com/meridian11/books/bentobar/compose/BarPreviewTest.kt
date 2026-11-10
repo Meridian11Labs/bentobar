@@ -13,6 +13,7 @@ import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.isDisplayed
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -34,6 +35,7 @@ import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.ui.BarPreview
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -67,11 +69,15 @@ class BarPreviewTest {
     private fun item(id: String, area: Position, section: Section = Section.SHOWN) = ItemConfig(id, "cpu", section, area = area)
     private fun wide(vararg ids: String) = ids.associateWith { "Some more words $it" }
 
+    /** How wide the picture is. */
+    private var width by mutableStateOf(1000.dp)
+
     private fun show(items: List<ItemConfig>, width: Dp = 1000.dp, direction: LayoutDirection = LayoutDirection.Ltr, change: BarConfig.() -> BarConfig = { this }) {
+        this.width = width
         Store.update { BarConfig(items = items).change() }
         rule.setContent {
             CompositionLocalProvider(LocalLayoutDirection provides direction) {
-                Box(Modifier.requiredWidth(width)) {
+                Box(Modifier.requiredWidth(this.width)) {
                     BarPreview(items.associate { it.id to if (it.id in quiet) ItemState(desc = "${it.id} desc") else ItemState(icon = "X", text = words[it.id] ?: it.id, desc = "${it.id} desc") }, null) {}
                 }
             }
@@ -161,5 +167,125 @@ class BarPreviewTest {
         rule.onNodeWithContentDescription(app.getString(R.string.chevron_hide)).performClick()
         rule.waitForIdle()
         assertEquals(listOf(false, true), listOf("h", "a").map { drawn(it) })
+    }
+
+    // ---- Several areas: each where the bar has it, by the bar's rule of room. ----
+
+    private val three = listOf(item("l", Position.LEFT), item("m", Position.CENTER), item("r", Position.RIGHT))
+    private fun chevrons() = rule.onAllNodesWithContentDescription(app.getString(R.string.chevron_show)).let { all ->
+        all.fetchSemanticsNodes().indices.filter { all[it].isDisplayed() }.map { all[it].getBoundsInRoot() }.sortedBy { it.left }
+    }
+    /** The room between the clock and the 12 dp before the icons, which the areas share. */
+    private fun room() = icons().left - 12.dp - clock().right
+
+    @Test fun theItemsAreasSayWhereTheStripStandsAndTheOldPositionSettingSaysNothing() {
+        show(listOf(item("a", Position.LEFT), item("b", Position.LEFT))) { copy(position = Position.RIGHT) }
+        assertEquals(clock().right + 16.dp + end, at("a").left)
+    }
+
+    @Test fun threeAreasStandAtTheLeftEdgeInTheMiddleAndAtTheRightEdge() {
+        show(three)
+        assertEquals("Left begins where a layout on the left begins", clock().right + 16.dp + end, at("l").left)
+        assertEquals("Right ends where a layout on the right ends", icons().left - 12.dp - end, at("r").right)
+        val (left, right) = sides("m", "m")
+        assertTrue("the Middle is centred as a layout in the middle is: $left, $right", (right - left).value in 0f..1f)
+        assertTrue("no two overlap: ${at("l")}, ${at("m")}, ${at("r")}", at("l").right < at("m").left && at("m").right < at("r").left)
+        assertEquals(3.dp to 49.dp, at("m").top to at("m").bottom)
+        rule.onNodeWithText(app.getString(R.string.bar_preview_hint)).assertExists()
+    }
+
+    @Test fun aWideRightMovesTheMiddleLeftOnlyAsFarAsItMustAndNeverMakesItJump() {
+        words = mapOf("r1" to "W")
+        show(listOf(item("m", Position.CENTER), item("r1", Position.RIGHT), item("r2", Position.RIGHT)))
+        val centred = at("m").left
+        var last = centred
+        var edge = at("r1").left
+        var moved = false
+        for (n in 2..60) {
+            rule.runOnUiThread { words = mapOf("r1" to "W".repeat(n)) }
+            rule.waitForIdle()
+            if (!drawn("r1") || !drawn("m")) break // the Right is full, or the Middle has no room left
+            val now = at("m").left
+            val grown = edge - at("r1").left
+            assertTrue("with $n letters the Middle went from $last to $now while the Right grew by $grown", now <= last && last - now <= grown)
+            if (now < centred) {
+                moved = true
+                assertEquals("6 dp between the two strips", at("r1").left - end - 6.dp - end, at("m").right)
+            }
+            last = now
+            edge = at("r1").left
+        }
+        assertTrue("the Right got wide enough to move the Middle", moved)
+    }
+
+    @Test fun whatTheAreasHaveNoRoomForIsCountedOnceUnderThePicture() {
+        // 600 dp wide: the Right keeps one of its two, and what it leaves is too little for any of the others' items.
+        words = wide("l1", "l2", "m", "r1", "r2")
+        show(listOf(item("l1", Position.LEFT), item("l2", Position.LEFT), item("m", Position.CENTER), item("r1", Position.RIGHT), item("r2", Position.RIGHT)), width = 600.dp)
+        assertEquals(listOf(false, false, false, false, true), listOf("l1", "l2", "m", "r1", "r2").map { drawn(it) })
+        rule.onNodeWithText(app.getString(R.string.bar_preview_hint) + " " + more(4)).assertExists()
+    }
+
+    @Test fun anAreaWithNoRoomForAChevronIsNotDrawnAndItsItemsAreCounted() {
+        show(listOf(item("l", Position.LEFT), item("r", Position.RIGHT)))
+        // The Right's one item with its strip's ends, 6 dp to the Left and the 16 dp beside the clock leave the Left 33 dp:
+        // a ‹ needs 30 and its strip's ends 12.
+        width += (at("r").right - at("r").left) + end * 2 + 6.dp + 16.dp + 33.dp - room()
+        rule.waitForIdle()
+        assertEquals(listOf(false, true), listOf("l", "r").map { drawn(it) })
+        assertEquals("no ‹ where there is no room for one", 0, chevrons().size)
+        rule.onNodeWithText(app.getString(R.string.bar_preview_hint) + " " + more(1)).assertExists()
+        // With room for a ‹ and not for the item, the Left has its ‹ for it.
+        width += 20.dp
+        rule.waitForIdle()
+        assertEquals(listOf(false, true), listOf("l", "r").map { drawn(it) })
+        assertEquals(1, chevrons().size)
+        assertEquals("at the Left's place", clock().right + 16.dp + end, chevrons().single().left)
+        rule.onNodeWithText(app.getString(R.string.bar_preview_hint) + " " + more(1)).assertExists()
+    }
+
+    @Test fun inARightToLeftLanguageTheAreasKeepTheirSides() {
+        show(three, direction = LayoutDirection.Rtl)
+        // The picture is mirrored around them: the clock is on the right, the icons on the left with "US" at their right end.
+        assertEquals("Right ends 16 dp before the clock", clock().left - 16.dp - end, at("r").right)
+        assertEquals("Left begins 12 dp after the icons", icons().right + 12.dp + end, at("l").left)
+        val left = at("m").left - end - (icons().right + 12.dp)
+        val right = clock().left - (at("m").right + end)
+        assertTrue("the Middle is centred: $left, $right", (left - right).value in 0f..1f)
+        assertTrue("${at("l")}, ${at("m")}, ${at("r")}", at("l").right < at("m").left && at("m").right < at("r").left)
+    }
+
+    @Test fun eachAreaHasItsChevronOnItsOwnSideAndAPressOnOneBringsOutEveryAreasHiddenItems() {
+        show(listOf(item("a", Position.LEFT), item("h1", Position.LEFT, Section.HIDDEN), item("h2", Position.RIGHT, Section.HIDDEN), item("b", Position.RIGHT))) {
+            copy(hiddenMode = HiddenMode.CLICK)
+        }
+        val (ofLeft, ofRight) = chevrons()
+        assertTrue("the Left's ‹ is at its right end, the Right's at its left end", ofLeft.left >= at("a").right && ofRight.right <= at("b").left)
+        assertEquals(listOf(false, false), listOf("h1", "h2").map { drawn(it) })
+        rule.onAllNodesWithContentDescription(app.getString(R.string.chevron_show))[0].performClick()
+        rule.waitForIdle()
+        assertTrue("each area's hidden items are out beside its own ‹: ${at("h1")}, ${at("h2")}", at("h1").left > at("a").right && at("h2").right < at("b").left)
+        assertEquals("the areas stay where they are", (clock().right + 16.dp + end) to (icons().left - 12.dp - end), at("a").left to at("b").right)
+    }
+
+    @Test fun theHintTellsOfHiddenItemsInAnyArea() {
+        show(listOf(item("a", Position.LEFT), item("h", Position.LEFT, Section.HIDDEN), item("b", Position.RIGHT))) { copy(hiddenMode = HiddenMode.CLICK) }
+        says(app.getString(R.string.bar_preview_hint_hidden))
+    }
+
+    @Test fun anAreaThatDrawsNothingHasNoCapsuleBesideAnothersItems() {
+        quiet = setOf("l")
+        show(listOf(item("l", Position.LEFT), item("r", Position.RIGHT))) { copy(pill = Pill.SUBTLE) }
+        assertEquals(listOf(false, true), listOf("l", "r").map { drawn(it) })
+    }
+
+    @Test fun theEmptyCapsuleIsTheHomeAreasWhileNoAreaDraws() {
+        quiet = setOf("l", "r")
+        show(listOf(item("l", Position.LEFT), item("r", Position.RIGHT))) { copy(pill = Pill.SUBTLE) }
+        assertEquals(listOf(false, true), listOf("l", "r").map { drawn(it) })
+        // Without a pill there is no capsule to show, in any area.
+        rule.runOnUiThread { Store.update { it.copy(pill = Pill.NONE) } }
+        rule.waitForIdle()
+        assertEquals(listOf(false, false), listOf("l", "r").map { drawn(it) })
     }
 }
