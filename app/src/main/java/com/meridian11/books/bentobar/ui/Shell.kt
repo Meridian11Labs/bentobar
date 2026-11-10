@@ -67,6 +67,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -117,10 +118,13 @@ val LocalWindowLayout = compositionLocalOf { windowLayout(1180) }
 /** The header's tabs, in their order. Add is a tab only until the library takes its place beside the bar's list. */
 val tabs: List<Page> = listOf(Page.BAR, Page.LOOK, Page.SETUP, Page.ABOUT, Page.ADD)
 
-/** What the header's status line says: what the strip is actually doing, not just whether the service is on. */
+/**
+ * What the header's status line says: what the strip is actually doing, not just whether the service is on. While it
+ * is off the line names the one step left, on every tab: the control beside it, or Setup's own, takes it.
+ */
 @StringRes
-fun statusLine(running: Boolean, onSetup: Boolean, enabled: Boolean, status: BarStatus): Int = when {
-    !running -> if (onSetup) R.string.status_service_off_setup else R.string.status_service_off
+fun statusLine(running: Boolean, enabled: Boolean, status: BarStatus): Int = when {
+    !running -> R.string.bar_banner_title
     !enabled -> R.string.status_hidden
     else -> when (status) {
         BarStatus.STOPPED -> R.string.status_starting
@@ -143,7 +147,7 @@ enum class StatusTone {
 }
 
 fun statusTone(running: Boolean, enabled: Boolean, status: BarStatus): StatusTone =
-    if (!running) StatusTone.STEP else if (statusLine(running, false, enabled, status) == R.string.status_live) StatusTone.LIVE else StatusTone.WAITING
+    if (!running) StatusTone.STEP else if (statusLine(running, enabled, status) == R.string.status_live) StatusTone.LIVE else StatusTone.WAITING
 
 /**
  * The settings window: a header row directly under the system's caption and in its color (mark and name, the tabs,
@@ -173,7 +177,10 @@ fun Shell(
                 Box(Modifier.fillMaxWidth().background(c.chrome).windowInsetsPadding(insets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
                     Header(layout.kind == WindowClass.NARROW, page, onPage, running, enabled, status, onEnabled, onTurnOn)
                 }
-                Box(Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(insets.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)), content = content)
+                // The page's name is no longer written above it: a screen reader still hears it when the page changes.
+                val title = stringResource(page.title)
+                Box(Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(insets.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                    .semantics { paneTitle = title }, content = content)
             }
         }
     }
@@ -182,7 +189,7 @@ fun Shell(
 @Composable
 private fun Header(narrow: Boolean, page: Page, onPage: (Page) -> Unit, running: Boolean, enabled: Boolean, status: BarStatus,
                    onEnabled: (Boolean) -> Unit, onTurnOn: () -> Unit) {
-    val line = stringResource(statusLine(running, page == Page.SETUP, enabled, status))
+    val line = stringResource(statusLine(running, enabled, status))
     val tone = statusTone(running, enabled, status)
     if (narrow) Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().height(Target.tab).padding(start = Space.l, end = Space.m), verticalAlignment = Alignment.CenterVertically) {

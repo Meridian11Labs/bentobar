@@ -48,12 +48,10 @@ class WindowLayoutTest {
     }
 
     @Test fun theStatusLineSaysWhatTheBarIsDoing() {
-        fun line(running: Boolean = true, onSetup: Boolean = false, enabled: Boolean = true, status: BarStatus = BarStatus.SHOWN) =
-            statusLine(running, onSetup, enabled, status)
-        assertEquals(R.string.status_service_off, line(running = false))
-        assertEquals(R.string.status_service_off_setup, line(running = false, onSetup = true))
-        // Off wins over everything the bar last said.
-        assertEquals(R.string.status_service_off, line(running = false, enabled = false, status = BarStatus.NO_ROOM))
+        fun line(running: Boolean = true, enabled: Boolean = true, status: BarStatus = BarStatus.SHOWN) = statusLine(running, enabled, status)
+        // Off: the one step left, which wins over everything the bar last said.
+        assertEquals(R.string.bar_banner_title, line(running = false))
+        assertEquals(R.string.bar_banner_title, line(running = false, enabled = false, status = BarStatus.NO_ROOM))
         assertEquals(R.string.status_hidden, line(enabled = false))
         assertEquals(R.string.status_hidden, line(enabled = false, status = BarStatus.NO_ROOM))
         assertEquals(R.string.status_starting, line(status = BarStatus.STOPPED))
@@ -64,8 +62,6 @@ class WindowLayoutTest {
         assertEquals(R.string.status_live, line(status = BarStatus.SHOWN))
         assertEquals(R.string.status_live, line(status = BarStatus.HIDDEN_BY_USER))
         assertEquals(R.string.status_live, line(status = BarStatus.ASLEEP))
-        // Setup's own wording only while off.
-        assertEquals(R.string.status_live, line(onSetup = true))
     }
 
     @Test fun theDotAgreesWithTheLine() {

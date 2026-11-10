@@ -384,8 +384,6 @@
     <string name="page_look">Look and behavior</string>
     <string name="page_setup">Setup</string>
     <string name="page_about">About BentoBar</string>
-    <string name="status_service_off_setup">BentoBar\'s accessibility service is off. Turn it on in step 1.</string>
-    <string name="status_service_off">BentoBar\'s accessibility service is off. Turn it on in Setup.</string>
     <string name="status_hidden">Hidden. Show it again here or with the Quick Settings tile.</string>
     <string name="status_starting">Starting…</string>
     <string name="status_no_room">No free space in the status bar right now.</string>

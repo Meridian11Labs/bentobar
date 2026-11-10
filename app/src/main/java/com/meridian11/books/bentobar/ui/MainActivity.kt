@@ -5,33 +5,18 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.WindowInsetsController
 import android.view.accessibility.AccessibilityManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -40,12 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.bar.BarService
 import com.meridian11.books.bentobar.bar.BarStatus
@@ -55,16 +35,17 @@ import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.items.Notify
 import com.meridian11.books.bentobar.items.Ticker
-import com.meridian11.books.bentobar.util.Sym
-import com.meridian11.books.bentobar.util.SymIcon
 
-/** The settings window's pages: what the rail shows and what the header says. A new page goes here and in [MainActivity]'s `when`. */
-enum class Page(val icon: String, @androidx.annotation.StringRes val label: Int, @androidx.annotation.StringRes val title: Int) {
-    BAR(Sym.WYSIWYG, R.string.nav_bar, R.string.page_bar),
-    ADD(Sym.ADD, R.string.nav_add, R.string.page_add),
-    LOOK(Sym.PALETTE, R.string.nav_look, R.string.page_look),
-    SETUP(Sym.TUNE, R.string.nav_setup, R.string.page_setup),
-    ABOUT(Sym.INFO, R.string.nav_about, R.string.page_about),
+/**
+ * The settings window's pages: what its tab says ([label]) and what the page is called for a screen reader ([title]).
+ * A new page goes here, in [tabs] and in [MainActivity]'s `when`. The order here is what a saved window remembers.
+ */
+enum class Page(@androidx.annotation.StringRes val label: Int, @androidx.annotation.StringRes val title: Int) {
+    BAR(R.string.nav_bar, R.string.page_bar),
+    ADD(R.string.nav_add, R.string.page_add),
+    LOOK(R.string.nav_look, R.string.page_look),
+    SETUP(R.string.nav_setup, R.string.page_setup),
+    ABOUT(R.string.nav_about, R.string.page_about),
 }
 
 class MainActivity : ComponentActivity() {
@@ -81,6 +62,7 @@ class MainActivity : ComponentActivity() {
         Env.init(this)
         Notify.channels(this)
         enableEdgeToEdge()
+        captionInHeaderColor()
         // Recreated (theme, language, text size or density changed): stay where the user was, and
         // don't act on the launch intent again (it could ask for a permission twice).
         if (savedInstanceState == null) {
@@ -92,13 +74,20 @@ class MainActivity : ComponentActivity() {
             page = Page.entries.getOrElse(savedInstanceState.getInt(STATE_PAGE)) { Page.BAR }; selected = savedInstanceState.getString(STATE_SELECTED)
             disclosure = savedInstanceState.getBoolean(STATE_DISCLOSURE)
         }
-        setContent {
-            BentoBarTheme {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-                    App()
-                }
-            }
-        }
+        setContent { SettingsTheme { App() } }
+    }
+
+    /**
+     * The system's caption takes the header's color: its own ground goes, [Shell] paints the header's under it, and its
+     * buttons are drawn for a light or a dark ground. Nothing of BentoBar's is placed in the caption. A change of theme
+     * recreates the window, so once is enough.
+     */
+    private fun captionInHeaderColor() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
+        val light = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES
+        val ground = WindowInsetsController.APPEARANCE_TRANSPARENT_CAPTION_BAR_BACKGROUND
+        val buttons = WindowInsetsController.APPEARANCE_LIGHT_CAPTION_BARS
+        window.insetsController?.setSystemBarsAppearance(if (light) ground or buttons else ground, ground or buttons)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -191,68 +180,27 @@ class MainActivity : ComponentActivity() {
         val setup by Setup.state.collectAsState()
         val status by BarStatus.current.collectAsState()
         val running = setup.serviceOn
-        Row(Modifier.fillMaxSize().safeDrawingPadding()) {
-            NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxHeight()) {
-                Spacer(Modifier.height(12.dp))
-                androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(com.meridian11.books.bentobar.R.drawable.ic_bentobar), contentDescription = stringResource(R.string.app_name),
-                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
-                Spacer(Modifier.height(20.dp))
-                Page.entries.forEach { p ->
-                    NavigationRailItem(selected = page == p, onClick = { page = p },
-                        icon = { SymIcon(p.icon, size = 22.sp, filled = page == p) }, label = { Text(stringResource(p.label)) })
+        Shell(page, { page = it }, running, cfg.enabled, status, onEnabled = { on -> Store.update { it.copy(enabled = on) } }, onTurnOn = ::turnOn) {
+            // Before the pages: a message is seen only by someone already listening, and BarPage's Undo posts as it opens.
+            val snackbar = rememberNotices()
+            when (page) {
+                Page.BAR -> BarPage(running, selected, onSelect = { selected = it }, onSetup = { page = Page.SETUP })
+                // Adding keeps you on Add: a message confirms it, with Undo, instead of jumping pages.
+                Page.ADD -> AddPage { id ->
+                    val added = Store.config.value.items.firstOrNull { it.id == id }
+                    val type = added?.let { Items.of(it.type) }
+                    val title = type?.title.orEmpty()
+                    // Added to When active, the bar looks as before: the message says when the item will show.
+                    val rule = added?.takeIf { it.whenActive && it.section == com.meridian11.books.bentobar.data.Section.HIDDEN }?.let { type?.trigger?.short(it) }
+                    Notice.post(if (rule != null) getString(R.string.add_added_rule, title, rule) else getString(R.string.add_added, title),
+                        getString(R.string.bar_undo)) { Store.remove(id) }
                 }
+                Page.LOOK -> LookPage()
+                Page.SETUP -> SetupPage(this@MainActivity, setup, onTurnOn = ::turnOn)
+                Page.ABOUT -> AboutPage()
             }
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                Row(Modifier.fillMaxWidth().padding(start = 28.dp, end = 20.dp, top = 18.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(page.title),
-                            style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
-                        // Says what the strip is actually doing, not just whether the service is on.
-                        Text(stringResource(when {
-                            !running -> if (page == Page.SETUP) R.string.status_service_off_setup else R.string.status_service_off
-                            !cfg.enabled -> R.string.status_hidden
-                            else -> when (status) {
-                                BarStatus.STOPPED -> R.string.status_starting
-                                BarStatus.NO_ROOM -> R.string.status_no_room
-                                BarStatus.EMPTY -> R.string.status_empty
-                                BarStatus.NO_BAR -> R.string.status_no_bar
-                                BarStatus.COVERED -> R.string.status_covered
-                                else -> R.string.status_live
-                            }
-                        }), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    // Only meaningful once the service runs; before that, Setup is the way in.
-                    if (running) {
-                        Row(Modifier.toggleable(cfg.enabled, role = androidx.compose.ui.semantics.Role.Switch) { on -> Store.update { it.copy(enabled = on) } },
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.show_in_status_bar), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(end = 10.dp))
-                            Switch(checked = cfg.enabled, onCheckedChange = null)
-                        }
-                    }
-                }
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    // Before the pages: a message is seen only by someone already listening, and BarPage's Undo posts as it opens.
-                    val snackbar = rememberNotices()
-                    when (page) {
-                        Page.BAR -> BarPage(running, selected, onSelect = { selected = it }, onSetup = { page = Page.SETUP })
-                        // Adding keeps you on Add: a message confirms it, with Undo, instead of jumping pages.
-                        Page.ADD -> AddPage { id ->
-                            val added = Store.config.value.items.firstOrNull { it.id == id }
-                            val type = added?.let { Items.of(it.type) }
-                            val title = type?.title.orEmpty()
-                            // Added to When active, the bar looks as before: the message says when the item will show.
-                            val rule = added?.takeIf { it.whenActive && it.section == com.meridian11.books.bentobar.data.Section.HIDDEN }?.let { type?.trigger?.short(it) }
-                            Notice.post(if (rule != null) getString(R.string.add_added_rule, title, rule) else getString(R.string.add_added, title),
-                                getString(R.string.bar_undo)) { Store.remove(id) }
-                        }
-                        Page.LOOK -> LookPage()
-                        Page.SETUP -> SetupPage(this@MainActivity, setup, onTurnOn = ::turnOn)
-                        Page.ABOUT -> AboutPage()
-                    }
-                    // Last, so it's drawn over the page (in a Box, later children are on top).
-                    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
-                }
-            }
+            // Last, so it's drawn over the page (in a Box, later children are on top).
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
         }
         if (disclosure) AccessibilityDisclosure(
             onAgree = { disclosure = false; Store.setConsent(Store.Consent.AGREED); openAccessibility(this) },
