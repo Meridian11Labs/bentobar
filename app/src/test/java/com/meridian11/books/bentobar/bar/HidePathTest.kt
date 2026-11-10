@@ -180,6 +180,32 @@ class HidePathTest {
     }
 
     /**
+     * The first strip's ‹ comes and goes for the areas with no room, so nothing behind it may follow that ‹, or an area
+     * would get room because it had none and lose it because it had some. With several areas in use the first strip keeps
+     * a ‹'s room in its own fit whatever it draws, and says its reach: its width with that room, the same number with the
+     * ‹ and without. The others are placed by it ([BarRules.arrange]). With one area the fit is the strip's own, as it was.
+     */
+    @Test fun theFirstStripOfSeveralKeepsAChevronsRoomAndTheOthersStandBehindItsReach() {
+        val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
+        assertTrue(host, "chevronAlways = plan.chevronAlways || (strip.area == carrier && cfg.areasInUse().size > 1)," in host)
+        assertTrue("a strip that becomes the first is composed again", "private var carrier by mutableStateOf(ROOM_ORDER.first())" in code)
+        // The room it keeps, the room in its reach and the room `arrange` asks for are one number.
+        assertTrue(host, "chevronReservePx = (30 * density).toInt()," in host)
+        val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
+        assertTrue(place, "least = (30 * density).toInt() + 2 * ends," in place)
+        val ui = File("src/main/java/com/meridian11/books/bentobar/bar/BarUi.kt").readText()
+        assertTrue("the reach is what it keeps, a ‹'s whole room and its two ends", "onFit = { used -> onReach(used + chevronReservePx + 2 * ends) }," in ui)
+        // Read where the width is reported, as state: a fit that changed under an unchanged width is still heard.
+        assertTrue(host, "val reach = remember { mutableIntStateOf(0) }" in host && "onReach = { reach.intValue = it }," in host)
+        assertTrue(host, "val r = reach.intValue" in host && "|| r != strip.reach) main.post { applyWidth(strip, w, empty, r) }" in host)
+        val apply = code.substringAfter("private fun applyWidth(").substringBefore("private var dragFrom")
+        assertTrue(apply, "strip.reach = reach" in apply)
+        val strip = File("src/main/java/com/meridian11/books/bentobar/bar/AreaStrip.kt").readText()
+        assertTrue("kept while it has no window, as its width is", "fun state() = BarRules.AreaState(measured, empty, shown, pending, reach)" in strip)
+        assertFalse(strip.substringAfter("fun hide() {").substringBefore("}"), "reach" in strip.substringAfter("fun hide() {").substringBefore("}"))
+    }
+
+    /**
      * Strips come and go in a placing, so whether the bar draws anything is asked again there. That adds no reading of
      * the bar: the colour reader hears of it only when the answer changed, and a first show has its one slow reading.
      */

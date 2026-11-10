@@ -26,6 +26,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.data.HiddenMode
@@ -143,8 +145,8 @@ class BarController(private val service: AccessibilityService) {
         val title = when (area) { Position.RIGHT -> "BentoBar"; Position.LEFT -> "BentoBar left"; Position.CENTER -> "BentoBar middle" }
         AreaStrip(area, Overlay(service, title, onOutside = { outsideClick() }).apply { params.width = 1; watchOutside(false) })
     }
-    /** The area whose strip does what the bar does once: the first one placed. */
-    private var carrier = ROOM_ORDER.first()
+    /** The area whose strip does what the bar does once: the first one placed. State: a strip that becomes it is composed again. */
+    private var carrier by mutableStateOf(ROOM_ORDER.first())
     private fun carrierStrip() = strips.first { it.area == carrier }
     /** The areas in use that have no room right now: their items are on no strip. */
     private val owed = mutableStateOf(emptySet<Position>())
@@ -517,13 +519,22 @@ class BarController(private val service: AccessibilityService) {
         // good. Measuring still runs, if it is asked for: the rule above is heard as soon as the composition changes.
         val view = LocalView.current
         SideEffect { if (strip.empty) view.requestLayout() }
+        // Its reach is known when its items are laid out, before its width is. It is read as state where the width is
+        // reported, so a fit that changed under an unchanged width (an item gone, a ‹ come) is still heard.
+        val reach = remember { mutableIntStateOf(0) }
         MeasuredStrip(bias = when (strip.area) { Position.RIGHT -> 1f; Position.CENTER -> 0f; Position.LEFT -> -1f },
-            onWidth = { w -> val empty = StripContent.empty(w, drawn); if (w != strip.measured || empty != strip.empty || strip.pending) main.post { applyWidth(strip, w, empty) } }) {
+            onWidth = { w ->
+                val empty = StripContent.empty(w, drawn)
+                val r = reach.intValue
+                if (w != strip.measured || empty != strip.empty || strip.pending || r != strip.reach) main.post { applyWidth(strip, w, empty, r) }
+            }) {
             Strip(
                 visible = shownEntries,
                 revealed = revealedEntries,
                 showChevron = plan.chevron,
-                chevronAlways = plan.chevronAlways,
+                // The first strip's ‹ also comes and goes for the areas with no room. With several areas in use it keeps
+                // a ‹'s room whatever it draws, so that what it keeps, and with it the room behind it, never follows that ‹.
+                chevronAlways = plan.chevronAlways || (strip.area == carrier && cfg.areasInUse().size > 1),
                 chevronReservePx = (30 * density).toInt(),
                 expanded = plan.open,
                 chevronOnLeft = strip.area != Position.LEFT,
@@ -534,6 +545,7 @@ class BarController(private val service: AccessibilityService) {
                 onOverflow = { ids -> main.post { if (strip.shown) { strip.dropped = ids; publishOverflow() } } },
                 // The item a popup belongs to: an item's popup and its right-click menu are the item's, the ‹ menu is ‹'s.
                 open = menus.menuKey?.owner?.ifEmpty { null }.takeIf { menus.menuStrip === strip },
+                onReach = { reach.intValue = it },
             )
         }
     }
@@ -552,10 +564,10 @@ class BarController(private val service: AccessibilityService) {
     private fun status() = if (refused) BarStatus.STOPPED else StripContent.status(empty = strips.any { it.shown } && stripEmpty, noRoom = maxWidth.intValue == 0)
 
     /** A strip measured its content: what it measured is kept on the strip, and the bar is placed again by it. */
-    private fun applyWidth(strip: AreaStrip, w: Int, empty: Boolean) {
+    private fun applyWidth(strip: AreaStrip, w: Int, empty: Boolean, reach: Int) {
         if (!strip.shown) return // it left meanwhile
         val was = stripEmpty
-        strip.measured = w; strip.empty = empty; strip.pending = false
+        strip.measured = w; strip.empty = empty; strip.reach = reach; strip.pending = false
         strip.setContentVisible(!empty) // the one place a strip's window becomes visible, or invisible again
         stripEmpty = strips.none { it.draws }
         if (stripEmpty != was) {

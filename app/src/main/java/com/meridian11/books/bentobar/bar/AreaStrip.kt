@@ -12,12 +12,14 @@ import com.meridian11.books.bentobar.data.Position
  * One area's strip: its window and what belongs to that window alone. The controller reaches a strip's window through
  * this, and the popups and the tooltip are told which strip they hang from.
  *
- * What it last measured and whether it drew anything are kept while it has no window: they say how much room it wants
- * when it comes back.
+ * What it last measured, its reach and whether it drew anything are kept while it has no window: they say how much room
+ * it wants when it comes back.
  */
 internal class AreaStrip(val area: Position, val window: Overlay) {
     /** The width its content last measured. */
     var measured = 0
+    /** How wide it last was with a ‹'s whole room beside the items it kept, with a ‹ or without: what the strips behind the first keep clear. */
+    var reach = 0
     /** Whether it last had nothing to draw ([StripContent.empty]); its window's root is invisible while so. */
     var empty by mutableStateOf(false)
     /** Shown and not measured since: its root is still invisible, and it counts as drawing until the measure says. */
@@ -33,7 +35,7 @@ internal class AreaStrip(val area: Position, val window: Overlay) {
     /** On screen with something to see, or about to say whether it has. */
     val draws get() = shown && (pending || !empty)
 
-    fun state() = BarRules.AreaState(measured, empty, shown, pending)
+    fun state() = BarRules.AreaState(measured, empty, shown, pending, reach)
 
     /**
      * A window starts invisible: nothing has been measured, so nothing says yet whether it has anything to draw, and a
