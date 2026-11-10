@@ -32,10 +32,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.areasInUse
+import com.meridian11.books.bentobar.data.carrierOverflow
 import com.meridian11.books.bentobar.data.stripPlan
 import com.meridian11.books.bentobar.data.behindChevron
 import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.moved
+import com.meridian11.books.bentobar.data.owedIds
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Pill
 import com.meridian11.books.bentobar.data.Position
@@ -150,6 +152,10 @@ class BarController(private val service: AccessibilityService) {
     private fun carrierStrip() = strips.first { it.area == carrier }
     /** The areas in use that have no room right now: their items are on no strip. */
     private val owed = mutableStateOf(emptySet<Position>())
+    /** What those areas would draw now, as the first strip last said it: its ‹ is for them, and its menu lists them. */
+    private var owedItems = emptySet<String>()
+    /** The areas whose strip is on screen, measured and drawing something: the empty capsule is the home area's only while no other is among them. */
+    private val drawing = mutableStateOf(emptySet<Position>())
     /** The area whose strip's window keeps the screen on: the first placed that draws. Null when none does. */
     private var awakeArea: Position? = null
 
@@ -262,6 +268,7 @@ class BarController(private val service: AccessibilityService) {
         BarLook.current.value = null
         BarStatus.current.value = BarStatus.STOPPED
         BarOverflow.ids.value = emptySet()
+        owedItems = emptySet()
         runCatching { service.unregisterReceiver(screen) }
         colors.stop()
         // Before the strip goes, which would ask keep awake for a wake lock in its place.
@@ -290,6 +297,7 @@ class BarController(private val service: AccessibilityService) {
         if (!pinned && expanded.value) expanded.value = false
         showing = false // before the windows go: a measure on its way finds the bar gone
         for (strip in strips) strip.hide()
+        noteDrawing()
         // Readings still to come were for a strip that is gone: its return asks again.
         colors.stripLeft()
         awake.update()
@@ -307,15 +315,27 @@ class BarController(private val service: AccessibilityService) {
         if (dragFrom?.first in strip.placed) cancelDrag() // its window takes the release with it
         if (hovering && hoverStrip === strip) events.getValue(strip).hover(false) // and the Exit
         strip.hide()
+        noteDrawing()
         publishOverflow() // what it had no room for went with it
     }
 
+    /** Which strips draw is asked again: a strip was measured, or went. */
+    private fun noteDrawing() {
+        drawing.value = strips.filter { it.shown && !it.pending && !it.empty }.mapTo(mutableSetOf()) { it.area }
+    }
+
+    /** The first strip says what the areas with no window would draw now, each time it is composed. */
+    private fun owe(ids: Set<String>) {
+        if (ids != owedItems) { owedItems = ids; publishOverflow() }
+    }
+
     /**
-     * What has no room right now, for Settings' rows and the ‹ menu: every strip's own, as one set. A ‹ coming or going
-     * changes a strip's width, so the bar is looked at again, and only when the set changed.
+     * What has no room right now, for Settings' rows and the ‹ menu: every strip's own and what the areas with no window
+     * are owed, as one set. A ‹ coming or going changes a strip's width, so the bar is looked at again, and only when the
+     * set changed.
      */
     private fun publishOverflow() {
-        val ids = strips.flatMapTo(mutableSetOf()) { it.dropped }
+        val ids = strips.flatMapTo(mutableSetOf()) { it.dropped } + owedItems
         if (BarOverflow.ids.value != ids) { BarOverflow.ids.value = ids; main.post(scanNow) }
     }
 
@@ -509,12 +529,21 @@ class BarController(private val service: AccessibilityService) {
         val entries = { list: List<ItemConfig> -> list.map { StripEntry(it, states[it.id] ?: Ticker.placeholder(it)) } }
         // While dragging, the bar shows the order the item would land in.
         val items = dragPreview.value?.let { (id, at) -> cfg.items.moved(id, Section.SHOWN, at) } ?: cfg.items
-        // Its own area's items, and a ‹ for what it has no room for itself: another strip's lack of room is not its business.
-        val plan = cfg.copy(items = items).stripPlan(strip.area, { states[it.id]?.active == true }, expanded.value, strip.dropped.isNotEmpty())
+        val active = { item: ItemConfig -> states[item.id]?.active == true }
+        // An area with no room has no window, and what it would draw now must not be out of reach: it is owed to the first
+        // strip. Decided here, so a rule that starts to hold in such an area is heard at once; told once it is applied.
+        val owes = if (strip.area == carrier) cfg.owedIds(owed.value, active, expanded.value) else emptySet()
+        SideEffect { if (strip.area == carrier) owe(owes) }
+        // Its own area's items, and a ‹ for what it has no room for itself: a placed strip's lack of room is not another's
+        // business. The first strip's ‹ is also there for what is owed, and for presenting's ‹ when the home area has no window.
+        val plan = cfg.copy(items = items).stripPlan(strip.area, active, expanded.value,
+            strip.dropped.isNotEmpty() || (strip.area == carrier && cfg.carrierOverflow(owed.value, owes)))
         val shownEntries = entries(plan.visible)
         val revealedEntries = entries(plan.revealed)
         // The one rule for an empty strip: what it puts on the screen, never how many entries it has.
-        val drawn = StripContent.drawn(shownEntries + revealedEntries, plan.chevron, look.value.pill, home = strip.area == cfg.homeArea())
+        // The empty capsule shows once: in the home area, and not beside another area's items.
+        val drawn = StripContent.drawn(shownEntries + revealedEntries, plan.chevron, look.value.pill,
+            home = strip.area == cfg.homeArea() && (drawing.value - strip.area).isEmpty())
         // While the window is invisible nothing draws, and the remeasure Compose hands to the next draw would wait for it for
         // good. Measuring still runs, if it is asked for: the rule above is heard as soon as the composition changes.
         val view = LocalView.current
@@ -569,6 +598,7 @@ class BarController(private val service: AccessibilityService) {
         val was = stripEmpty
         strip.measured = w; strip.empty = empty; strip.reach = reach; strip.pending = false
         strip.setContentVisible(!empty) // the one place a strip's window becomes visible, or invisible again
+        noteDrawing()
         stripEmpty = strips.none { it.draws }
         if (stripEmpty != was) {
             trace("strip ${if (stripEmpty) "empty" else "has content"}"); awake.update()

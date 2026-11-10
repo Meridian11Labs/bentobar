@@ -149,7 +149,7 @@ class HidePathTest {
         val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
         assertTrue(place, "home = cfg.homeArea(), inUse = cfg.areasInUse()," in place)
         val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
-        for (own in listOf(".stripPlan(strip.area, ", "home = strip.area == cfg.homeArea())", "bias = when (strip.area) {", "chevronOnLeft = strip.area != Position.LEFT,"))
+        for (own in listOf(".stripPlan(strip.area, ", "home = strip.area == cfg.homeArea() && (drawing.value - strip.area).isEmpty())", "bias = when (strip.area) {", "chevronOnLeft = strip.area != Position.LEFT,"))
             assertTrue("$own in $host", own in host)
         val menu = code.substringAfter("fun openBarMenu(): Boolean {").substringBefore("\n    }\n")
         assertTrue("the keyboard's menu hangs from the carrier, at the end its area says: $menu", "val strip = carrierStrip()" in menu && "if (strip.area == Position.LEFT)" in menu)
@@ -162,21 +162,51 @@ class HidePathTest {
 
     /**
      * What a strip has no room for is its own: its ‹ is for its own items, and a strip with room says nothing about
-     * another's. Settings and the ‹ menu get every strip's as one set, from one place.
+     * another's. The first strip's ‹ is also for the areas with no window at all: what they would draw now is owed to it,
+     * and so is presenting's ‹ when the home area is one of them. Settings and the ‹ menu get every strip's own and what
+     * is owed as one set, from one place.
      */
-    @Test fun whatAStripHasNoRoomForIsItsOwnAndIsPublishedAsOneSet() {
+    @Test fun whatHasNoRoomIsItsStripsOwnOrOwedToTheFirstStripAndIsPublishedAsOneSet() {
         val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
-        assertTrue(host, "expanded.value, strip.dropped.isNotEmpty())" in host)
+        assertTrue(host, "val owes = if (strip.area == carrier) cfg.owedIds(owed.value, active, expanded.value) else emptySet()" in host)
+        assertTrue(host, "strip.dropped.isNotEmpty() || (strip.area == carrier && cfg.carrierOverflow(owed.value, owes)))" in host)
         assertTrue(host, "onOverflow = { ids -> main.post { if (strip.shown) { strip.dropped = ids; publishOverflow() } } }," in host)
         assertFalse("no strip plans by what another has no room for: $host", "BarOverflow" in host)
+        // Decided in the composition, so a rule that starts to hold in an area with no window is heard at once; told once it is applied.
+        assertTrue(host, "SideEffect { if (strip.area == carrier) owe(owes) }" in host)
+        val owe = code.substringAfter("private fun owe(ids: Set<String>) {").substringBefore("\n    }\n")
+        assertTrue(owe, "if (ids != owedItems) { owedItems = ids; publishOverflow() }" in owe)
         val publish = code.substringAfter("private fun publishOverflow() {").substringBefore("\n    }\n")
-        assertTrue(publish, "strips.flatMapTo(mutableSetOf()) { it.dropped }" in publish)
+        assertTrue(publish, "val ids = strips.flatMapTo(mutableSetOf()) { it.dropped } + owedItems" in publish)
         assertTrue("the bar is read again only when the set changed: $publish", "if (BarOverflow.ids.value != ids) { BarOverflow.ids.value = ids; main.post(scanNow) }" in publish)
         assertEquals("written by stop() and by publishOverflow() alone", 2, Regex("""BarOverflow\.ids\.value = """).findAll(code).count())
-        // A strip that left has nothing left over: its items are no longer said not to fit (task 6 says they are owed).
+        // What does not fit asks for one look at the bar, from that one place: the only other is the screen going on or off.
+        assertEquals(2, Regex("""main\.post\(scanNow\)""").findAll(code).count())
+        assertTrue("main.post(scanNow)" in code.substringAfter("private val screen = object : BroadcastReceiver() {").substringBefore("\n    }\n"))
+        // The next controller starts with nothing owed, as it starts with nothing published.
+        assertTrue(stop, "owedItems = emptySet()" in stop)
+        // A strip that left has nothing left over. If its area has no room, what it would draw is owed instead.
         val leave = code.substringAfter("private fun leave(strip: AreaStrip) {").substringBefore("\n    }\n")
         val gone = leave.indexOf("strip.hide()")
         assertTrue(leave, gone >= 0 && leave.indexOf("publishOverflow()", gone) > gone)
+    }
+
+    /**
+     * The empty capsule shows once: in the home area, and only while no other area's strip draws anything. Which strips
+     * draw is kept as state, said again wherever it can change: a strip measured, one strip gone, the bar gone.
+     */
+    @Test fun theEmptyCapsuleIsTheHomeAreasAndOnlyWhileNoOtherStripDraws() {
+        val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
+        assertTrue(host, "home = strip.area == cfg.homeArea() && (drawing.value - strip.area).isEmpty())" in host)
+        assertTrue("private val drawing = mutableStateOf(emptySet<Position>())" in code)
+        val note = code.substringAfter("private fun noteDrawing() {").substringBefore("\n    }\n")
+        assertTrue(note, "drawing.value = strips.filter { it.shown && !it.pending && !it.empty }.mapTo(mutableSetOf()) { it.area }" in note)
+        val apply = code.substringAfter("private fun applyWidth(").substringBefore("private var dragFrom")
+        assertTrue(apply, apply.indexOf("noteDrawing()") > apply.indexOf("strip.setContentVisible(!empty)"))
+        val leave = code.substringAfter("private fun leave(strip: AreaStrip) {").substringBefore("\n    }\n")
+        assertTrue(leave, leave.indexOf("noteDrawing()") > leave.indexOf("strip.hide()"))
+        assertTrue(hide, hide.indexOf("noteDrawing()") > hide.indexOf("for (strip in strips) strip.hide()"))
+        assertEquals("nowhere else: a strip newly shown has not been measured", 3, Regex("""\bnoteDrawing\(\)(?! \{)""").findAll(code).count())
     }
 
     /**
