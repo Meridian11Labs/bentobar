@@ -437,11 +437,12 @@ class BarController(private val service: AccessibilityService) {
         // While dragging, the bar shows the order the item would land in.
         val items = dragPreview.value?.let { (id, at) -> cfg.items.moved(id, Section.SHOWN, at) } ?: cfg.items
         val overflow by BarOverflow.ids.collectAsState()
+        // The one strip is the home area's: with every item in one area, that is every item.
         val plan = cfg.copy(items = items).stripPlan(cfg.homeArea(), { states[it.id]?.active == true }, expanded.value, overflow.isNotEmpty())
         val shownEntries = entries(plan.visible)
         val revealedEntries = entries(plan.revealed)
         // The one rule for an empty strip: what it puts on the screen, never how many entries it has.
-        val drawn = StripContent.drawn(shownEntries + revealedEntries, plan.chevron, look.value.pill)
+        val drawn = StripContent.drawn(shownEntries + revealedEntries, plan.chevron, look.value.pill, home = true)
         // While the window is invisible nothing draws, and the remeasure Compose hands to the next draw would wait for it for
         // good. Measuring still runs, if it is asked for: the rule above is heard as soon as the composition changes.
         val view = LocalView.current

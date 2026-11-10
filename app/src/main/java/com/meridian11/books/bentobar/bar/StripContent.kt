@@ -59,9 +59,13 @@ internal object StripContent {
         return parts.slider != null || parts.route != null || parts.iconDrawn || parts.textDrawn
     }
 
-    /** Whether the strip draws anything: an item that does, ‹, or the pill (which stays up as an empty capsule, as it always has). */
-    fun drawn(entries: List<StripEntry>, chevron: Boolean, pill: Pill): Boolean =
-        chevron || pill != Pill.NONE || entries.any { draws(it.item.type, it.item.display, it.state) }
+    /**
+     * Whether the strip draws anything: an item that does, ‹, or the pill (which stays up as an empty capsule, as it always has).
+     * The empty capsule says the bar is there, so it is one for the bar: [home] is the caller's word that this is the home
+     * area's strip and no other strip draws. It has no default, so that no caller answers it without meaning to.
+     */
+    fun drawn(entries: List<StripEntry>, chevron: Boolean, pill: Pill, home: Boolean): Boolean =
+        chevron || (home && pill != Pill.NONE) || entries.any { draws(it.item.type, it.item.display, it.state) }
 
     /** The strip's window is made invisible: nothing is drawn. [width] is only for sizing; 0 means nothing was measured to show. */
     fun empty(width: Int, drawn: Boolean) = width <= 0 || !drawn

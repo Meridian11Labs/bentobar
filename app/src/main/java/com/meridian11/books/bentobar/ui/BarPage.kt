@@ -197,7 +197,8 @@ private fun BarPreview(states: Map<String, ItemState>, selected: String?, onSele
     // The preview is narrower than a status bar: what it has no room for is said under it, or an item
     // that is in the list and not in the picture looks lost.
     var dropped by remember { mutableStateOf(emptySet<String>()) }
-    // What the bar shows, by the same function: the preview makes no choice of its own.
+    // What the bar shows, by the same function: the preview makes no choice of its own. Like the bar's one strip, it is the
+    // home area's: with every item in one area, that is every item.
     val plan = cfg.stripPlan(cfg.homeArea(), { states[it.id]?.active == true }, expanded, dropped.isNotEmpty())
     val entries = { list: List<ItemConfig> -> list.map { StripEntry(it, states[it.id] ?: Ticker.placeholder(it)) } }
     // The preview uses the strip's real colours: the sampled bar when BentoBar is running and the

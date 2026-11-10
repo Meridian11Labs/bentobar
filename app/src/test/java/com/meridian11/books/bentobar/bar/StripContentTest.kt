@@ -75,27 +75,47 @@ class StripContentTest {
     /** Finding F25: a transparent window for items that draw nothing is what Play Protect flags. */
     @Test fun aStripOfOnlyBlankItemsDrawsNothingHoweverManyThereAre() {
         val spacers = List(5) { entry("s$it", ItemState(gapDp = 16), type = "spacer") }
-        assertFalse(StripContent.drawn(spacers, chevron = false, pill = Pill.NONE))
-        assertFalse(StripContent.drawn(listOf(entry("t", blank, display = Display.ICON)), chevron = false, pill = Pill.NONE))
+        assertFalse(StripContent.drawn(spacers, chevron = false, pill = Pill.NONE, home = true))
+        assertFalse(StripContent.drawn(listOf(entry("t", blank, display = Display.ICON)), chevron = false, pill = Pill.NONE, home = true))
     }
 
     @Test fun oneThingDrawnIsEnough() {
         val blanks = listOf(entry("s", ItemState(gapDp = 16), type = "spacer"))
-        assertTrue(StripContent.drawn(blanks + entry("t", ItemState(icon = "star"), display = Display.ICON), chevron = false, pill = Pill.NONE))
+        assertTrue(StripContent.drawn(blanks + entry("t", ItemState(icon = "star"), display = Display.ICON), chevron = false, pill = Pill.NONE, home = true))
     }
 
     @Test fun nothingListedMeansNothingDrawn() {
-        assertFalse(StripContent.drawn(emptyList(), chevron = false, pill = Pill.NONE))
+        assertFalse(StripContent.drawn(emptyList(), chevron = false, pill = Pill.NONE, home = true))
     }
 
     @Test fun theChevronIsDrawn() {
-        assertTrue(StripContent.drawn(emptyList(), chevron = true, pill = Pill.NONE))
+        assertTrue(StripContent.drawn(emptyList(), chevron = true, pill = Pill.NONE, home = true))
     }
 
     /** With a pill, the strip's own padding keeps it on the screen as an empty capsule: the behaviour it has always had. */
     @Test fun aPillIsDrawnWithNothingInIt() {
-        assertTrue(StripContent.drawn(emptyList(), chevron = false, pill = Pill.SUBTLE))
-        assertTrue(StripContent.drawn(emptyList(), chevron = false, pill = Pill.SOLID))
+        assertTrue(StripContent.drawn(emptyList(), chevron = false, pill = Pill.SUBTLE, home = true))
+        assertTrue(StripContent.drawn(emptyList(), chevron = false, pill = Pill.SOLID, home = true))
+    }
+
+    /** The empty capsule is the bar's "I am here": one for the bar, in its home area's strip, and never a second one beside it. */
+    @Test fun aPillWithNothingInItIsDrawnOnlyInTheHomeAreasStrip() {
+        val blanks = listOf(entry("s", ItemState(gapDp = 16), type = "spacer"), entry("t", blank, display = Display.ICON))
+        for (pill in listOf(Pill.SUBTLE, Pill.SOLID)) {
+            assertFalse("$pill", StripContent.drawn(emptyList(), chevron = false, pill = pill, home = false))
+            assertFalse("$pill around items that draw nothing", StripContent.drawn(blanks, chevron = false, pill = pill, home = false))
+            assertTrue("$pill around items that draw nothing, at home", StripContent.drawn(blanks, chevron = false, pill = pill, home = true))
+        }
+        assertFalse("no pill, no capsule, at home or not", StripContent.drawn(emptyList(), chevron = false, pill = Pill.NONE, home = true))
+    }
+
+    /** What a strip does draw, it draws in any area: only the empty capsule asks where home is. */
+    @Test fun anItemOrAChevronIsDrawnWhetherTheStripIsTheHomeAreasOrNot() {
+        val star = listOf(entry("t", ItemState(icon = "star"), display = Display.ICON))
+        for (pill in Pill.entries) for (home in listOf(false, true)) {
+            assertTrue("$pill home=$home", StripContent.drawn(star, chevron = false, pill = pill, home = home))
+            assertTrue("$pill home=$home", StripContent.drawn(emptyList(), chevron = true, pill = pill, home = home))
+        }
     }
 
     // ---- what it comes to -----------------------------------------------------------------------------
