@@ -17,18 +17,22 @@ import kotlinx.coroutines.launch
  * "imperceptible content" on screen ("App displays over other apps"). The catch: while the strip
  * is hidden (a full-screen app, the screen locked), keep awake waits; full-screen video players
  * keep the screen on themselves.
+ *
+ * [windows] are the strips' windows, and [carrier] says which of them holds the flag right now: one that is on
+ * screen with something to draw, or none.
  */
 internal class KeepAwake(
     private val main: Handler,
     private val pm: PowerManager,
     private val km: KeyguardManager,
     private val scope: CoroutineScope,
-    private val strip: Overlay,
-    private val stripEmpty: () -> Boolean,
+    private val windows: List<Overlay>,
+    private val carrier: () -> Overlay?,
 ) {
     private val tag = BarService.TAG
     private val expiry = Runnable { Caffeine.check() }
     private var stopped = false
+    private var wasOn = false
 
     /** See [update]. Deprecated in favor of FLAG_KEEP_SCREEN_ON, which needs a visible window. */
     @Suppress("DEPRECATION")
@@ -49,20 +53,27 @@ internal class KeepAwake(
     fun update() {
         if (stopped) return
         val on = Caffeine.active() || DisplaysItem.keepingAwake.value
-        val f = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-        val flags = if (on) strip.params.flags or f else strip.params.flags and f.inv()
-        if (flags != strip.params.flags) {
-            strip.params.flags = flags
-            strip.relayout()
-            Log.i(tag, if (on) "keep awake on" else "keep awake off")
-        }
+        if (on != wasOn) { wasOn = on; Log.i(tag, if (on) "keep awake on" else "keep awake off") }
+        // The flag is on the window that carries it before it leaves any other: at no moment is it on none. With no
+        // carrier the flags stay where they are, and the window that comes back with one holds the screen at once.
+        val carrier = if (on) carrier() else null
+        if (carrier != null) flag(carrier, true)
+        if (carrier != null || !on) for (window in windows) if (window !== carrier) flag(window, false)
         // While the strip is hidden (a full-screen app, BentoBar hidden from its tile) or has nothing
         // to draw, no visible window of ours carries the flag: a screen wake lock holds it instead,
         // with no window. Released when the strip is back, keep awake ends, the screen goes off (the
         // power key or the lid) or the lock screen is up.
-        val lock = on && (!strip.shown || stripEmpty()) && pm.isInteractive && !km.isKeyguardLocked
+        val lock = on && carrier == null && pm.isInteractive && !km.isKeyguardLocked
         if (lock && !screenLock.isHeld) { screenLock.acquire(); Log.i(tag, "keep awake: wake lock while the bar is hidden") }
         else if (!lock && screenLock.isHeld) screenLock.release()
+    }
+
+    private fun flag(window: Overlay, on: Boolean) {
+        val f = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        val flags = if (on) window.params.flags or f else window.params.flags and f.inv()
+        if (flags == window.params.flags) return
+        window.params.flags = flags
+        window.relayout()
     }
 
     /** The service is going: nothing it held may stay held, and from here on nothing is asked for. */

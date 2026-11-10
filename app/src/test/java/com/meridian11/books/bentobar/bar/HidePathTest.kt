@@ -88,6 +88,15 @@ class HidePathTest {
         assertTrue("follow(false) comes before Ticker.stop, in the way off the screen", off < stop.indexOf("leaveScreen()") && "Ticker.stop(\"bar\")" in hide)
     }
 
+    /** With no window carrying the flag for a moment, the screen could go off in it. */
+    @Test fun keepAwakesFlagIsOnTheStripThatCarriesItBeforeItLeavesAnyOther() {
+        val awake = File("src/main/java/com/meridian11/books/bentobar/bar/KeepAwake.kt").readText()
+        val update = awake.substringAfter("fun update() {").substringBefore("\n    }\n")
+        val set = update.indexOf("flag(carrier, true)")
+        assertTrue(update, set >= 0 && update.indexOf("flag(window, false)", set) > set)
+        assertTrue("a wake lock only while no strip carries the flag: $update", "val lock = on && carrier == null && pm.isInteractive && !km.isKeyguardLocked" in update)
+    }
+
     @Test fun anItemsMenuIsToldItIsOpeningBeforeItsFirstFrame() {
         val toggle = menus.substringAfter("fun toggleMenu(").substringBefore("val loc = strip.locationOnScreen()")
         val close = toggle.indexOf("closeMenu(dissolve = true)")

@@ -139,7 +139,7 @@ class BarController(private val service: AccessibilityService) {
     private val strip = Overlay(service, "BentoBar", onOutside = { outsideClick() }).apply { params.width = 1; watchOutside(false) }
 
     /** Keep awake: a flag on the strip's window, a wake lock while the strip has none to carry it. */
-    private val awake = KeepAwake(main, pm, km, scope, strip) { stripEmpty }
+    private val awake = KeepAwake(main, pm, km, scope, listOf(strip)) { strip.takeIf { it.shown && !stripEmpty } }
 
     /** A click outside the strip while hidden items are out folds them away, unless a menu is open (it closes itself). */
     private fun outsideClick() {
