@@ -611,7 +611,8 @@ class BarController(private val service: AccessibilityService) {
             onWidth = { w ->
                 val empty = StripContent.empty(w, drawn)
                 val r = reach.intValue
-                if (w != strip.measured || empty != strip.empty || strip.pending || r != strip.reach) main.post { applyWidth(strip, w, empty, r) }
+                val window = strip.generation
+                if (w != strip.measured || empty != strip.empty || strip.pending || r != strip.reach) main.post { applyWidth(strip, window, w, empty, r) }
             }) {
             Strip(
                 visible = shownEntries,
@@ -627,7 +628,10 @@ class BarController(private val service: AccessibilityService) {
                 maxWidthPx = strip.maxWidth.intValue,
                 heightDp = heightDp.value,
                 events = events.getValue(strip),
-                onOverflow = { ids -> main.post { if (strip.shown) { strip.dropped = ids; publishOverflow() } } },
+                onOverflow = { ids ->
+                    val window = strip.generation
+                    main.post { if (strip.shown && window == strip.generation) { strip.dropped = ids; publishOverflow() } }
+                },
                 // The item a popup belongs to: an item's popup and its right-click menu are the item's, the ‹ menu is ‹'s.
                 open = menus.menuKey?.owner?.ifEmpty { null }.takeIf { menus.menuStrip === strip },
                 onReach = { reach.intValue = it },
@@ -648,9 +652,12 @@ class BarController(private val service: AccessibilityService) {
 
     private fun status() = if (refused) BarStatus.STOPPED else StripContent.status(empty = strips.any { it.shown } && stripEmpty, noRoom = maxWidth.intValue == 0)
 
-    /** A strip measured its content: what it measured is kept on the strip, and the bar is placed again by it. */
-    private fun applyWidth(strip: AreaStrip, w: Int, empty: Boolean, reach: Int) {
-        if (!strip.shown) return // it left meanwhile
+    /**
+     * A strip measured its content: what it measured is kept on the strip, and the bar is placed again by it. [window] is
+     * the strip's [AreaStrip.generation] when it was measured.
+     */
+    private fun applyWidth(strip: AreaStrip, window: Int, w: Int, empty: Boolean, reach: Int) {
+        if (!strip.shown || window != strip.generation) return // it left meanwhile, or left and came back: another window's measure
         val was = stripEmpty
         strip.measured = w; strip.empty = empty; strip.reach = reach; strip.pending = false
         strip.setContentVisible(!empty) // the one place a strip's window becomes visible, or invisible again

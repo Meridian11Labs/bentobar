@@ -31,6 +31,13 @@ internal class AreaStrip(val area: Position, val window: Overlay) {
     var dropped by mutableStateOf(emptySet<String>())
     /** Where each item was last drawn (window coordinates): a popup opens under its item, and a press is told to the item it is on. */
     val placed = mutableMapOf<String, Rect>()
+    /**
+     * Which of its windows this is, counted up with each [show]: what a window's content measured reaches the controller
+     * a moment later, and by then the strip can have left and come back. A measure of an earlier window says nothing of
+     * this one.
+     */
+    var generation = 0
+        private set
     val shown get() = window.shown
     val params get() = window.params
     /** On screen with something to see, or about to say whether it has. */
@@ -43,6 +50,7 @@ internal class AreaStrip(val area: Position, val window: Overlay) {
      * window that is up with nothing in it is what must never be on screen. Its first measure makes it visible, or not.
      */
     fun show(content: @Composable () -> Unit) {
+        generation++
         window.show(content)
         if (!window.shown) return // Android refused the window
         window.setContentVisible(false)

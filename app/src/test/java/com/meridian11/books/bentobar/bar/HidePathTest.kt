@@ -93,7 +93,7 @@ class HidePathTest {
         val gone = hide.indexOf("showing = false")
         assertTrue(hide, gone >= 0 && hide.indexOf("strip.hide()", gone) > gone)
         val apply = code.substringAfter("private fun applyWidth(").substringBefore("private var dragFrom")
-        assertTrue(apply, "if (!strip.shown) return" in apply)
+        assertTrue(apply, "if (!strip.shown || window != strip.generation) return" in apply)
         assertTrue(apply, "if (showing) lastPlace?.let { (s, screenW) -> place(s, screenW) }" in apply)
         assertEquals("the strip is placed nowhere else in it: $apply", 1, Regex("""\bplace\(""").findAll(apply).count())
     }
@@ -210,7 +210,7 @@ class HidePathTest {
         val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
         assertTrue(host, "val owes = if (strip.area == carrier) cfg.owedIds(owed.value, active, expanded.value) else emptySet()" in host)
         assertTrue(host, "strip.dropped.isNotEmpty() || (strip.area == carrier && cfg.carrierOverflow(owed.value, owes, active)))" in host)
-        assertTrue(host, "onOverflow = { ids -> main.post { if (strip.shown) { strip.dropped = ids; publishOverflow() } } }," in host)
+        assertTrue(host, "main.post { if (strip.shown && window == strip.generation) { strip.dropped = ids; publishOverflow() } }" in host)
         assertFalse("no strip plans by what another has no room for: $host", "BarOverflow" in host)
         // Decided in the composition, so a rule that starts to hold in an area with no window is heard at once; told once it is applied.
         assertTrue(host, "SideEffect { if (strip.area == carrier) owe(owes) }" in host)
@@ -267,7 +267,7 @@ class HidePathTest {
         assertTrue("the reach is what it keeps, a ‹'s whole room and its two ends", "onFit = { used -> onReach(used + chevronReservePx + 2 * ends) }," in ui)
         // Read where the width is reported, as state: a fit that changed under an unchanged width is still heard.
         assertTrue(host, "val reach = remember { mutableIntStateOf(0) }" in host && "onReach = { reach.intValue = it }," in host)
-        assertTrue(host, "val r = reach.intValue" in host && "|| r != strip.reach) main.post { applyWidth(strip, w, empty, r) }" in host)
+        assertTrue(host, "val r = reach.intValue" in host && "|| r != strip.reach) main.post { applyWidth(strip, window, w, empty, r) }" in host)
         val apply = code.substringAfter("private fun applyWidth(").substringBefore("private var dragFrom")
         assertTrue(apply, "strip.reach = reach" in apply)
         val strip = File("src/main/java/com/meridian11/books/bentobar/bar/AreaStrip.kt").readText()
