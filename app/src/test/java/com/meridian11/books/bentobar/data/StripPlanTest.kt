@@ -250,7 +250,73 @@ class StripPlanTest {
         }
     }
 
+    // ---- what a press on ‹ does ------------------------------------------------------------------------------
+
+    private fun opensMenu(presenting: Boolean = false, mode: HiddenMode = HiddenMode.CLICK, expanded: Boolean = false, bar: Boolean, area: Boolean = bar) =
+        chevronOpensMenu(presenting, mode, expanded, barHasHidden = bar, areaHasHidden = area)
+
+    @Test fun aChevronWithNothingBehindItOpensTheMenuAndOneWithHiddenItemsBringsThemOutAndFoldsThem() {
+        assertTrue("while presenting", opensMenu(presenting = true, bar = true))
+        assertTrue("while presenting, opened", opensMenu(presenting = true, expanded = true, bar = true))
+        assertTrue("Show everything", opensMenu(mode = HiddenMode.SHOW_ALL, bar = true))
+        assertTrue("there only for what does not fit", opensMenu(bar = false))
+        for (mode in listOf(HiddenMode.CLICK, HiddenMode.HOVER)) {
+            assertFalse("$mode: it brings them out", opensMenu(mode = mode, bar = true))
+            assertFalse("$mode: it folds them", opensMenu(mode = mode, expanded = true, bar = true))
+            assertFalse("$mode: the last one's rule ended in the open bar, and it folds", opensMenu(mode = mode, expanded = true, bar = false))
+        }
+    }
+
+    /** Its press would bring out, or fold, items that are under another ‹: it has none itself, and is there for what does not fit. */
+    @Test fun aChevronInAnAreaWithNoHiddenItemOpensTheMenuWhileAnotherAreaHasThem() {
+        for (mode in listOf(HiddenMode.CLICK, HiddenMode.HOVER)) for (expanded in listOf(false, true))
+            assertTrue("$mode expanded=$expanded", opensMenu(mode = mode, expanded = expanded, bar = true, area = false))
+    }
+
+    /** A layout in one area: what the bar has behind ‹ is what its one strip has, and the rule is the one there always was. */
+    @Test fun withOneAreaAPressOnTheChevronDoesWhatItAlwaysDid() {
+        var asked = 0
+        for (presenting in listOf(false, true)) for (mode in HiddenMode.entries) for (expanded in listOf(false, true)) for (hidden in listOf(false, true)) {
+            val asItWas = presenting || mode == HiddenMode.SHOW_ALL || (!expanded && !hidden)
+            assertEquals("presenting=$presenting $mode expanded=$expanded hidden=$hidden", asItWas, chevronOpensMenu(presenting, mode, expanded, barHasHidden = hidden, areaHasHidden = hidden))
+            asked++
+        }
+        assertEquals(2 * 3 * 2 * 2, asked)
+    }
+
+    /** What a ‹ looks like and what its press does are one rule: in an open bar it opens the menu exactly where it does not look open. */
+    @Test fun inAnOpenBarAChevronThatDoesNotLookOpenOpensTheMenu() {
+        val layouts = listOf(
+            listOf(clock.at(right), memory.at(right), clock.at(left, "c2")),
+            listOf(clock.at(right), clock.at(left, "c2"), memory.at(left)),
+            listOf(clock.at(right), memory.at(right), clock.at(left, "c2"), memory.at(left, "m2"), clock.at(middle, "c3")),
+            listOf(clock.at(right), timerRule.at(right), clock.at(left, "c2")),
+            listOf(clock.at(right), clock.at(middle, "c2")),
+        )
+        var asked = 0
+        for (items in layouts) for (mode in HiddenMode.entries) for (presenting in listOf(false, true)) for (active in listOf<(ItemConfig) -> Boolean>(nobody, { true })) {
+            val c = BarConfig(hiddenMode = mode, presenting = presenting, items = items)
+            val behind = c.behindChevron(active)
+            for (area in Position.entries) {
+                val open = plan(c, area, active = active, expanded = true, overflow = true).open
+                assertEquals("$c $area", !open, chevronOpensMenu(presenting, mode, expanded = true, barHasHidden = behind.isNotEmpty(), areaHasHidden = behind.any { it.area == area }))
+                asked++
+            }
+        }
+        assertTrue("$asked asked", asked >= 150)
+    }
+
     // ---- what only reading the code can show ---------------------------------------------------------------
+
+    @Test fun theBarAsksTheChevronRuleAndDoesNotChooseForItself() {
+        val bar = SourceScan.code(SourceScan.sources.single { it.name == "BarService.kt" })
+        val press = bar.substringAfter("override fun chevron(at: Rect) {").substringBefore("\n        }\n")
+        val asked = press.indexOf("chevronOpensMenu(it.presenting, it.hiddenMode, expanded.value, hidden.isNotEmpty(), hidden.any { h -> h.area == strip.area })")
+        val menu = press.indexOf("return chevronContext(at)")
+        val turned = press.indexOf("expanded.value = next")
+        assertTrue(press, asked >= 0 && menu > asked && turned > menu)
+        assertFalse("the bar reads the mode for a press itself: $press", "HiddenMode." in press)
+    }
 
     @Test fun theBarAndThePreviewAskTheSameFunctionAndNeitherChoosesForItself() {
         val code = { name: String -> SourceScan.code(SourceScan.sources.single { it.name == name }) }

@@ -312,6 +312,17 @@ fun BarConfig.stripPlan(area: Position, active: (ItemConfig) -> Boolean, expande
 }
 
 /**
+ * Whether a press on an area's ‹ opens the ‹ menu; otherwise it brings the bar's hidden items out, or folds them.
+ * [expanded]: ‹ was opened, one state for the whole bar. [barHasHidden]: something waits behind ‹ in some area;
+ * [areaHasHidden]: in this ‹'s own. While presenting, or with nothing behind it (Show everything, or a ‹ that is there
+ * only for what doesn't fit), ‹ opens the menu, as it always did. So does one in an area with no hidden item while another
+ * area has them: its press would bring out, or fold, what is under another ‹, and in the open bar it does not look open
+ * ([stripPlan]). A layout in one area has [areaHasHidden] = [barHasHidden], and that case is never there.
+ */
+fun chevronOpensMenu(presenting: Boolean, hiddenMode: HiddenMode, expanded: Boolean, barHasHidden: Boolean, areaHasHidden: Boolean): Boolean =
+    presenting || hiddenMode == HiddenMode.SHOW_ALL || (!expanded && !barHasHidden) || (barHasHidden && !areaHasHidden)
+
+/**
  * The ids an area with no window owes the carrier's ‹: what it would draw now. [areas]: the areas in use that have no room
  * right now. A hidden item is owed only while its strip would bring it out; one waiting behind ‹ is in the ‹ menu's hidden
  * list as it is. A layout in one area never has such an area, and owes nothing.

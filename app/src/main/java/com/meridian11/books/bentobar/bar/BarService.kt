@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.areasInUse
 import com.meridian11.books.bentobar.data.carrierOverflow
+import com.meridian11.books.bentobar.data.chevronOpensMenu
 import com.meridian11.books.bentobar.data.stripPlan
 import com.meridian11.books.bentobar.data.behindChevron
 import com.meridian11.books.bentobar.data.homeArea
@@ -700,8 +701,9 @@ class BarController(private val service: AccessibilityService) {
 
         override fun chevron(at: Rect) {
             // While presenting, or with nothing behind it (show everything, or ‹ only for items that
-            // don't fit), ‹ opens the menu.
-            Store.config.value.let { if (it.presenting || it.hiddenMode == HiddenMode.SHOW_ALL || (!expanded.value && hiddenItems().isEmpty())) return chevronContext(at) }
+            // don't fit, in this area or owed to it), ‹ opens the menu.
+            val hidden = hiddenItems()
+            Store.config.value.let { if (chevronOpensMenu(it.presenting, it.hiddenMode, expanded.value, hidden.isNotEmpty(), hidden.any { h -> h.area == strip.area })) return chevronContext(at) }
             val next = !expanded.value
             expanded.value = next
             pinned = next
