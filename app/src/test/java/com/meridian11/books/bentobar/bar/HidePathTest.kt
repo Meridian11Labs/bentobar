@@ -226,6 +226,22 @@ class HidePathTest {
     }
 
     /**
+     * The adb hooks, with more than one strip up: one that names an item goes to the strip that drew it, and the dump
+     * says what each area's window is doing, beside the two words about the whole bar it always had.
+     */
+    @Test fun aDebugHookThatNamesAnItemGoesToTheStripThatDrewItAndTheDumpSaysEachArea() {
+        val debug = code.substringAfter("fun debug(cmd: List<String>): String {")
+        val open = debug.substringAfter("\"open\", \"ctx\" -> {").substringBefore("\n            }\n")
+        assertTrue(open, "val drew = strips.firstOrNull { item.id in it.placed } ?: return \"item not drawn yet\"" in open)
+        assertTrue("its press is told to that strip's events: $open", "this.events.getValue(drew)" in open)
+        val dump = debug.substringAfter("\"dump\" -> ").substringBefore("\"open\", \"ctx\"")
+        for (word in listOf("shown=\${strips.any { it.shown }}", "empty=\$stripEmpty", "carrier=\${word(carrier)}", "owed=\${owed.value.map { word(it) }}",
+            "strips.joinToString(\" \")", "shown=\${it.shown}", "empty=\${it.empty}", "pending=\${it.pending}", "width=\${it.params.width}", "x=\${it.params.x}",
+            "budget=\${it.maxWidth.intValue}", "placed=\${it.placed}"))
+            assertTrue("$word in $dump", word in dump)
+    }
+
+    /**
      * With no window carrying the flag for a moment, the screen could go off in it. Which window and when the wake lock
      * holds instead is `KeepAwakeRule.choose` (KeepAwakeTest); what only the code shows is that update() does as it says,
      * in that order.

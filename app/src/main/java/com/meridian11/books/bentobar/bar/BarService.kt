@@ -716,14 +716,20 @@ class BarController(private val service: AccessibilityService) {
 
     fun debug(cmd: List<String>): String {
         fun first(type: String) = Store.config.value.items.firstOrNull { it.type == type || it.id == type }
+        // What names no item goes to the carrier's strip; what names one, to the strip that drew it.
         val strip = carrierStrip()
         val events = events.getValue(strip)
         return when (cmd.firstOrNull()) {
-            "dump" -> "snap=$snap look=${look.value} expanded=${expanded.value} menu=${menus.menuKey} shown=${strips.any { it.shown }} empty=$stripEmpty placed=${strip.placed}"
+            "dump" -> "snap=$snap look=${look.value} expanded=${expanded.value} menu=${menus.menuKey} shown=${strips.any { it.shown }} empty=$stripEmpty " +
+                "carrier=${word(carrier)} owed=${owed.value.map { word(it) }} " + strips.joinToString(" ") {
+                    "${word(it.area)}[shown=${it.shown} empty=${it.empty} pending=${it.pending} width=${it.params.width} x=${it.params.x} " +
+                        "budget=${it.maxWidth.intValue} placed=${it.placed}]"
+                }
             "open", "ctx" -> {
                 val item = first(cmd.getOrElse(1) { "" }) ?: return "no such item"
-                val at = strip.placed[item.id] ?: return "item not drawn yet"
-                if (cmd[0] == "open") events.click(item, at) else events.context(item, at); "ok"
+                val drew = strips.firstOrNull { item.id in it.placed } ?: return "item not drawn yet"
+                val at = drew.placed.getValue(item.id)
+                this.events.getValue(drew).let { if (cmd[0] == "open") it.click(item, at) else it.context(item, at) }; "ok"
             }
             "chevron" -> { events.chevron(Rect()); "expanded=${expanded.value}" }
             "scroll" -> {
