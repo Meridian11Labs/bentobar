@@ -1,8 +1,8 @@
 package com.meridian11.books.bentobar.data
 
-// What the user can ask of an item's section, as steps from one layout to the next: the one rule for each command, whichever
+// What the user can ask of an item's section or area, as steps from one layout to the next: the one rule for each command, whichever
 // surface asks (the rows, the ≡ menu, the accessibility actions and the chooser in settings, the bar's right-click menu). A
-// command changes an item's section, never its place in the list: in Show everything, the default mode, Hidden items are
+// command changes an item's section or its area, never its place in the list: in Show everything, the default mode, Hidden items are
 // drawn, so a Hide that hides nothing must not make the item jump along the strip. Only a Move, a drag or a drop changes the
 // place ([moved], with an index). A screen calls `Store.update { it.hide(id) }` and writes no section or Show when rule of its
 // own, so one command can't place an item one way here and another way there (`LayoutIntentsTest` holds the screens to it).
@@ -20,6 +20,17 @@ fun BarConfig.show(id: String): BarConfig = putIn(id, Section.SHOWN)
 fun BarConfig.hide(id: String): BarConfig = putIn(id, Section.HIDDEN)
 
 fun BarConfig.turnOff(id: String): BarConfig = putIn(id, Section.OFF)
+
+/**
+ * Into [area], where it stands in the list: among that area's items it is where the list has it, not last. An Off item has
+ * an area too, the one it comes back in. Already in [area]: nothing changes.
+ */
+fun BarConfig.putInArea(id: String, area: Position): BarConfig =
+    if (items.none { it.id == id && it.area != area }) this else copy(items = items.map { if (it.id == id) it.copy(area = area) else it })
+
+/** Every item into [area], Off ones too, so the layout is a one-area layout again and what comes back from Off joins the rest. */
+fun BarConfig.putAllIn(area: Position): BarConfig =
+    if (items.all { it.area == area }) this else copy(items = items.map { it.copy(area = area) })
 
 /**
  * The "Show when…" rule on or off. Only hidden items pop into the bar, so turning it on brings a shown or turned-off item

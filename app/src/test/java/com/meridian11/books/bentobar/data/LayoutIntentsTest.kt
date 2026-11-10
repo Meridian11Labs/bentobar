@@ -85,6 +85,38 @@ class LayoutIntentsTest {
         assertTrue(rule.show("h").at("h").whenActive)
     }
 
+    @Test fun puttingAnItemInAnAreaChangesOnlyThatItemsAreaAndNeverItsPlaceInTheList() {
+        val moved = layout.putInArea("s2", Position.LEFT)
+        assertEquals(Position.LEFT, moved.at("s2").area)
+        assertEquals(layout.ids(), moved.ids())
+        // Everything else of the layout, and of the item, is as it was.
+        assertEquals(layout, moved.copy(items = moved.items.map { if (it.id == "s2") it.copy(area = Position.RIGHT) else it }))
+        // An Off item has an area too: it is where the item comes back.
+        assertEquals(Position.CENTER, layout.putInArea("o", Position.CENTER).at("o").area)
+    }
+
+    @Test fun puttingAnItemInTheAreaItIsInOrAnIdThatIsNotThereChangesNothing() {
+        assertSame(layout, layout.putInArea("s", Position.RIGHT))
+        assertSame(layout, layout.putInArea("nope", Position.LEFT))
+    }
+
+    @Test fun puttingAllInOneAreaChangesEveryItemsAreaOffOnesTooAndNothingElse() {
+        val spread = layout.putInArea("s", Position.LEFT).putInArea("h", Position.CENTER)
+        val all = spread.putAllIn(Position.LEFT)
+        assertEquals(listOf(Position.LEFT, Position.LEFT, Position.LEFT, Position.LEFT), all.items.map { it.area })
+        assertEquals(Position.LEFT, all.at("o").area) // the Off one too: it comes back where the others are
+        assertEquals(layout.ids(), all.ids())
+        assertEquals(layout, all.putAllIn(Position.RIGHT))
+        assertSame(all, all.putAllIn(Position.LEFT))
+    }
+
+    @Test fun neitherAreaCommandTouchesTheOldPosition() {
+        // Only the migration reads it: a version 4 layout's Position is whatever it was when the layout was migrated.
+        val old = layout.copy(position = Position.CENTER)
+        assertEquals(Position.CENTER, old.putInArea("s", Position.LEFT).position)
+        assertEquals(Position.CENTER, old.putAllIn(Position.LEFT).position)
+    }
+
     @Test fun noScreenWritesASectionOrARuleOfItsOwn() {
         val handlers = SourceScan.sources.filter { val p = it.path.replace('\\', '/'); "/bentobar/ui/" in p || "/bentobar/bar/" in p }
         assertTrue(handlers.size > 10)
