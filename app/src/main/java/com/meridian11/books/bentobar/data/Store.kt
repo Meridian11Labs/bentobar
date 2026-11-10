@@ -95,9 +95,13 @@ object Store {
         setAsideState.value = file.string(KEY_UNREADABLE)?.let(::whyKept)
     }
 
+    /**
+     * Every change goes through here. What it leaves has no Off item that carries no setup ([withoutBareOff]): the first
+     * change after an update from 1.8 drops those, and none can come to be afterwards.
+     */
     fun update(change: (BarConfig) -> BarConfig) {
         synchronized(this) {
-            val n = change(state.value)
+            val n = change(state.value).withoutBareOff()
             if (n == state.value) return
             state.value = n
             // Inside the lock, so a later change can never be saved before this one.
@@ -115,6 +119,13 @@ object Store {
     fun add(type: String, section: Section = Section.SHOWN, options: Map<String, String> = emptyMap(), whenActive: Boolean = false, area: Position? = null): String {
         val id = newId()
         update { c -> c.copy(items = c.items.added(ItemConfig(id, type, section, whenActive = whenActive, options = options, area = area ?: c.homeArea()))) }
+        return id
+    }
+
+    /** What the library's + adds: a [fresh] item of [type], in [area] or with none named in the layout's [home area][homeArea]. */
+    fun addFresh(type: com.meridian11.books.bentobar.items.ItemType, area: Position? = null): String {
+        val id = newId()
+        update { c -> c.copy(items = c.items.added(type.fresh(id, area ?: c.homeArea()))) }
         return id
     }
 

@@ -59,7 +59,6 @@ import com.meridian11.books.bentobar.data.ChipMode
 import com.meridian11.books.bentobar.data.ColorMode
 import com.meridian11.books.bentobar.data.Pill
 import com.meridian11.books.bentobar.data.Position
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.LayoutRead
@@ -128,20 +127,10 @@ fun AddPage(onAdded: (String) -> Unit) {
                             Text(type.blurb, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 minLines = 2)
                             Spacer(Modifier.height(10.dp))
-                            Row {
-                                // An item that speaks up now and then goes to When active, with its rule on: it
-                                // shows when it has something to say. Its second button puts it in the bar for good.
-                                val quiet = type.addsWhenActive
-                                FilledTonalButton(onClick = {
-                                    onAdded(if (quiet) Store.add(type.type, Section.HIDDEN, type.defaultOptions(), whenActive = true)
-                                    else Store.add(type.type, Section.SHOWN, type.defaultOptions()))
-                                }) {
-                                    SymIcon(Sym.ADD, size = 18.sp); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.add_add))
-                                }
-                                Spacer(Modifier.width(8.dp))
-                                TextButton(onClick = { onAdded(Store.add(type.type, if (quiet) Section.SHOWN else Section.HIDDEN, type.defaultOptions())) }) {
-                                    Text(stringResource(if (quiet) R.string.add_add_shown else R.string.add_add_hidden))
-                                }
+                            // One +: in the bar, or for an item that speaks up now and then waiting with its rule on
+                            // (ItemType.fresh). Visibility in its options puts such an item in the bar for good.
+                            FilledTonalButton(onClick = { onAdded(Store.addFresh(type)) }) {
+                                SymIcon(Sym.ADD, size = 18.sp); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.add_add))
                             }
                         }
                     }

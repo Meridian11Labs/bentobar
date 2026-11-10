@@ -460,8 +460,6 @@
     <string name="add_group_online">Online</string>
     <string name="add_group_online_caption">These ask an online service once you set them up. Nothing else in BentoBar goes online.</string>
     <string name="add_add">Add</string>
-    <string name="add_add_hidden">Add hidden</string>
-    <string name="add_add_shown">Add always shown</string>
     <string name="add_added_rule">Added %1$s · %2$s</string>
     <string name="look_placement">Placement</string>
     <string name="look_position">Where BentoBar sits</string>

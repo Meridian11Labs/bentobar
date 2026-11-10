@@ -156,6 +156,123 @@ class LayoutIntentsTest {
         assertSame("an id that isn't in the layout changes nothing", spread, spread.without("nope"))
     }
 
+    // ---- Order and Visibility, as the bar's list asks: a place in a part of an area ----
+
+    private val a = ItemConfig("a", "clock")
+    private val b = ItemConfig("b", "cpu")
+    private val cal = ItemConfig("cal", "calendar")
+    private val w = ItemConfig("w", "timer", Section.HIDDEN, whenActive = true)
+    private val w2 = ItemConfig("w2", "memory", Section.HIDDEN, whenActive = true)
+    private val meeting = ItemConfig("e", "event", Section.HIDDEN, whenActive = true)
+    private val bar = BarConfig(items = listOf(meeting, a, b, cal, w, w2))
+    private fun BarConfig.rows() = parts(Position.RIGHT).let { p -> p.upper.map { it.id } to p.lower.map { it.id } }
+    private fun BarConfig.step(id: String, down: Boolean) = (stepped(id, down) as Step.Moved).config
+
+    @Test fun aPlaceIsAnIndexAmongThePartsOtherRows() {
+        assertEquals(listOf("a", "b", "cal") to listOf("e", "w", "w2"), bar.rows())
+        assertEquals(listOf("cal", "a", "b"), bar.placed("cal", Position.RIGHT, Part.UPPER, 0).rows().first)
+        assertEquals(listOf("b", "a", "cal"), bar.placed("a", Position.RIGHT, Part.UPPER, 1).rows().first)
+        assertEquals(listOf("b", "cal", "a"), bar.placed("a", Position.RIGHT, Part.UPPER, 99).rows().first)
+        assertSame(bar, bar.placed("a", Position.RIGHT, Part.UPPER, 0))
+        assertSame(bar, bar.placed("nobody", Position.RIGHT, Part.UPPER, 0))
+        // Only the moved item changes its place in the list.
+        assertEquals(bar.items.filter { it.id != "a" }, bar.placed("a", Position.RIGHT, Part.UPPER, 2).items.filter { it.id != "a" })
+    }
+
+    @Test fun underTheLineIsTheRuleInTheDefaultModeAndHiddenWithTheChevron() {
+        val below = bar.placed("a", Position.RIGHT, Part.LOWER, 2)
+        assertEquals(listOf("b", "cal") to listOf("e", "w", "a", "w2"), below.rows())
+        assertEquals(Section.HIDDEN, below.at("a").section)
+        assertTrue(below.at("a").whenActive)
+        val click = bar.copy(hiddenMode = HiddenMode.CLICK).placed("a", Position.RIGHT, Part.LOWER, 99)
+        assertEquals(listOf("b", "cal") to listOf("e", "w", "w2", "a"), click.rows())
+        assertEquals(Section.HIDDEN, click.at("a").section)
+        assertFalse("behind ‹ it only waits; popping out is its own switch", click.at("a").whenActive)
+        // Back above the line it is Shown.
+        assertEquals(Section.SHOWN, below.placed("a", Position.RIGHT, Part.UPPER, 0).at("a").section)
+    }
+
+    @Test fun aTypeWithNoRuleIsNotPutUnderTheLineInTheDefaultModeAndIsWithTheChevron() {
+        assertSame(bar, bar.placed("cal", Position.RIGHT, Part.LOWER, 0))
+        val click = bar.copy(hiddenMode = HiddenMode.HOVER)
+        assertEquals(Section.HIDDEN, click.placed("cal", Position.RIGHT, Part.LOWER, 0).at("cal").section)
+    }
+
+    @Test fun aHiddenItemWithoutARuleIsListedAboveInTheDefaultModeAndAnyMoveOfItWritesShown() {
+        val c = BarConfig(items = listOf(a, hidden, b))
+        assertEquals(listOf("a", "h", "b") to emptyList<String>(), c.rows())
+        val moved = c.step("h", down = true)
+        assertEquals(listOf("a", "b", "h"), moved.rows().first)
+        assertEquals(Section.SHOWN, moved.at("h").section)
+        assertEquals(Section.SHOWN, c.placed("h", Position.RIGHT, Part.UPPER, 0).at("h").section)
+        // Visibility's Always on it is show(), which writes Shown and moves nothing.
+        assertEquals(Section.SHOWN, c.show("h").at("h").section)
+    }
+
+    @Test fun aPlaceInAnotherAreaTakesTheItemThere() {
+        val left = ItemConfig("l", "clock", area = Position.LEFT)
+        val c = bar.copy(items = bar.items + left)
+        val moved = c.placed("a", Position.LEFT, Part.UPPER, 0)
+        assertEquals(Position.LEFT, moved.at("a").area)
+        assertEquals(listOf("a", "l"), moved.parts(Position.LEFT).upper.map { it.id })
+        assertEquals(listOf("b", "cal"), moved.rows().first)
+        // Into an area with nothing in that part, it keeps its place in the list.
+        val alone = c.placed("b", Position.CENTER, Part.UPPER, 0)
+        assertEquals(c.ids(), alone.ids())
+        assertEquals(listOf("b"), alone.parts(Position.CENTER).upper.map { it.id })
+    }
+
+    @Test fun aStepMovesOneRowWithinThePart() {
+        assertEquals(listOf("b", "a", "cal"), bar.step("a", down = true).rows().first)
+        assertEquals(listOf("a", "cal", "b"), bar.step("cal", down = false).rows().first)
+        assertEquals(listOf("e", "w2", "w"), bar.step("w", down = true).rows().second)
+        assertEquals(Step.End, bar.stepped("a", down = false))
+        assertEquals(Step.End, bar.stepped("w2", down = true))
+        assertEquals(Step.End, bar.stepped("nobody", down = true))
+        assertEquals("an item that is not in the bar has no row to step", Step.End, layout.stepped("o", down = true))
+    }
+
+    @Test fun downAtTheEndOfTheUpperPartCrossesTheLineByTheRuleOrByHiding() {
+        val c = bar.copy(items = listOf(meeting, a, cal, b, w, w2))
+        val below = c.step("b", down = true)
+        assertEquals(listOf("a", "cal") to listOf("e", "b", "w", "w2"), below.rows())
+        assertEquals(c.setWhenActive("b", true).at("b"), below.at("b"))
+        for (mode in listOf(HiddenMode.CLICK, HiddenMode.HOVER)) {
+            val behind = c.copy(hiddenMode = mode).step("b", down = true)
+            assertEquals(listOf("a", "cal") to listOf("e", "b", "w", "w2"), behind.rows())
+            assertEquals(c.hide("b").at("b"), behind.at("b"))
+        }
+    }
+
+    @Test fun upAtTheTopOfTheLowerPartCrossesTheLineAndShows() {
+        val up = bar.step("w", down = false)
+        assertEquals(listOf("a", "b", "cal", "w") to listOf("e", "w2"), up.rows())
+        assertEquals(Section.SHOWN, up.at("w").section)
+        // And down again it is the first under the line, as it was.
+        assertEquals(bar.rows(), up.step("w", down = true).rows())
+    }
+
+    @Test fun aTypeWithNoRuleStaysAboveTheLineInTheDefaultModeAndTheStepSaysWhy() {
+        assertEquals(Step.Stays(Step.Why.NO_RULE), bar.stepped("cal", down = true))
+        val behind = bar.copy(hiddenMode = HiddenMode.CLICK).step("cal", down = true)
+        assertEquals(Section.HIDDEN, behind.at("cal").section)
+        // An item of a type this version doesn't know has nothing to say about a rule: the end of the part is its end.
+        val unknown = ItemConfig("u", "from-a-newer-version")
+        for (mode in HiddenMode.entries) assertEquals(Step.End, BarConfig(items = listOf(a, unknown), hiddenMode = mode).stepped("u", down = true))
+    }
+
+    @Test fun nextMeetingIsNeverMovedAndNothingMovesAboveIt() {
+        assertEquals(Step.Stays(Step.Why.PINNED), bar.stepped("e", down = true))
+        assertEquals(Step.Stays(Step.Why.PINNED), bar.stepped("e", down = false))
+        // The first row under it goes up across the line, not above it.
+        assertEquals(listOf("e", "w2"), bar.step("w", down = false).rows().second)
+        // Its part and area follow Visibility and Area; its place in the list is left alone.
+        val shown = bar.placed("e", Position.RIGHT, Part.UPPER, 2)
+        assertEquals(bar.ids(), shown.ids())
+        assertEquals(listOf("e", "a", "b", "cal"), shown.rows().first)
+        assertEquals(Step.End, shown.stepped("a", down = false))
+    }
+
     @Test fun noScreenWritesASectionARuleOrAnAreaOfItsOwn() {
         val handlers = SourceScan.sources.filter { val p = it.path.replace('\\', '/'); "/bentobar/ui/" in p || "/bentobar/bar/" in p }
         assertTrue(handlers.size > 10)

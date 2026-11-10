@@ -1,10 +1,12 @@
 package com.meridian11.books.bentobar.data
 
+import com.meridian11.books.bentobar.items.Items
+
 // What the user can ask of an item's section or area, as steps from one layout to the next: the one rule for each command, whichever
-// surface asks (the rows, the ≡ menu, the accessibility actions and the chooser in settings, the bar's right-click menu). A
+// surface asks (the rows, their keys and accessibility actions, Options in settings, the bar's right-click menu). A
 // command changes an item's section or its area, never its place in the list: in Show everything, the default mode, Hidden items are
 // drawn, so a Hide that hides nothing must not make the item jump along the strip. Only a Move, a drag or a drop changes the
-// place ([moved], with an index). A screen calls `Store.update { it.hide(id) }` and writes no section or Show when rule of its
+// place ([placed], with an index). A screen calls `Store.update { it.hide(id) }` and writes no section or Show when rule of its
 // own, so one command can't place an item one way here and another way there (`LayoutIntentsTest` holds the screens to it).
 // Pure; an id that isn't in the layout changes nothing.
 
@@ -62,3 +64,103 @@ fun BarConfig.without(id: String): BarConfig {
 fun BarConfig.setWhenActive(id: String, on: Boolean): BarConfig = copy(items = items.map {
     if (it.id == id) it.copy(whenActive = on, section = if (on) Section.HIDDEN else it.section) else it
 })
+
+/**
+ * [id] in [area] and [part] at [index] among that part's rows there, as [parts] lists them without it (the end if out of
+ * range): a drag's drop, and each step of Move up and Move down. Above the line is [show]. Under it is the rule
+ * ([setWhenActive]) in the default mode and [hide] with ‹; an item that can't wait there ([canGoBelow]) changes nothing.
+ * So a Hidden item without a rule, which the default mode lists above, is Shown after any move. Next meeting takes the
+ * part and the area and keeps its place: it is drawn first in its area wherever the list has it.
+ */
+fun BarConfig.placed(id: String, area: Position, part: Part, index: Int): BarConfig {
+    val item = items.firstOrNull { it.id == id } ?: return this
+    val there = when {
+        part == Part.UPPER -> show(id)
+        !canGoBelow(item) -> return this
+        hiddenMode == HiddenMode.SHOW_ALL -> setWhenActive(id, true)
+        else -> hide(id)
+    }.putInArea(id, area)
+    if (item.type == Store.PINNED_LEFT) return there
+    val rows = there.parts(area)[part].filter { it.id != id }
+    val others = rows.filter { it.type != Store.PINNED_LEFT }
+    if (others.isEmpty()) return there // nothing to stand before or after: where the list has it is as good as any place
+    val at = (index - (rows.size - others.size)).coerceIn(0, others.size)
+    val moved = there.items.first { it.id == id }
+    val rest = there.items.filterNot { it.id == id }
+    val before = if (at < others.size) rest.indexOfFirst { it.id == others[at].id } else rest.indexOfFirst { it.id == others.last().id } + 1
+    val list = rest.toMutableList().apply { add(before, moved) }
+    return if (list == there.items) there else there.copy(items = list)
+}
+
+/** What one step of Move up or Move down comes to. */
+sealed interface Step {
+    /** The item moved: the layout after it. */
+    data class Moved(val config: BarConfig) : Step
+    /** Nothing moved, and the user is told why. */
+    data class Stays(val why: Why) : Step
+    /** The first row going up or the last going down: nothing to do and nothing to say. */
+    data object End : Step
+
+    enum class Why {
+        /** The default mode's lower part takes a "Show when…" rule, and this type has none. */
+        NO_RULE,
+        /** Next meeting is always first in its area. */
+        PINNED,
+    }
+}
+
+/**
+ * One step up or [down] in the bar's list, within the item's area. At a part's end the step crosses the line: down from
+ * the last row above it puts the item under it (its rule on in the default mode, behind ‹ otherwise) as the first there,
+ * up from the first row under it puts it above as the last.
+ */
+fun BarConfig.stepped(id: String, down: Boolean): Step {
+    val item = items.firstOrNull { it.id == id } ?: return Step.End
+    val part = partOf(item) ?: return Step.End
+    if (item.type == Store.PINNED_LEFT) return Step.Stays(Step.Why.PINNED)
+    val all = parts(item.area)
+    val rows = all[part]
+    val at = rows.indexOfFirst { it.id == id }
+    val next = rows.getOrNull(if (down) at + 1 else at - 1)?.takeIf { it.type != Store.PINNED_LEFT }
+    return when {
+        next != null -> Step.Moved(placed(id, item.area, part, if (down) at + 1 else at - 1))
+        down && part == Part.UPPER -> when {
+            canGoBelow(item) -> Step.Moved(placed(id, item.area, Part.LOWER, 0))
+            Items.of(item.type) != null -> Step.Stays(Step.Why.NO_RULE)
+            else -> Step.End
+        }
+        !down && part == Part.LOWER -> Step.Moved(placed(id, item.area, Part.UPPER, all.upper.size))
+        else -> Step.End
+    }
+}
+
+/**
+ * Remove from the bar, whichever surface asks. An item that carries a setup ([carriesSetup]) is kept for the library, in
+ * Off where it stands; one that is as the + made it leaves the layout, and so does one of a type this version doesn't
+ * know, which the library couldn't offer. A rule left on by an item that isn't waiting on it (above the line, where
+ * [show] leaves the bit) is no setup, so it is cleared first.
+ */
+fun BarConfig.removed(id: String): BarConfig {
+    val item = items.firstOrNull { it.id == id } ?: return this
+    val part = partOf(item) ?: return this
+    val type = Items.of(item.type) ?: return without(id)
+    val clean = if (part == Part.LOWER || !item.whenActive) this else setWhenActive(id, false)
+    return if (clean.items.first { it.id == id }.carriesSetup(type)) clean.turnOff(id) else clean.without(id)
+}
+
+/** What a layout change changes: which items there are and in which order, each one's section, rule and area, and where an empty bar stands. */
+private fun BarConfig.arrangement(): Any = items.map { listOf(it.id, it.section, it.whenActive, it.area) } to position
+
+/**
+ * Undo of one layout change that led from [before] to [after]: the items [before] had, in its order, each in its section
+ * and area and with its rule as it was; an item the change took out comes back as it was, one it brought in goes. What
+ * is not layout stays as it is now (an option changed since). Null when the layout was arranged otherwise since (the
+ * bar's own menu, a pasted layout): there is nothing left to take back.
+ */
+fun BarConfig.undone(before: BarConfig, after: BarConfig): BarConfig? {
+    if (arrangement() != after.arrangement()) return null
+    val now = items.associateBy { it.id }
+    return copy(position = before.position, items = before.items.map { was ->
+        now[was.id]?.copy(section = was.section, whenActive = was.whenActive, area = was.area) ?: was
+    })
+}

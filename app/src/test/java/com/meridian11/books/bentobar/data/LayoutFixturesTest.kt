@@ -1,5 +1,6 @@
 package com.meridian11.books.bentobar.data
 
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -126,5 +127,42 @@ class LayoutFixturesTest {
         val unknown = c.items.single { com.meridian11.books.bentobar.items.Items.of(it.type) == null }
         assertEquals(Position.RIGHT, unknown.area)
         assertEquals("7", unknown.options["depth"])
+    }
+
+    @After fun forget() { Store.open(MapPrefs()) { }; Store.update { BarConfig() } }
+
+    @Test fun theFirstChangeAfterAnUpdateFrom18DropsTheOffItemsThatCarryNoSetupAndKeepsTheRest() {
+        // 1.8 could turn an item off as it came. The fixture has one such (Memory); beside it what else 1.8 could leave in
+        // Off: more bare ones, setups (an option, a look, a rule), and an item of a type this version doesn't know.
+        val was = read("schema4-areas-1.8.json")
+        val off = listOf(
+            ItemConfig("bare", "clock", Section.OFF),
+            ItemConfig("bare-left", "cpu", Section.OFF, area = Position.LEFT),
+            ItemConfig("quiet", "media", Section.OFF, whenActive = true),
+            ItemConfig("city", "clock", Section.OFF, options = mapOf("zone" to "Asia/Tokyo")),
+            ItemConfig("look", "timer", Section.OFF, display = Display.ICON),
+            ItemConfig("rule", "cpu", Section.OFF, whenActive = true),
+            ItemConfig("newer", "later-version-item", Section.OFF, options = mapOf("depth" to "7")),
+        )
+        val stored = was.copy(items = was.items + off)
+        val prefs = MapPrefs(mapOf("bar" to layoutJson.encodeToString(BarConfig.serializer(), stored)))
+        var puts = 0
+        prefs.onPut = { puts++ }
+        Store.open(prefs) { }
+        // Opening reads: the layout is as it was stored and nothing is written.
+        assertEquals(stored, Store.config.value)
+        assertEquals(0, puts)
+
+        Store.update { it.copy(spacing = it.spacing + 2) } // any change at all
+        val now = Store.config.value
+        assertEquals(listOf("city", "look", "rule", "newer"), now.items.filter { it.section == Section.OFF }.map { it.id })
+        // What is in the bar is untouched, and so is every kept item.
+        assertEquals(stored.items.filter { it.section != Section.OFF || it.id in setOf("city", "look", "rule", "newer") }, now.items)
+        assertEquals(now, (readLayout(prefs.string("bar")!!) as LayoutRead.Ok).config)
+
+        // Once is enough: later changes drop nothing more, and a setup that is removed is kept.
+        Store.update { it.removed(was.items.first { i -> i.type == "clock" }.id) }
+        assertEquals(now.items.size, Store.config.value.items.size)
+        assertEquals(5, Store.config.value.items.count { it.section == Section.OFF })
     }
 }
