@@ -202,7 +202,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   Robolectric stays out of the fast tests in `app/src/test`. `MenuCompositionTest` composes every registered item's menu under
   each state in its type's `stages`; Compose has no error boundary, so this is what stands between a throwing menu and the service.
   `ShellPicturesTest` draws the settings window at each layout's width in light and dark and holds the grounds to the palette;
-  with `BENTOBAR_PICTURES=<directory>` (and `--rerun`) it writes the pictures there as PNGs, to look at beside a design. A test
+  with `BENTOBAR_PICTURES=<directory>` (and `--rerun`) it writes the pictures there as PNGs, to look at beside a design. It asks
+  the view to draw into a bitmap; `captureToImage` came out one change behind, or blank, when every Compose test ran. A test
   of keys asks for the keyboard first (`LocalInputModeManager`): in touch mode nothing that takes a click takes the focus.
 - Editing the manifest or a string re-runs the tests that read them; a green run that says UP-TO-DATE after such an
   edit is wrong, so look.

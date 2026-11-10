@@ -2,6 +2,8 @@ package com.meridian11.books.bentobar.compose
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,11 +19,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.bar.BarStatus
@@ -76,9 +76,15 @@ class ShellPicturesTest {
     private var running by mutableStateOf(true)
     private var page by mutableStateOf(Page.BAR)
 
+    private lateinit var view: View
+
+    /**
+     * What the window's content draws, asked of the view itself. A capture of the window is not used: in a run of every
+     * Compose test it came out one change behind (the dark sheet where the light one was asked for), or with nothing of
+     * the content when no state had changed since the content was set.
+     */
     private fun picture(name: String): Bitmap {
-        rule.waitForIdle()
-        val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
+        val bitmap = rule.runOnIdle { Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) } }
         System.getenv("BENTOBAR_PICTURES")?.takeIf { it.isNotBlank() }?.let { dir ->
             File(dir).mkdirs()
             File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -96,6 +102,7 @@ class ShellPicturesTest {
                 ItemConfig("c", "battery", Section.HIDDEN, area = Position.RIGHT), ItemConfig("d", "memory", Section.OFF, area = Position.RIGHT)))
         }
         rule.setContent {
+            view = LocalView.current
             SettingsTheme(dark) {
                 Shell(page, { page = it }, running, enabled = true, status = BarStatus.SHOWN, onEnabled = {}, onTurnOn = {}, insets = WindowInsets(top = CAPTION.dp)) {
                     BarPage(running, selected = null, onSelect = {}, onSetup = {})
@@ -133,6 +140,7 @@ class ShellPicturesTest {
     @Config(qualifiers = "w720dp-h420dp-mdpi")
     @Test fun theControls() {
         rule.setContent {
+            view = LocalView.current
             SettingsTheme(dark) {
                 val c = Bento.colors
                 Column(Modifier.fillMaxSize().background(c.surface).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -169,10 +177,6 @@ class ShellPicturesTest {
 
     private companion object {
         const val CAPTION = 36
-        /**
-         * Dark first: a test starts in light, and a picture taken with nothing changed since the content was set can
-         * come out blank here (the window's ground and nothing of the content) when the test is not the run's first.
-         */
-        val THEMES = listOf(true, false)
+        val THEMES = listOf(false, true)
     }
 }
