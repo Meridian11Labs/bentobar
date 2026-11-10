@@ -265,12 +265,15 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, onSel
                     fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = 14.sp)
                 // One area's strip, as the bar composes each of its own: the area's plan, its ‹ on the area's side, and what
                 // it has no room for kept as the area's. [budget] is what its items may take.
+                // An area the layout has just lost still has its place in [PreviewAreas] until that is measured again, and
+                // is composed once more before then, with this layout: there is no plan for it, and it composes nothing.
                 val strip: @Composable (Position, Int) -> Unit = { area, budget ->
-                    val plan = plans.getValue(area)
-                    Strip(entries(plan.visible), entries(plan.revealed), plan.chevron,
-                        chevronAlways = plan.chevronAlways, chevronReservePx = 0, expanded = plan.open,
-                        chevronOnLeft = area != Position.LEFT, look = look, maxWidthPx = budget, heightDp = 52.dp, events = events,
-                        onOverflow = { dropped[area] = it })
+                    plans[area]?.let { plan ->
+                        Strip(entries(plan.visible), entries(plan.revealed), plan.chevron,
+                            chevronAlways = plan.chevronAlways, chevronReservePx = 0, expanded = plan.open,
+                            chevronOnLeft = area != Position.LEFT, look = look, maxWidthPx = budget, heightDp = 52.dp, events = events,
+                            onOverflow = { dropped[area] = it })
+                    }
                 }
                 val only = areas.singleOrNull()
                 if (only != null) {
@@ -337,8 +340,9 @@ private fun PreviewAreas(areas: List<Position>, drawing: Set<Position>, maxPx: I
             val room = lane.max >= chevron + 2 * ends
             // With no room it is still composed, on no budget: what it would show is what the picture has no room for.
             val budget = if (room) minOf(maxPx, lane.max - chevron - 2 * ends) else 0
-            val p = subcompose(area) { strip(area, budget) }.single().measure(Constraints(maxWidth = maxOf(0, lane.max), maxHeight = constraints.maxHeight))
-            if (!room || area !in drawing || p.width == 0) return@mapNotNull null
+            // An area whose strip composed nothing has nothing to place.
+            val p = subcompose(area) { strip(area, budget) }.singleOrNull()?.measure(Constraints(maxWidth = maxOf(0, lane.max), maxHeight = constraints.maxHeight))
+            if (p == null || !room || area !in drawing || p.width == 0) return@mapNotNull null
             val x = when (area) {
                 Position.RIGHT -> hi - p.width
                 Position.LEFT -> lo

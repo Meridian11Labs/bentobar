@@ -30,6 +30,7 @@ import com.meridian11.books.bentobar.data.Pill
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
+import com.meridian11.books.bentobar.data.putInArea
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.ui.BarPreview
@@ -192,6 +193,37 @@ class BarPreviewTest {
         assertTrue("no two overlap: ${at("l")}, ${at("m")}, ${at("r")}", at("l").right < at("m").left && at("m").right < at("r").left)
         assertEquals(3.dp to 49.dp, at("m").top to at("m").bottom)
         rule.onNodeWithText(app.getString(R.string.bar_preview_hint)).assertExists()
+    }
+
+    // An area that goes out of use while the picture stands: its strip is still composed until the next measure, with a
+    // layout that no longer has it.
+
+    @Test fun anAreasLastItemMovedToAnotherAreaLeavesAPictureOfTheAreasThatAreLeft() {
+        show(three)
+        rule.runOnUiThread { Store.update { it.putInArea("m", Position.RIGHT) } }
+        rule.waitForIdle()
+        assertEquals("Right ends where it did", icons().left - 12.dp - end, at("r").right)
+        assertTrue("the moved item stands in Right, before the one that was there: ${at("m")}, ${at("r")}",
+            at("m").right < at("r").left && at("r").left - at("m").right < 40.dp)
+        assertEquals("Left stays", clock().right + 16.dp + end, at("l").left)
+        // And back: the Middle has its strip again.
+        rule.runOnUiThread { Store.update { it.putInArea("m", Position.CENTER) } }
+        rule.waitForIdle()
+        val (left, right) = sides("m", "m")
+        assertTrue("the Middle is centred again: $left, $right", (right - left).value in 0f..1f)
+    }
+
+    @Test fun aLayoutWithOneAreaFewerTakesTheOldOnesPlaceInThePicture() {
+        show(three)
+        for (gone in listOf(Position.CENTER, Position.LEFT)) {
+            rule.runOnUiThread { Store.update { BarConfig(items = three.filter { item -> item.area != gone }) } }
+            rule.waitForIdle()
+            assertEquals("without $gone", three.map { it.area != gone }, three.map { rule.onAllNodesWithContentDescription("${it.id} desc").fetchSemanticsNodes().isNotEmpty() })
+            assertEquals(icons().left - 12.dp - end, at("r").right)
+            rule.runOnUiThread { Store.update { BarConfig(items = three) } }
+            rule.waitForIdle()
+            assertTrue("three again: ${at("l")}, ${at("m")}, ${at("r")}", at("l").right < at("m").left && at("m").right < at("r").left)
+        }
     }
 
     @Test fun aWideRightMovesTheMiddleLeftOnlyAsFarAsItMustAndNeverMakesItJump() {
