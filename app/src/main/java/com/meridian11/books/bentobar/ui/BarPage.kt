@@ -190,7 +190,7 @@ private fun Placeholder() {
 
 /** A mock status bar with the real strip in it; clicking an item selects it. */
 @Composable
-private fun BarPreview(states: Map<String, ItemState>, selected: String?, onSelect: (String?) -> Unit) {
+internal fun BarPreview(states: Map<String, ItemState>, selected: String?, onSelect: (String?) -> Unit) {
     val cfg by Store.config.collectAsState()
     val tick by Ticker.tick.collectAsState()
     var expanded by remember { mutableStateOf(false) }
