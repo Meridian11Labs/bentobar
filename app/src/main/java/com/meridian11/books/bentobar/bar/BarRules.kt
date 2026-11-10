@@ -92,12 +92,12 @@ internal data class BarDecision(
  */
 internal object BarRules {
     /**
-     * What a change of the layout has to do with the bar: where the strip sits and what it holds. Everything else (a
-     * label typed letter by letter, a colour) the strip draws by itself, and the bar needs no second look for it.
+     * What a change of the layout has to do with the bar: which area each item is in and what the areas hold. Everything
+     * else (a label typed letter by letter, a colour) the strip draws by itself, and the bar needs no second look for it.
      */
-    data class Geometry(val enabled: Boolean, val position: Position, val pill: Pill, val spacing: Int, val items: List<Pair<String, Section>>)
+    data class Geometry(val enabled: Boolean, val pill: Pill, val spacing: Int, val items: List<Triple<String, Section, Position>>)
 
-    fun geometry(cfg: BarConfig) = Geometry(cfg.enabled, cfg.position, cfg.pill, cfg.spacing, cfg.items.map { it.id to it.section })
+    fun geometry(cfg: BarConfig) = Geometry(cfg.enabled, cfg.pill, cfg.spacing, cfg.items.map { Triple(it.id, it.section, it.area) })
 
     /** What asks [decide] for a reading of the bar's colors. */
     enum class Read { NEW_BAR_WINDOW, WINDOWS_MOVED }
