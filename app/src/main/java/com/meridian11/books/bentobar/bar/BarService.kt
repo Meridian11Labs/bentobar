@@ -15,6 +15,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -127,7 +128,7 @@ class BarController(private val service: AccessibilityService) {
             set(v) {
                 state.value = v; Ticker.revealHidden = v || menus.menuKey == MenuKey.Bar; if (v) Ticker.refresh()
                 // Out: a click anywhere else folds them away again (see [outsideClick]).
-                for (strip in strips) strip.watchOutside(v)
+                watchOutside()
             }
     }
     /** The strip's colours and the readings of the status bar behind them. */
@@ -145,7 +146,7 @@ class BarController(private val service: AccessibilityService) {
     /** A strip for each area, in room order. On screen are those of the areas in use that have room. */
     private val strips = ROOM_ORDER.map { area ->
         val title = when (area) { Position.RIGHT -> "BentoBar"; Position.LEFT -> "BentoBar left"; Position.CENTER -> "BentoBar middle" }
-        AreaStrip(area, Overlay(service, title, onOutside = { outsideClick() }).apply { params.width = 1; watchOutside(false) })
+        AreaStrip(area, Overlay(service, title, onOutside = { outsideClick(it) }).apply { params.width = 1; watchOutside(false) })
     }
     /** The area whose strip does what the bar does once: the first one placed. State: a strip that becomes it is composed again. */
     private var carrier by mutableStateOf(ROOM_ORDER.first())
@@ -162,9 +163,29 @@ class BarController(private val service: AccessibilityService) {
     /** Keep awake: a flag on the strip's window, a wake lock while the strip has none to carry it. */
     private val awake = KeepAwake(main, pm, km, scope, strips.map { it.window }) { strips.firstOrNull { it.area == awakeArea }?.takeIf { it.draws }?.window }
 
-    /** A click outside the strip while hidden items are out folds them away, unless a menu is open (it closes itself). */
-    private fun outsideClick() {
+    /**
+     * Presses outside the bar are heard by the first strip's window alone, and only while hidden items are out: one press
+     * is heard once, in however many windows the bar is. Asked again when either changes.
+     */
+    private fun watchOutside() {
+        for (strip in strips) strip.watchOutside(expanded.value && strip.area == carrier)
+    }
+
+    /** The strip a press at [x], [y] on the screen landed on, of those on screen; null for a press on none of them. */
+    private fun stripAt(x: Float, y: Float): AreaStrip? {
+        val height = snap?.bar?.height() ?: 0
+        val shown = strips.filter { it.shown }
+        val area = PopupRules.pressedArea(x, y, shown.map { s -> s.locationOnScreen().let { StripFrame(s.area, it[0], it[1], s.params.width, height) } })
+        return shown.firstOrNull { it.area == area }
+    }
+
+    /**
+     * A click outside the bar while hidden items are out folds them away, unless a menu is open (it closes itself). To
+     * the window that hears it a press on another strip is outside too: that one is on the bar, and is that strip's own.
+     */
+    private fun outsideClick(ev: MotionEvent) {
         if (menus.menuKey != null || !expanded.value) return
+        if (stripAt(ev.rawX, ev.rawY) != null) return
         fold()
     }
 
@@ -187,6 +208,7 @@ class BarController(private val service: AccessibilityService) {
     private val menus: MenuCoordinator = MenuCoordinator(service, main, wm, object : MenuCoordinator.Facts {
         override val snapshot get() = snap
         override val expanded get() = this@BarController.expanded.value
+        override fun stripAt(x: Float, y: Float) = this@BarController.stripAt(x, y)
         override fun popupClosed() { if (!hovering && !pinned) { main.removeCallbacks(collapse); main.postDelayed(collapse, 600) } }
     })
 
@@ -483,7 +505,10 @@ class BarController(private val service: AccessibilityService) {
             strip.maxWidth.intValue = spot.budget
             if (!strip.shown) strip.show { StripHost(strip) } else strip.relayout()
         }
+        val before = carrier
         carrier = a.carrier
+        // Hidden items are out and the first strip is another now: that one hears a press outside the bar.
+        if (carrier != before) watchOutside()
         owed.value = a.owed
         // Android refused an area's window while the others have theirs: the status says so, and the next placing tries again.
         refused = a.spots.any { spot -> strips.none { it.area == spot.area && it.shown } }

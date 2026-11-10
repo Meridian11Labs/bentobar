@@ -321,6 +321,48 @@ class HidePathTest {
     }
 
     /**
+     * One press is heard once: only the first strip's window watches for presses outside it, and only while hidden items
+     * are out. A press on another strip is outside that window and on the bar, so it folds nothing; where the strips stand
+     * is PopupRules.pressedArea (PopupRulesTest). With one strip that window is the bar, as it always was.
+     */
+    @Test fun onlyTheFirstStripHearsPressesOutsideTheBarAndAPressOnAnotherStripIsNotOne() {
+        val watch = code.substringAfter("private fun watchOutside() {").substringBefore("\n    }\n")
+        assertTrue(watch, "for (strip in strips) strip.watchOutside(expanded.value && strip.area == carrier)" in watch)
+        assertEquals("no window is told to watch anywhere else", 1, Regex("""strip\.watchOutside\(""").findAll(code).count())
+        assertTrue("every window starts without the watch", "params.width = 1; watchOutside(false)" in code)
+        // Asked again when either half of the rule changes: hidden items come out or go, the first strip is another.
+        val setter = code.substringAfter("private val expanded = object {").substringBefore("\n    }\n")
+        assertTrue(setter, "watchOutside()" in setter)
+        val place = code.substringAfter("private fun place(").substringBefore("\n    }\n")
+        val carrier = place.indexOf("carrier = a.carrier")
+        assertTrue(place, carrier >= 0 && place.indexOf("if (carrier != before) watchOutside()", carrier) > carrier)
+        val click = code.substringAfter("private fun outsideClick(ev: MotionEvent) {").substringBefore("\n    }\n")
+        var at = 0
+        for (step in listOf("if (menus.menuKey != null || !expanded.value) return", "if (stripAt(ev.rawX, ev.rawY) != null) return", "fold()")) {
+            val i = click.indexOf(step, at)
+            assertTrue("$step is missing, or out of order, in $click", i >= 0)
+            at = i + step.length
+        }
+        val where = code.substringAfter("private fun stripAt(x: Float, y: Float): AreaStrip? {").substringBefore("\n    }\n")
+        assertTrue("only strips on screen are asked: $where", "strips.filter { it.shown }" in where && "PopupRules.pressedArea(x, y, " in where)
+        // The window hands the press on, so that where it was can be asked.
+        val overlay = File("src/main/java/com/meridian11/books/bentobar/bar/Overlay.kt").readText()
+        assertTrue("private val onOutside: ((MotionEvent) -> Unit)? = null," in overlay)
+        assertTrue("if (ev.actionMasked == MotionEvent.ACTION_OUTSIDE) { onOutside?.invoke(ev); return true }" in overlay)
+    }
+
+    /** A press outside the open popup is on the bar when it is on any strip: on the item of the strip it landed on. */
+    @Test fun aPressOutsideAPopupIsToldToTheItemOfWhicheverStripItLandedOn() {
+        val outside = menus.substringAfter("private fun outside(ev: MotionEvent) {").substringBefore("\n    }\n")
+        val on = outside.indexOf("val on = facts.stripAt(ev.rawX, ev.rawY)")
+        assertTrue(outside, on >= 0)
+        val item = outside.indexOf("PopupRules.pressedItem(ev.rawX - it.locationOnScreen()[0], it.placed.map {", on)
+        assertTrue("the item is looked for among what that strip drew: $outside", item > on)
+        assertTrue("and only the popup's own strip's ‹ is the ‹ menu's: $outside", outside.indexOf("PopupRules.pressedOwner(item, on?.area ?: strip.area, strip.area)", item) > item)
+        assertFalse("the popup's strip is not asked where the press was", "strip.locationOnScreen()" in outside)
+    }
+
+    /**
      * A popup folding away turns round when its item is clicked again, where it stands. Under another area's strip that is
      * the wrong place (the ‹ menu has one key in every area): it is taken away at once, before the click is asked about,
      * and the popup opens anew under the strip that was clicked. What the state then answers is PopupStateTest's.

@@ -85,6 +85,39 @@ class PopupRulesTest {
         assertNull("no strip is on screen", PopupRules.pressedArea(925f, 20f, emptyList()))
     }
 
+    /** The window that hears presses outside the bar is one strip's: a press on another strip is outside that window, and on the bar. */
+    @Test fun aPressInsideAnotherStripsFrameIsNotOutside() {
+        // Heard by Right's window, as every press outside it is: on Left's strip and on the Middle's it is on the bar.
+        assertEquals(Position.LEFT, PopupRules.pressedArea(170f, 5f, frames))
+        assertEquals(Position.CENTER, PopupRules.pressedArea(1049f, 40f, frames))
+        // With one strip on screen nothing its window hears as outside is on the bar: every such press folds, as it always did.
+        val one = frames.filter { it.area == Position.RIGHT }
+        for (x in listOf(0.5f, 170f, 925f, 1380.5f, 1681f, 1900f)) for (y in listOf(0.5f, 20f, 40.5f)) assertNull("$x, $y", PopupRules.pressedArea(x, y, one))
+        for (y in listOf(41f, 500f)) assertNull("under the strip", PopupRules.pressedArea(1500f, y, one))
+    }
+
+    // ---- what a press outside the open popup is on -----------------------------------------------------------
+
+    @Test fun aPressOnThePopupsOwnStripIsOnTheItemItNames() {
+        // One strip, or the strip the popup hangs from: what the press is on is what the strip calls it, as it always was.
+        for (area in Position.entries) for (item in listOf("chevron", "clock1", null)) assertEquals(item, PopupRules.pressedOwner(item, on = area, popup = area))
+    }
+
+    @Test fun anItemOfAnotherStripIsItselfAndAnotherStripsChevronIsNotTheChevronMenusOwn() {
+        assertEquals("clock1", PopupRules.pressedOwner("clock1", on = Position.LEFT, popup = Position.RIGHT))
+        assertNull(PopupRules.pressedOwner(null, on = Position.LEFT, popup = Position.RIGHT))
+        // Every area has a ‹ and the ‹ menu hangs from one of them: a press on another's is a press on another item.
+        val other = PopupRules.pressedOwner("chevron", on = Position.LEFT, popup = Position.RIGHT)
+        assertTrue("$other", other != null && other != MenuKey.Bar.owner)
+        val popups = PopupState<String>()
+        popups.opened("w1", MenuKey.Bar)
+        assertEquals("the menu dissolves, and the click opens that strip's", PopupCommand.Dissolve, popups.press(other, 100L))
+        assertEquals("its own ‹ folds it and spends the click", PopupCommand.Fold, popups.press(PopupRules.pressedOwner("chevron", Position.RIGHT, Position.RIGHT), 100L))
+        // An item's popup too: no item is called what another strip's ‹ is.
+        popups.opened("w2", MenuKey.Item("clock1"))
+        assertEquals(PopupCommand.Dissolve, popups.press(other, 100L))
+    }
+
     @Test fun aPressWithoutCoordinatesIsInNoAreaEvenWithAStripInTheScreensCorner() {
         // A press on another app's window comes as 0, 0: it is not a press on a strip that begins there.
         val corner = listOf(StripFrame(Position.LEFT, left = 0, top = 0, width = 200, height = 41))

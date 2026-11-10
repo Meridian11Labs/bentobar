@@ -37,6 +37,8 @@ internal class MenuCoordinator(
         val snapshot: BarSnapshot?
         /** Hidden items are out. */
         val expanded: Boolean
+        /** The strip a press at [x], [y] on the screen landed on, of those on screen; null for a press on none of them. */
+        fun stripAt(x: Float, y: Float): AreaStrip?
         /** A popup was closed: hidden items the pointer no longer holds out may fold away. */
         fun popupClosed()
     }
@@ -121,20 +123,17 @@ internal class MenuCoordinator(
 
     /**
      * A press outside the open popup. On the popup's own item it folds the popup away and that press's click is
-     * spent; on another item the popup dissolves, and the click opens that item's popup as it unfolds; anywhere
-     * else it folds. (A press on another app's window comes without coordinates: it is "anywhere else".)
+     * spent; on another item, of any strip, the popup dissolves, and the click opens that item's popup as it unfolds;
+     * anywhere else it folds. (A press on another app's window comes without coordinates: it is "anywhere else".)
      */
     private fun outside(ev: MotionEvent) {
         if (menuKey == null) return
         val strip = menuStrip ?: return
-        val loc = strip.locationOnScreen()
-        val x = ev.rawX - loc[0]
-        val y = ev.rawY - loc[1]
-        val onStrip = (ev.rawX != 0f || ev.rawY != 0f) && strip.shown &&
-            x >= 0 && x < strip.params.width && y >= 0 && y < (facts.snapshot?.bar?.height() ?: 0)
+        // On whichever strip it landed: the bar is one, in however many windows.
+        val on = facts.stripAt(ev.rawX, ev.rawY)
         // The same rule as the highlight's: a press in a gap belongs to the item on its side of the gap's middle.
-        val hit = if (onStrip) PopupRules.pressedItem(x, strip.placed.map { (k, r) -> Span(k, r.left.toFloat(), r.right.toFloat()) }) else null
-        when (popups.press(hit, SystemClock.uptimeMillis())) {
+        val item = on?.let { PopupRules.pressedItem(ev.rawX - it.locationOnScreen()[0], it.placed.map { (k, r) -> Span(k, r.left.toFloat(), r.right.toFloat()) }) }
+        when (popups.press(PopupRules.pressedOwner(item, on?.area ?: strip.area, strip.area), SystemClock.uptimeMillis())) {
             PopupCommand.Fold -> closeMenu()
             PopupCommand.Dissolve -> closeMenu(dissolve = true)
             else -> Unit

@@ -62,4 +62,13 @@ internal object PopupRules {
         if (x == 0f && y == 0f) return null
         return frames.firstOrNull { f -> x >= f.left && x < f.left + f.width && y >= f.top && y < f.top + f.height }?.area
     }
+
+    /**
+     * What a press on [item] of the strip in [on] is called to the open popup, which hangs from the strip in [popup]
+     * ([PopupState.press] knows a popup's own item by that name). An item is in one strip and is itself everywhere. Every
+     * area has a ‹ of its own, and only the popup's strip's is the ‹ menu's own: another strip's is another item, so its
+     * click opens that strip's menu and is not spent. With one strip a press is always on the popup's.
+     */
+    fun pressedOwner(item: String?, on: Position, popup: Position): String? =
+        if (item == MenuKey.Bar.owner && on != popup) "$item of ${on.name}" else item
 }
