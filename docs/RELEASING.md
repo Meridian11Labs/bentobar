@@ -87,8 +87,10 @@ learned the hard way" says why. Run it again on every new draft.
 - **No room.** Narrow the free part of the status bar (snap windows, or a larger display size) until an area has no room:
   its items are in the first strip's ‹ menu and their rows in Settings say they don't fit right now; the other strips do
   not move when that ‹ comes and goes, and nothing flickers at the edge of room. With Presenting on, a ‹ that ends it
-  stays on screen. With room for nothing, the home area's ‹ is drawn as it was with one strip, and the keyboard's
-  "BentoBar menu" opens it. Give the room back: the areas return and the rows clear.
+  stays on screen. An area with no room whose items are all Hidden (Right: a clock; Left: two Hidden items; hidden items
+  on a click) still gives the bar a ‹: the first strip draws one, and a press on it opens the menu that lists them. With
+  room for nothing, the home area's ‹ is drawn as it was with one strip, and the keyboard's "BentoBar menu" opens it.
+  Give the room back: the areas return and the rows clear.
 - **One bar across areas.** With hidden items out, a click on another app folds them, once; a click on an item in
   another area opens its popup and folds nothing. A press on another area's item closes an open popup and opens its own
   (one click). The pointer moving from one strip straight to the next keeps hidden items out, takes the highlight with

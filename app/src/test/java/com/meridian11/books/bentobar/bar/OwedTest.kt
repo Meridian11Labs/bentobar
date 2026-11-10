@@ -5,9 +5,13 @@ import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
+import com.meridian11.books.bentobar.data.behindChevron
 import com.meridian11.books.bentobar.data.carrierOverflow
+import com.meridian11.books.bentobar.data.chevronOpensMenu
 import com.meridian11.books.bentobar.data.homeArea
+import com.meridian11.books.bentobar.data.notDrawn
 import com.meridian11.books.bentobar.data.owedIds
+import com.meridian11.books.bentobar.data.stripPlan
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -71,9 +75,45 @@ class OwedTest {
     // ---- whether the carrier's ‹ stands for more than its own area -------------------------------------------
 
     @Test fun theCarriersChevronStandsForAnOwedItem() {
-        assertTrue(layout.carrierOverflow(setOf(left), setOf("m")))
-        assertFalse("an owed area that would draw nothing asks for no ‹", layout.carrierOverflow(setOf(left), emptySet()))
-        assertFalse(layout.carrierOverflow(emptySet(), emptySet()))
+        assertTrue(layout.carrierOverflow(setOf(left), setOf("m"), nobody))
+        assertFalse("an owed area with nothing to draw and nothing behind ‹ asks for no ‹", layout.carrierOverflow(setOf(middle), emptySet(), nobody))
+        assertFalse(layout.carrierOverflow(emptySet(), emptySet(), nobody))
+    }
+
+    /** An owed area's ‹ is owed too: what waits behind it has no other ‹ to be reached by, drawn or not. */
+    @Test fun theCarriersChevronStandsForWhatWaitsBehindAnOwedAreasChevron() {
+        for (mode in listOf(HiddenMode.CLICK, HiddenMode.HOVER)) {
+            val bar = layout.copy(hiddenMode = mode)
+            assertTrue("$mode: Left's hidden items", bar.carrierOverflow(setOf(left), emptySet(), nobody))
+            assertTrue("$mode: one waits though the other's rule brought it out", bar.carrierOverflow(setOf(left), setOf("t"), { it.id == "t" }))
+            assertFalse("$mode: Left has its window, and its own ‹", bar.carrierOverflow(setOf(middle), emptySet(), nobody))
+        }
+        val onlyARule = layout.copy(items = listOf(clock, timerRule))
+        assertTrue("a rule item waiting for its rule waits behind ‹", onlyARule.carrierOverflow(setOf(left), emptySet(), nobody))
+        assertFalse("its rule holds: it is owed as a drawn item is, by its id", onlyARule.carrierOverflow(setOf(left), emptySet(), { true }))
+        assertFalse("Show everything has nothing behind ‹", layout.copy(hiddenMode = HiddenMode.SHOW_ALL).carrierOverflow(setOf(left), emptySet(), nobody))
+        assertFalse("an Off item and a type this version does not know are behind no ‹",
+            layout.copy(items = listOf(clock, off, newer.copy(section = Section.HIDDEN))).carrierOverflow(setOf(left), emptySet(), nobody))
+        assertFalse("while presenting nothing waits behind ‹", layout.copy(presenting = true).carrierOverflow(setOf(left), emptySet(), nobody))
+    }
+
+    /** Right has room and nothing hidden, Left has no room and holds the bar's only hidden items: the bar still has a ‹, and it reaches them. */
+    @Test fun aPressOnTheChevronThatStandsForAnOwedAreaOpensTheMenuThatListsItsHiddenItems() {
+        val bar = BarConfig(hiddenMode = HiddenMode.CLICK, items = listOf(clock, battery, memory.copy(section = Section.HIDDEN)))
+        val owed = setOf(left)
+        for (expanded in listOf(false, true)) {
+            val ids = bar.owedIds(owed, nobody, expanded)
+            val carrier = bar.stripPlan(right, nobody, expanded, overflow = bar.carrierOverflow(owed, ids, nobody))
+            assertTrue("expanded=$expanded: the first strip draws a ‹", carrier.chevron)
+            assertFalse("which does not look open: none of what it stands for comes out beside it", carrier.open)
+            val behind = bar.behindChevron(nobody)
+            assertTrue("and a press on it opens the ‹ menu", chevronOpensMenu(bar.presenting, bar.hiddenMode, expanded,
+                barHasHidden = behind.isNotEmpty(), areaHasHidden = behind.any { it.area == right }))
+        }
+        assertEquals("whose hidden list is the owed area's items", listOf("b", "m"), bar.notDrawn(nobody).map { it.id })
+        // Without the owed ‹ the folded bar had none at all: nothing is owed by id while the hidden items are in.
+        assertEquals(emptySet<String>(), bar.owedIds(owed, nobody, expanded = false))
+        assertFalse(bar.stripPlan(right, nobody, expanded = false, overflow = false).chevron)
     }
 
     /** Presenting's ‹ is the home area's, and the only way to the menu that ends presenting: it moves to the carrier. */
@@ -81,10 +121,10 @@ class OwedTest {
         // Right is not in use, so the Middle is home and Left, first in room order, is the carrier.
         val presenting = BarConfig(presenting = true, items = listOf(memory, date))
         assertEquals(middle, presenting.homeArea())
-        assertTrue(presenting.carrierOverflow(setOf(middle), emptySet()))
-        assertFalse("the home area has its window, and its own ‹", presenting.carrierOverflow(emptySet(), emptySet()))
-        assertFalse("another area is owed, with nothing to draw", presenting.carrierOverflow(setOf(left), emptySet()))
-        assertFalse("not presenting", presenting.copy(presenting = false).carrierOverflow(setOf(middle), emptySet()))
+        assertTrue(presenting.carrierOverflow(setOf(middle), emptySet(), nobody))
+        assertFalse("the home area has its window, and its own ‹", presenting.carrierOverflow(emptySet(), emptySet(), nobody))
+        assertFalse("another area is owed, with nothing to draw", presenting.carrierOverflow(setOf(left), emptySet(), nobody))
+        assertFalse("not presenting", presenting.copy(presenting = false).carrierOverflow(setOf(middle), emptySet(), nobody))
     }
 
     /** With every item in one area there is never an owed area: nothing is owed, and ‹ is for the strip's own items as it was. */
@@ -93,7 +133,7 @@ class OwedTest {
             val one = layout.copy(presenting = presenting, items = layout.items.map { it.copy(area = area) })
             val ids = one.owedIds(emptySet(), { true }, expanded = true)
             assertEquals(emptySet<String>(), ids)
-            assertFalse("$area presenting=$presenting", one.carrierOverflow(emptySet(), ids))
+            assertFalse("$area presenting=$presenting", one.carrierOverflow(emptySet(), ids) { true })
         }
     }
 }

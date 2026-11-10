@@ -209,7 +209,7 @@ class HidePathTest {
     @Test fun whatHasNoRoomIsItsStripsOwnOrOwedToTheFirstStripAndIsPublishedAsOneSet() {
         val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
         assertTrue(host, "val owes = if (strip.area == carrier) cfg.owedIds(owed.value, active, expanded.value) else emptySet()" in host)
-        assertTrue(host, "strip.dropped.isNotEmpty() || (strip.area == carrier && cfg.carrierOverflow(owed.value, owes)))" in host)
+        assertTrue(host, "strip.dropped.isNotEmpty() || (strip.area == carrier && cfg.carrierOverflow(owed.value, owes, active)))" in host)
         assertTrue(host, "onOverflow = { ids -> main.post { if (strip.shown) { strip.dropped = ids; publishOverflow() } } }," in host)
         assertFalse("no strip plans by what another has no room for: $host", "BarOverflow" in host)
         // Decided in the composition, so a rule that starts to hold in an area with no window is heard at once; told once it is applied.

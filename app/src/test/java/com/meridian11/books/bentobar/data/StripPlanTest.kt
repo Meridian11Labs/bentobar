@@ -273,6 +273,18 @@ class StripPlanTest {
             assertTrue("$mode expanded=$expanded", opensMenu(mode = mode, expanded = expanded, bar = true, area = false))
     }
 
+    /** The first strip's ‹ stands for an area with no room whose items all wait behind ‹: a press opens the menu, bar open or not. */
+    @Test fun aChevronThatStandsForAnOwedAreasHiddenItemsOpensTheMenu() {
+        for (mode in listOf(HiddenMode.CLICK, HiddenMode.HOVER)) for (expanded in listOf(false, true)) {
+            val c = BarConfig(hiddenMode = mode, items = listOf(clock.at(right), memory.at(left), timerRule.at(left)))
+            val owed = setOf(left)
+            val overflow = c.carrierOverflow(owed, c.owedIds(owed, nobody, expanded), nobody)
+            assertTrue("$mode expanded=$expanded: the bar has a ‹", plan(c, right, expanded = expanded, overflow = overflow).chevron)
+            val behind = c.behindChevron(nobody)
+            assertTrue("$mode expanded=$expanded", chevronOpensMenu(c.presenting, mode, expanded, behind.isNotEmpty(), behind.any { it.area == right }))
+        }
+    }
+
     /** A layout in one area: what the bar has behind ‹ is what its one strip has, and the rule is the one there always was. */
     @Test fun withOneAreaAPressOnTheChevronDoesWhatItAlwaysDid() {
         var asked = 0

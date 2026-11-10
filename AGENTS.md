@@ -425,7 +425,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   Left, then the Middle (`BarRules.arrange`); the first strip placed in that order is the **carrier** in the code, and
   does what the bar does once. An area in use with less room than a ‹ and its ends need has no window and is
   **owed**: what it would draw now (`owedIds`) is behind the first strip's ‹, in its menu and in Settings' rows as not
-  fitting (`carrierOverflow` says when that ‹ stands for more than its own area; `OwedTest`).
+  fitting, and its own ‹ is owed with it: what waits behind that one is in the first strip's ‹ menu too, so the first
+  strip has a ‹ for it (`carrierOverflow` says when that ‹ stands for more than its own area; `OwedTest`).
   The first strip's ‹ so comes and goes for other areas, and room that followed its width would follow that ‹: an area
   would get room because it had none and lose it because it had some. So with more than one area in use the first strip
   fits its items as if it always had a ‹, and the others stand behind its **reach**, not its width: the items it keeps,

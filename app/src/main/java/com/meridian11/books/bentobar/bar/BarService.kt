@@ -576,9 +576,10 @@ class BarController(private val service: AccessibilityService) {
         val owes = if (strip.area == carrier) cfg.owedIds(owed.value, active, expanded.value) else emptySet()
         SideEffect { if (strip.area == carrier) owe(owes) }
         // Its own area's items, and a ‹ for what it has no room for itself: a placed strip's lack of room is not another's
-        // business. The first strip's ‹ is also there for what is owed, and for presenting's ‹ when the home area has no window.
+        // business. The first strip's ‹ is also there for what is owed, for what waits behind the ‹ of an area with no window,
+        // and for presenting's ‹ when the home area has no window.
         val plan = cfg.copy(items = items).stripPlan(strip.area, active, expanded.value,
-            strip.dropped.isNotEmpty() || (strip.area == carrier && cfg.carrierOverflow(owed.value, owes)))
+            strip.dropped.isNotEmpty() || (strip.area == carrier && cfg.carrierOverflow(owed.value, owes, active)))
         val shownEntries = entries(plan.visible)
         val revealedEntries = entries(plan.revealed)
         // The one rule for an empty strip: what it puts on the screen, never how many entries it has.

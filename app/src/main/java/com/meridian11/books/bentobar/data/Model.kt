@@ -325,14 +325,17 @@ fun chevronOpensMenu(presenting: Boolean, hiddenMode: HiddenMode, expanded: Bool
 /**
  * The ids an area with no window owes the carrier's ‹: what it would draw now. [areas]: the areas in use that have no room
  * right now. A hidden item is owed only while its strip would bring it out; one waiting behind ‹ is in the ‹ menu's hidden
- * list as it is. A layout in one area never has such an area, and owes nothing.
+ * list as it is, and [carrierOverflow] sees that the bar has a ‹ for it. A layout in one area never has such an area, and
+ * owes nothing.
  */
 fun BarConfig.owedIds(areas: Set<Position>, active: (ItemConfig) -> Boolean, expanded: Boolean): Set<String> =
     areas.flatMapTo(mutableSetOf()) { area -> stripPlan(area, active, expanded, overflow = false).run { visible + revealed }.map { it.id } }
 
 /**
- * Whether the carrier's ‹ stands for more than its own area: for an item [owedIds] names, or, while presenting, for the
- * home area's ‹ when that area is among [owed] (it opens the menu that ends presenting, so it must be somewhere).
+ * Whether the carrier's ‹ stands for more than its own area: for an item [owedIds] names; for what waits behind ‹ in an
+ * area among [owed], whose own ‹ is owed with it (a press on the carrier's then opens the ‹ menu, which lists it:
+ * [chevronOpensMenu]); or, while presenting, for the home area's ‹ when that area is among [owed] (it opens the menu
+ * that ends presenting, so it must be somewhere).
  */
-fun BarConfig.carrierOverflow(owed: Set<Position>, owedIds: Set<String>): Boolean =
-    owedIds.isNotEmpty() || (presenting && homeArea() in owed)
+fun BarConfig.carrierOverflow(owed: Set<Position>, owedIds: Set<String>, active: (ItemConfig) -> Boolean): Boolean =
+    owedIds.isNotEmpty() || (if (presenting) homeArea() in owed else behindChevron(active).any { it.area in owed })
