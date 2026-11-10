@@ -119,6 +119,13 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     its area `putInArea`, and `putAllIn` for every item's), as pure steps from one layout to the next: it changes the section
     or the area and never the place in the list, which only a Move, drag or drop does (`moved`). A screen calls
     `Store.update { it.hide(id) }` and writes no section, rule or area of its own (`LayoutIntentsTest` holds them to it).
+    The settings' list has its own steps there: `placed(id, area, part, index)` (a drop, and each step), `stepped(id, down)`
+    (Move up and down: `Step.Moved`, `Step.Stays` with why, `Step.End`), `removed(id)` (Remove from the bar: an item that
+    carries a setup waits in Off, a bare one is gone) and `undone(before, after)` (the one Undo).
+    `data/BarList.kt` is how the settings see a layout: each area's list in two parts (`parts`, `partOf`: in the bar, and
+    under the line the items that wait for their rule, or with ‹ everything behind it), `canGoBelow`, `standing`, and
+    what a setup is (`fresh`, `carriesSetup`). `Store.update` keeps no Off item that carries none (`withoutBareOff`), so
+    Off holds only what Add can bring back as it was; a debug `add TYPE off` of a fresh item is therefore gone at once.
     `stripPlan` (in `Model.kt`) is the one choice of what an area's strip and the settings preview show (`StripPlanTest`).
   - `data/`: `Model.kt` (`BarConfig`, `ItemConfig`, `Section`…) and `Store` (JSON in
     SharedPreferences, a process-wide StateFlow shared by the service and settings; `Store.open` takes a `Prefs`, so a test
@@ -140,9 +147,14 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     status bar" switch or Turn on while BentoBar is off, neither on Setup; nothing is ever placed in the caption. Below
     760 dp the header takes two rows. `windowLayout(widthDp)` is the one window model, pure: from 1100 a list and one
     panel, 760 to 1099 one pane, never two panels; a page reads it from `LocalWindowLayout`. `statusLine` words the
-    status), `BarPage` (preview, sections, item detail), `Reorder` (drag
-    and drop across the section cards: the gesture sits on the container, a copy of the row floats
-    above the cards, the Store changes once on the drop), `Pages` (Add, Look, Setup, About),
+    status), `BarPage` (the Bar page: `BarPreview` above; from 1100 dp the list beside a panel whose switch turns
+    between adding and the selected item's options, below that the list is the switch's first part. `BarEdit` holds
+    every command once, for a click, a key and a screen reader's action alike, each one step of `Undo`; `BarKeys` takes
+    a key no control took), `BarRows` (the list: one row per item, the line between its two parts, a head per area while
+    several are in use, Undo in a removed row's place; `listEntries` is what it draws, pure), `ItemOptions` (the panel's
+    options: Visibility with only what the chosen part needs, Order, Area, Show as, then the type's own), `Reorder` (drag
+    and drop in the list: the gesture sits on the container, a copy of the row floats above, the Store changes once on
+    the drop; a press let go without moving selects, a pickup never does), `Pages` (Add, Look, Setup, About),
     `Disclosure` (the accessibility disclosure and consent Google Play requires, and the one list of
     what the service does that Setup shows too; `ConsentRules` says when it comes up), `Theme`, `MenuKit` and
     `Controls` (shared UI pieces).
@@ -150,14 +162,17 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     read as `Bento.colors` and `Bento.type`, with `Space`, `Radius` and `Target`; Material's roles are set from the same
     palette for the pages not yet moved over), and `PaletteContrastTest` holds its pairs to the contrast they need. The
     bar's popups keep the device's colors (`BentoBarTheme`). The settings window's own controls are in `Controls`
-    (`Segment`, `SwitchMark`, `BentoButton`, `Keycap`) and `Notice` (`NoticeLine`), beside the rows the item menus share.
-    Areas in Settings: an item's detail has the Area chooser; a row says its area only while more than one is in use
-    (`usesAreas`); Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
+    (`Segment`, equal parts or each as wide as its words; `SwitchMark`, `BentoButton`, `Keycap`) and `Notice`
+    (`NoticeLine`; an amber notice's one button is `ButtonKind.WARN`), beside the rows the item menus share.
+    Areas in Settings: an item's options have the Area chooser; the list has a head per area only while more than one is
+    in use (`listAreas`); Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
     while they all are in it (`oneArea`); while they are in several, and only then, a line under its title says what a
     choice does. Those two count an item of a type this version doesn't know, which `areasInUse` does
     not: Settings has its row, the bar nothing of it. `Controls.areaChoices` is the one order and wording; `AreaChoosersTest`.
   - "Show when…": a type's `trigger` (in `ItemType.kt`) words its pop-out rule, and its `Threshold`
     is the one source of the option key and default for both `state()` and the settings slider.
+    The settings say it as Visibility ("Always", "Only when active", and with ‹ "Behind ‹" with a "Pops out when active"
+    switch), and the bar's right-click menu says the same words (`standing` is the one reading of where an item stands).
     An option generally is an `Opt` (`items/Opt.kt`): the key, the default and the checks on what a layout may say, declared
     once on the type and read by the bar and the settings alike; text from a layout is cleaned there. Older types still read
     by key and move over as they are touched.
@@ -201,8 +216,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
 - The Compose tests live in `app/src/testComposeTest` under the `composeTest` build type (`:app:testComposeTestUnitTest`), so
   Robolectric stays out of the fast tests in `app/src/test`. `MenuCompositionTest` composes every registered item's menu under
   each state in its type's `stages`; Compose has no error boundary, so this is what stands between a throwing menu and the service.
-  `ShellPicturesTest` draws the settings window at each layout's width in light and dark and holds the grounds to the palette;
-  with `BENTOBAR_PICTURES=<directory>` (and `--rerun`) it writes the pictures there as PNGs, to look at beside a design. It asks
+  `ShellPicturesTest` draws the settings window at each layout's width in light and dark and holds the grounds to the palette,
+  `BarPagePicturesTest` the Bar page in each of its states (and `MenuCompositionTest` the right-click menu);
+  with `BENTOBAR_PICTURES=<directory>` (and `--rerun`) they write the pictures there as PNGs, to look at beside a design. It asks
   the view to draw into a bitmap; `captureToImage` came out one change behind, or blank, when every Compose test ran. A test
   of keys asks for the keyboard first (`LocalInputModeManager`): in touch mode nothing that takes a click takes the focus.
 - Editing the manifest or a string re-runs the tests that read them; a green run that says UP-TO-DATE after such an
@@ -216,7 +232,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
 - `./bento debug dump|open TYPE|ctx TYPE|chevron [AREA]|barmenu|hover on|off [AREA]|scroll TYPE N|timer MIN|awake [MIN|off]|bar on|off|finish|reset|add TYPE [section] [AREA]|remove ID|set ID k=v|look KEY VALUE|windows`.
   The receiver (`src/debug`, debug builds only) is guarded by DUMP, so only adb can call it.
   AREA is `left`, `middle` or `right`. `set ID area=AREA` puts one item in an area and `look position AREA` every item
-  (a layout in one area again); `add` with no area adds to the home area. `chevron` and `hover` go to that area's strip,
+  (a layout in one area again); `add` with no area adds to the home area (a fresh item added to `off` is not kept). `chevron` and `hover` go to that area's strip,
   with none to the first one, and answer `no such strip` for an area that has none on screen. `dump` says which strip is
   the first (`carrier=`), which areas have no room (`owed=[…]`) and each strip's state (`right[…] left[…] middle[…]`).
   `solid on|off`: popups as if the platform had no blur (the solid card). `look switch on|off`: "Switch popups on hover"; `look animations on|off`: "No animations". Each frame of a popup's opening and its
