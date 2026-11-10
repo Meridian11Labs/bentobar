@@ -103,6 +103,12 @@ internal class PopupState<W : Any> {
     /** With nothing open, the popup still leaving goes at once: returns it. */
     fun dropLeaving(): W? = leaving.also { forgetLeaving() }
 
+    /**
+     * The popup still leaving goes at once if it is [key]'s, the one key whose click would turn it round: returns it.
+     * One leaving for another key stays, and goes on leaving.
+     */
+    fun dropLeaving(key: MenuKey): W? = if (leavingKey == key) dropLeaving() else null
+
     /** [window] is off the screen. Only the one still leaving is forgotten: an older popup's end says nothing of a newer one. */
     fun gone(window: W) {
         if (leaving === window) forgetLeaving()

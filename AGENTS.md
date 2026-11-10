@@ -436,8 +436,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   use.
   What is one for the whole bar stays one in the controller, never one per strip: ‹ open or folded (`expanded`), the
   hover (`PopupRules.hoverChanged`: one strip's Exit can arrive after the next one's Enter, and ends nothing then), the
-  tooltip, the popup (it hangs from the strip of its item), the drag. A press outside the bar is heard by one strip's
-  window alone, and only while hidden items are out, so one press folds once: the first strip on view
+  tooltip, the popup (it hangs from the strip of its item; one still folding away under another strip is taken away
+  at once only for its own key, which would turn it round there), the drag. A press outside the bar is heard by one
+  strip's window alone, and only while hidden items are out, so one press folds once: the first strip on view
   (`PopupRules.watchingArea`; a strip that draws nothing has an invisible window), the first strip's while none is. A
   press on another strip on view is not outside. `chevronOpensMenu` is the one rule for a press on a ‹: in an area with no hidden item, while another area has
   them, it opens the menu. A drag lands among its own area's items. The empty capsule shows once, in the home area, and

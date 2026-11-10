@@ -156,7 +156,7 @@ class PopupStateTest {
 
     /**
      * The ‹ menu has one key in every area. Still folding away under one strip, it is taken away at once before a click
-     * on another strip's ‹ is asked about: that click opens it anew, where it was pressed, and so does any other key's.
+     * on another strip's ‹ is asked about: that click opens it anew, where it was pressed.
      */
     @Test fun aPopupTakenAwayWhileItLeavesIsOpenedAnewAndNeverTurnedRound() {
         open(MenuKey.Bar, "w1")
@@ -166,6 +166,27 @@ class PopupStateTest {
         assertEquals(PopupCommand.Open, popups.toggle(MenuKey.Bar, 100L))
         assertEquals(PopupCommand.Open, popups.toggle(b, 100L))
         assertNull("nothing is left to take away", popups.dropLeaving())
+    }
+
+    /**
+     * Only its own key could turn a leaving popup round, so only for that key is it taken away: one leaving for another
+     * key goes on leaving while the new one unfolds, as it does within one strip.
+     */
+    @Test fun aLeavingPopupIsTakenAwayOnlyForItsOwnKey() {
+        open(a, "w1")
+        foldAway()
+        assertNull("another key's click leaves it leaving", popups.dropLeaving(b))
+        assertEquals("and it can still turn round", PopupCommand.Reopen("w1"), popups.toggle(a, 100L))
+        assertEquals("w1", popups.dropLeaving(a))
+        assertEquals(PopupCommand.Open, popups.toggle(a, 100L))
+        assertNull("nothing is left to take away", popups.dropLeaving(a))
+    }
+
+    @Test fun withNothingLeavingNoKeyTakesAnythingAway() {
+        assertNull(popups.dropLeaving(a))
+        open(a, "w1")
+        assertNull("an open popup is not a leaving one", popups.dropLeaving(a))
+        assertEquals("w1", popups.open)
     }
 
     @Test fun whatAKeyBelongsToAndWhatItPrints() {

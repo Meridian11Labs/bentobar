@@ -80,14 +80,16 @@ internal class MenuCoordinator(
 
     /**
      * Opens the popup [key] below [anchor] (coordinates in [strip]'s window), or closes it if it's open. A popup
-     * open for another item dissolves while this one unfolds; one still folding away under the same strip turns round.
+     * open for another item dissolves while this one unfolds, under whichever strip each stands; [key]'s own, still
+     * folding away under the same strip, turns round.
      */
     fun toggleMenu(strip: AreaStrip, key: MenuKey, anchor: Rect, widthDp: Int, content: @Composable (MenuHost) -> Unit) {
         val now = SystemClock.uptimeMillis()
         hideTip()
-        // One still folding away under another strip would turn round there, not under what was clicked (the ‹ menu has
-        // one key in every area): it goes at once, and this one opens anew.
-        if (leavingStrip != null && leavingStrip !== strip) { popups.dropLeaving()?.close(now = true); leavingStrip = null }
+        // This key's own popup, still folding away under another strip, would turn round there, not under what was
+        // clicked (the ‹ menu has one key in every area, and an item put in another area keeps its key): it goes at once,
+        // and this one opens anew. Another key's goes on leaving where it stands while this one unfolds.
+        if (leavingStrip != null && leavingStrip !== strip) popups.dropLeaving(key)?.let { it.close(now = true); leavingStrip = null }
         when (val step = popups.toggle(key, now)) {
             PopupCommand.Fold -> { closeMenu(); return }
             PopupCommand.Spend -> return

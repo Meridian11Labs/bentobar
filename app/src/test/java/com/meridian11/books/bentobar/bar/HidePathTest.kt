@@ -430,11 +430,12 @@ class HidePathTest {
     /**
      * A popup folding away turns round when its item is clicked again, where it stands. Under another area's strip that is
      * the wrong place (the ‹ menu has one key in every area): it is taken away at once, before the click is asked about,
-     * and the popup opens anew under the strip that was clicked. What the state then answers is PopupStateTest's.
+     * and the popup opens anew under the strip that was clicked. Only its own key takes it away, and what the state then
+     * answers is PopupStateTest's.
      */
     @Test fun aMenuStillLeavingFromAnotherAreaIsNotTurnedRound() {
         val toggle = menus.substringAfter("fun toggleMenu(").substringBefore("val loc = strip.locationOnScreen()")
-        val drop = toggle.indexOf("if (leavingStrip != null && leavingStrip !== strip) { popups.dropLeaving()?.close(now = true); leavingStrip = null }")
+        val drop = toggle.indexOf("if (leavingStrip != null && leavingStrip !== strip) popups.dropLeaving(key)?.let { it.close(now = true); leavingStrip = null }")
         assertTrue("toggleMenu takes away a popup leaving from another strip: $toggle", drop >= 0)
         assertTrue("before it asks what the click comes to", toggle.indexOf("popups.toggle(") > drop)
         assertEquals("the click is asked about once", 1, Regex("""popups\.toggle\(""").findAll(menus).count())
