@@ -20,7 +20,10 @@ enum class Display {
     val line: Boolean get() = this != TEXT
 }
 
-/** Where BentoBar's strip sits in the status bar's free space. */
+/**
+ * An area of the status bar's free space, where an item is drawn ([ItemConfig.area]); CENTER is the one the user reads as
+ * Middle. Before version 4 the whole strip sat in one of them ([BarConfig.position]), so the stored names stay as they are.
+ */
 @Serializable
 enum class Position { RIGHT, CENTER, LEFT }
 
@@ -48,6 +51,8 @@ data class ItemConfig(
     val whenActive: Boolean = false,
     val display: Display = Display.ICON_AND_TEXT,
     val options: Map<String, String> = emptyMap(),
+    /** Which of the bar's three areas it is drawn in (version 4). Before, the whole strip had one place ([migrateToV4]). */
+    val area: Position = Position.RIGHT,
 ) {
     fun opt(key: String, default: String) = options[key] ?: default
     fun optInt(key: String, default: Int) = options[key]?.toIntOrNull() ?: default
@@ -84,7 +89,7 @@ data class WorldCity(val zone: String, val name: String = "")
  * The newest layout version this build understands, and the one it writes. A layout that says more is refused
  * ([readLayout]), never clamped.
  */
-const val LAYOUT_VERSION = 3
+const val LAYOUT_VERSION = 4
 
 @Serializable
 data class BarConfig(
@@ -92,6 +97,7 @@ data class BarConfig(
     /** Master switch (the Quick Settings tile flips it, e.g. for presenting). */
     val enabled: Boolean = true,
     val items: List<ItemConfig> = emptyList(),
+    /** Before version 4: where the whole strip sat. [migrateToV4] gives it to every item as its area. */
     val position: Position = Position.RIGHT,
     /** How the Hidden section works (version 3). */
     val hiddenMode: HiddenMode = HiddenMode.SHOW_ALL,
@@ -195,6 +201,13 @@ fun BarConfig.migrateToV3(): BarConfig = if (version >= 3) this else copy(
     hiddenMode = when { !chevron -> HiddenMode.SHOW_ALL; revealOnHover -> HiddenMode.HOVER; else -> HiddenMode.CLICK },
     items = if (chevron) items else items.map { if (it.section == Section.HIDDEN && !it.whenActive) it.copy(section = Section.OFF) else it },
 )
+
+/**
+ * Version 4 gave every item an area of its own where the whole strip had one place. Each item takes that place, so the bar
+ * looks the same as before.
+ */
+fun BarConfig.migrateToV4(): BarConfig =
+    if (version >= 4) this else copy(version = 4, items = items.map { it.copy(area = position) })
 
 /**
  * Whether an item is drawn right now: the one rule for the strip and, through [couldShow], for the ticker, so what is drawn
