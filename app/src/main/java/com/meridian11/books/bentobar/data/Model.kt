@@ -27,6 +27,12 @@ enum class Display {
 @Serializable
 enum class Position { RIGHT, CENTER, LEFT }
 
+/** Who gets room first, and the order the bar holds its strips in: Right, then Left, then Middle. */
+val ROOM_ORDER = listOf(Position.RIGHT, Position.LEFT, Position.CENTER)
+
+/** Where the home area is looked for ([homeArea]): Right, the place a strip has by default, then Middle, then Left. */
+val HOME_ORDER = listOf(Position.RIGHT, Position.CENTER, Position.LEFT)
+
 @Serializable
 enum class ColorMode { AUTO, LIGHT, DARK }
 
@@ -241,6 +247,22 @@ fun BarConfig.behindChevron(active: (ItemConfig) -> Boolean): List<ItemConfig> =
  */
 fun BarConfig.notDrawn(active: (ItemConfig) -> Boolean): List<ItemConfig> =
     items.filter { it.section != Section.OFF && Items.of(it.type) != null && !sectionShows(it, active(it)) }
+
+/** Areas with an item outside Off of a type this version knows: the same two tests as [behindChevron] and [notDrawn]. */
+fun BarConfig.areasInUse(): Set<Position> =
+    items.filter { it.section != Section.OFF && Items.of(it.type) != null }.map { it.area }.toSet()
+
+/** Where the bar's one-off things go: Presenting's ‹, the empty capsule, a new item, the strip when nothing has room. */
+fun BarConfig.homeArea(): Position = areasInUse().let { used ->
+    HOME_ORDER.firstOrNull { it in used } ?: items.firstOrNull()?.area ?: Position.RIGHT
+}
+
+/** For Settings: more than one area holds an item outside Off. */
+fun BarConfig.usesAreas(): Boolean = items.filter { it.section != Section.OFF }.map { it.area }.distinct().size > 1
+
+/** For Look's Position row: the one area every item outside Off is in, or null; with none outside Off, the home area. */
+fun BarConfig.oneArea(): Position? =
+    items.filter { it.section != Section.OFF }.map { it.area }.distinct().let { if (it.isEmpty()) homeArea() else it.singleOrNull() }
 
 /** Whether [shows] can be true for [item] once it has something to say: the items worth sampling. */
 fun BarConfig.couldShow(item: ItemConfig, type: ItemType? = Items.of(item.type)): Boolean = shows(item, active = true, type)
