@@ -167,6 +167,29 @@ class PopupRulesTest {
         assertEquals(PopupCommand.Dissolve, popups.press(other, 100L))
     }
 
+    // ---- where an item's menu opens when it is chosen in the ‹ menu -------------------------------------------
+
+    @Test fun fromTheListOfEveryItemAnItemsMenuOpensUnderTheStripThatDrewTheItem() {
+        // The keyboard's menu hangs from the first strip, Right here; the item chosen is drawn in Left.
+        assertEquals(Position.LEFT, PopupRules.itemMenuStrip(menu = Position.RIGHT, everything = true, drew = Position.LEFT))
+        assertEquals(Position.RIGHT, PopupRules.itemMenuStrip(menu = Position.RIGHT, everything = true, drew = Position.RIGHT))
+    }
+
+    @Test fun anItemNoStripDrewOpensItsMenuWhereTheChevronMenuStood() {
+        assertEquals(Position.RIGHT, PopupRules.itemMenuStrip(menu = Position.RIGHT, everything = true, drew = null))
+    }
+
+    @Test fun fromAChevronsOwnMenuAnItemsMenuOpensWhereThatMenuStood() {
+        // A ‹ menu lists what is not drawn; an item drawn meanwhile, in any strip, still opens where the menu was.
+        for (drew in listOf(null, Position.LEFT, Position.CENTER))
+            assertEquals("$drew", Position.CENTER, PopupRules.itemMenuStrip(menu = Position.CENTER, everything = false, drew = drew))
+    }
+
+    @Test fun withOneStripAnItemsMenuAlwaysOpensUnderIt() {
+        for (area in Position.entries) for (everything in listOf(false, true)) for (drew in listOf(null, area))
+            assertEquals(area, PopupRules.itemMenuStrip(menu = area, everything = everything, drew = drew))
+    }
+
     @Test fun aPressWithoutCoordinatesIsInNoAreaEvenWithAStripInTheScreensCorner() {
         // A press on another app's window comes as 0, 0: it is not a press on a strip that begins there.
         val corner = listOf(StripFrame(Position.LEFT, left = 0, top = 0, width = 200, height = 41))

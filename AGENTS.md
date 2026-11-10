@@ -442,7 +442,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   The settings preview draws a strip for each area by the same `BarRules.lane` and `middleLeft` (`PreviewAreas` in
   `ui/BarPage.kt`), and a layout in one area as it always did; `BarPreviewTest` pins both.
 - **Keyboard:** the "BentoBar menu" launcher entry (`ui/BarMenuActivity`, no window) opens the ‹ menu
-  listing every item, focused, under the first strip. A focusable accessibility overlay does take key focus after the
+  listing every item, focused, under the first strip; an item chosen there opens its menu under the item, in whichever
+  strip drew it (`PopupRules.itemMenuStrip`). A focusable accessibility overlay does take key focus after the
   activity finishes (checked on the Acer). Users bind it in the Shortcut Helper; on the Acer, Action
   with B, C, E, F, P and U launch apps and can't be reassigned, and A, G, H, I, L, N, Q, S, V and W
   are system shortcuts; D, J, K, M, O, R, T, X, Y and Z are free.

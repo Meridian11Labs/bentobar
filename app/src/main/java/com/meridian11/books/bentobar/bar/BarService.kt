@@ -211,6 +211,7 @@ class BarController(private val service: AccessibilityService) {
         override val snapshot get() = snap
         override val expanded get() = this@BarController.expanded.value
         override fun stripAt(x: Float, y: Float) = this@BarController.stripAt(x, y)
+        override fun stripOf(id: String) = strips.firstOrNull { id in it.placed }
         override fun popupClosed() { if (!hovering && !pinned) { main.removeCallbacks(collapse); main.postDelayed(collapse, 600) } }
     })
 

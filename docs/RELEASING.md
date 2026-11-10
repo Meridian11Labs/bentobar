@@ -95,7 +95,8 @@ learned the hard way" says why. Run it again on every new draft.
   another area opens its popup and folds nothing. A press on another area's item closes an open popup and opens its own
   (one click). The pointer moving from one strip straight to the next keeps hidden items out, takes the highlight with
   it and leaves no tooltip behind; the next item's tooltip still comes. A ‹ in an area with nothing hidden opens the menu
-  while another area's ‹ opens and folds the bar. A drag stays among its own area's items.
+  while another area's ‹ opens and folds the bar. A drag stays among its own area's items. From the keyboard's "BentoBar
+  menu", an item drawn in another area than the first strip's opens its menu under that item, which shows as open.
 - **Live Update chip.** A timer or a meeting shows its chip with BentoBar's settings window closed.
 - **Items that tick.** A clock and a network speed item do not make neighbours move; the bar's CPU use stays low
   (about 1% of one core on a release build).

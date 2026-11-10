@@ -39,6 +39,8 @@ internal class MenuCoordinator(
         val expanded: Boolean
         /** The strip a press at [x], [y] on the screen landed on, of those on screen; null for a press on none of them. */
         fun stripAt(x: Float, y: Float): AreaStrip?
+        /** The strip that drew the item [id], if one did. */
+        fun stripOf(id: String): AreaStrip?
         /** A popup was closed: hidden items the pointer no longer holds out may fold away. */
         fun popupClosed()
     }
@@ -61,10 +63,11 @@ internal class MenuCoordinator(
         BentoBarMenu(host, openItem = { item ->
             val type = Items.of(item.type)
             closeMenu(dissolve = true)
-            // From the list of every item, an item's menu opens under the item itself.
-            val anchor = strip.placed[item.id]?.takeIf { everything } ?: at
+            // From the list of every item, an item's menu opens under the item itself, in whichever strip drew it.
+            val owner = PopupRules.itemMenuStrip(strip, everything, facts.stripOf(item.id))
+            val anchor = owner.placed[item.id]?.takeIf { everything } ?: at
             if (type != null && Ticker.guarded(type, "onClick") { type.onClick(item) } == true) Ticker.refresh()
-            else if (type?.menu != null) toggleMenu(strip, MenuKey.Item(item.id), anchor, type.menuWidthDp) { h -> ItemMenu(item.id, h) }
+            else if (type?.menu != null) toggleMenu(owner, MenuKey.Item(item.id), anchor, type.menuWidthDp) { h -> ItemMenu(item.id, h) }
         }, hideBar = { Store.update { it.copy(enabled = false) } }, everything = everything)
     }
 

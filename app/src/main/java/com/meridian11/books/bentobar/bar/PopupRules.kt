@@ -64,6 +64,14 @@ internal object PopupRules {
     }
 
     /**
+     * The strip an item's menu opens under when the item is chosen in the ‹ menu that stood under [menu]. From the list of
+     * every item ([everything]: the keyboard's menu, which hangs from the first strip) that is the strip that [drew] the
+     * item, so the menu opens under the item itself and the highlight is on it. An item no strip drew, and one chosen in a
+     * ‹'s own menu, opens where the ‹ menu stood. With one strip it is always that one.
+     */
+    fun <S : Any> itemMenuStrip(menu: S, everything: Boolean, drew: S?): S = drew?.takeIf { everything } ?: menu
+
+    /**
      * The pointer came onto the strip of [area] or left it ([inside]), having been over the strips of [areas]: the areas it
      * is over now, and what that is to the bar, which is one in however many windows. True: it came onto the bar; false: it
      * left it; null: it is over another strip as well, and to the bar nothing happened. So a strip's Exit that arrives after
