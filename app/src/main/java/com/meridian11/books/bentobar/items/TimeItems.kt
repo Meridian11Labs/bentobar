@@ -64,6 +64,7 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.ui.ChipRow
 import com.meridian11.books.bentobar.ui.ChoiceRow
 import com.meridian11.books.bentobar.ui.InfoRow
+import com.meridian11.books.bentobar.ui.LocalPreviewClock
 import com.meridian11.books.bentobar.ui.MainActivity
 import com.meridian11.books.bentobar.ui.MenuCard
 import com.meridian11.books.bentobar.ui.MenuDivider
@@ -114,13 +115,12 @@ object CalendarItem : ItemType("calendar", R.string.item_calendar_title, Sym.CAL
         return ItemState(icon = Sym.CALENDAR_MONTH, dayNumber = today.dayOfMonth, text = text, desc = Dates.format("EEEEdMMMMyyyy", today))
     }
 
-    /** A Sunday, to show what each date pattern looks like. */
-    private val sample = LocalDate.of(2025, 9, 28)
-
     override val menu: @Composable (ItemConfig, MenuHost) -> Unit = { item, host -> MonthMenu(item, host) }
 
     override val options: @Composable (ItemConfig, (ItemConfig) -> Unit) -> Unit = { item, set ->
-        fun sampleOf(p: String) = sample.format(DateTimeFormatter.ofPattern(p, Locale.getDefault()))
+        // Each pattern is shown with today's date, as the header's preview and the bar say it: a fixed sample beside them read as a mistake.
+        val today = LocalPreviewClock.current().toLocalDate()
+        fun sampleOf(p: String) = today.format(DateTimeFormatter.ofPattern(p, Locale.getDefault()))
         // "" is the locale's own date; choosing it removes the option rather than storing a pattern.
         ChoiceRow(stringResource(R.string.calendar_date_in_bar), listOf("" to stringResource(R.string.option_like_system),
             "EEE d MMM" to sampleOf("EEE d MMM"), "d MMM" to sampleOf("d MMM"), "EEEE" to sampleOf("EEEE"),

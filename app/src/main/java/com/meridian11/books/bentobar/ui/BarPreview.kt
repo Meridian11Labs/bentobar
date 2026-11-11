@@ -106,7 +106,7 @@ internal fun barMirrored(direction: LayoutDirection): Boolean = direction == Lay
 
 /**
  * The time the mock clock shows: now. Its text is as wide as the hour and the day make it, and what is left is the
- * areas' room, so a test of that room holds the time here.
+ * areas' room, so a test of that room holds the time here. The Date item's format choices show the same day.
  */
 internal val LocalPreviewClock = staticCompositionLocalOf<() -> ZonedDateTime> { { ZonedDateTime.now() } }
 

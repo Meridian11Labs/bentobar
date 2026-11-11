@@ -248,6 +248,25 @@ class ItemOptionsTest {
         rule.onNodeWithTag("show-as").assertDoesNotExist()
     }
 
+    @Test fun theDatesChoicesShowTheDayTheWindowsClockSaysInEachFormat() {
+        Store.update { BarConfig(items = listOf(item("a", "calendar")), position = Position.RIGHT) }
+        selected = "a"
+        var day by mutableStateOf(java.time.ZonedDateTime.of(2026, 11, 10, 9, 41, 0, 0, java.time.ZoneId.systemDefault()))
+        rule.setContent {
+            CompositionLocalProvider(com.meridian11.books.bentobar.ui.LocalPreviewClock provides { day }) {
+                SettingsTheme(dark = false) { BarPage(selected, onSelect = { selected = it }) }
+            }
+        }
+        rule.waitForIdle()
+        fun choice(text: String) = rule.onNode(hasText(text) and inTag("options"))
+        for (text in listOf("Tue 10 Nov", "10 Nov", "Tuesday", "10.11.")) choice(text).assertExists()
+        choice("Sun 28 Sep").assertDoesNotExist()
+
+        rule.runOnIdle { day = day.plusDays(1) }
+        rule.waitForIdle()
+        for (text in listOf("Wed 11 Nov", "11 Nov", "Wednesday", "11.11.")) choice(text).assertExists()
+    }
+
     @Test fun theFootHasAHairlineAcrossThePanelAndTheOptionsScrollUnderIt() {
         page("a", HiddenMode.SHOW_ALL, item("a", "clock"), item("c", "memory"))
         fun box(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
