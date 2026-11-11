@@ -394,6 +394,8 @@
     <string name="status_empty">Nothing to show in the status bar right now.</string>
     <string name="status_no_bar">A full-screen app hides the status bar, and BentoBar with it.</string>
     <string name="status_covered">A system panel covers the status bar. BentoBar returns when it closes.</string>
+    <!-- While Look's "Presenting mode" is on: the same name, and what its help says it shows. -->
+    <string name="status_presenting">Presenting mode shows only a running timer or a meeting about to start.</string>
     <string name="status_live">Live in the status bar. Changes apply right away.</string>
     <string name="show_in_status_bar">Show in status bar</string>
 

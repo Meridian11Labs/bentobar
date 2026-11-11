@@ -153,7 +153,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     status bar" switch or Turn on while BentoBar is off, neither on Setup; nothing is ever placed in the caption. Below
     760 dp the header takes two rows. `windowLayout(widthDp)` is the one window model, pure: from 1100 a list and one
     panel, 760 to 1099 one pane, never two panels; a page reads it from `LocalWindowLayout`. `statusLine` words the
-    status), `BarPage` (the Bar page: `BarPreview` above; from 1100 dp the list beside a panel whose switch turns
+    status, Presenting mode included while the bar is there), `BarPage` (the Bar page: `BarPreview` above; from 1100 dp the list beside a panel whose switch turns
     between the library ("Add items") and the selected item's options, below that the list is the switch's first part.
     `BarEdit` holds every command once, for a click, a key and a screen reader's action alike, each one step of `Undo`
     (the library's + and Forget too); `BarKeys` takes a key no control took; Ctrl+F turns the panel to the library and

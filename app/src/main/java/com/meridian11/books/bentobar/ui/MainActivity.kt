@@ -243,7 +243,8 @@ class MainActivity : ComponentActivity() {
             was[0] = running
         }
         // A click on a tab leaves the disclosure like Escape does: no answer, nothing recorded.
-        Shell(page, { disclosure = false; page = it }, running, cfg.enabled, status, onEnabled = { on -> Store.update { it.copy(enabled = on) } }, onTurnOn = ::turnOn) {
+        Shell(page, { disclosure = false; page = it }, running, cfg.enabled, status, onEnabled = { on -> Store.update { it.copy(enabled = on) } }, onTurnOn = ::turnOn,
+            presenting = cfg.presenting) {
             // Before the pages: a message is seen only by someone already listening.
             val snackbar = rememberNotices()
             // The disclosure takes Setup's place while it is up: only Agree records consent and opens the system's settings.

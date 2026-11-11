@@ -75,6 +75,21 @@ class WindowLayoutTest {
         assertEquals(R.string.status_live, line(status = BarStatus.ASLEEP))
     }
 
+    @Test fun whilePresentingModeIsOnTheLineSaysSoWhereverTheBarIsThere() {
+        fun line(running: Boolean = true, enabled: Boolean = true, status: BarStatus = BarStatus.SHOWN) = statusLine(running, enabled, status, presenting = true)
+        // The bar is there and all but empty: that is the mode, not a bar that has nothing or no room.
+        for (s in listOf(BarStatus.SHOWN, BarStatus.EMPTY, BarStatus.NO_ROOM)) assertEquals("$s", R.string.status_presenting, line(status = s))
+        // No bar at all, for a reason outside BentoBar, or BentoBar off or hidden: that is said first.
+        assertEquals(R.string.status_no_bar, line(status = BarStatus.NO_BAR))
+        assertEquals(R.string.status_covered, line(status = BarStatus.COVERED))
+        assertEquals(R.string.status_starting, line(status = BarStatus.STOPPED))
+        assertEquals(R.string.status_hidden, line(enabled = false))
+        assertEquals(R.string.bar_banner_title, line(running = false))
+        // The dot agrees: the bar's items are not on screen.
+        assertEquals(StatusTone.WAITING, statusTone(running = true, enabled = true, status = BarStatus.SHOWN, presenting = true))
+        assertEquals(StatusTone.STEP, statusTone(running = false, enabled = true, status = BarStatus.SHOWN, presenting = true))
+    }
+
     @Test fun theDotAgreesWithTheLine() {
         assertEquals(StatusTone.STEP, statusTone(running = false, enabled = true, status = BarStatus.SHOWN))
         assertEquals(StatusTone.LIVE, statusTone(running = true, enabled = true, status = BarStatus.SHOWN))

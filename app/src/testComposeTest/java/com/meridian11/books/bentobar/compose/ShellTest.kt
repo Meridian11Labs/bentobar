@@ -67,6 +67,7 @@ class ShellTest {
     private var running by mutableStateOf(true)
     private var enabled by mutableStateOf(true)
     private var status by mutableStateOf(BarStatus.SHOWN)
+    private var presenting by mutableStateOf(false)
     private var turnOns = 0
     private val switched = mutableListOf<Boolean>()
 
@@ -78,7 +79,7 @@ class ShellTest {
             SettingsTheme(dark = false) {
                 Box(Modifier.requiredSize(width.dp, 600.dp)) {
                     Shell(page, { page = it }, running, enabled, status, onEnabled = { switched += it; enabled = it }, onTurnOn = { turnOns++ },
-                        insets = WindowInsets(top = caption.dp)) {
+                        presenting = presenting, insets = WindowInsets(top = caption.dp)) {
                         val layout = LocalWindowLayout.current
                         Text("page ${page.name} ${layout.kind} ${layout.panelDp}")
                     }
@@ -141,6 +142,26 @@ class ShellTest {
         tab(tabs.first()).performKeyInput { pressKey(Key.Spacebar) }
         rule.waitForIdle()
         assertEquals(Page.BAR, page)
+    }
+
+    @Test fun whilePresentingModeIsOnTheStatusLineSaysSoOnEveryTab() {
+        shell()
+        rule.onNode(hasText(str(R.string.status_live))).assertExists()
+        presenting = true
+        rule.waitForIdle()
+        rule.onNode(hasText(str(R.string.status_presenting))).assertExists()
+        rule.onNode(hasText(str(R.string.status_live))).assertDoesNotExist()
+        page = Page.LOOK
+        rule.waitForIdle()
+        rule.onNode(hasText(str(R.string.status_presenting))).assertExists()
+        // A full-screen app is said first: then there is no bar at all.
+        status = BarStatus.NO_BAR
+        rule.waitForIdle()
+        rule.onNode(hasText(str(R.string.status_no_bar))).assertExists()
+        status = BarStatus.SHOWN
+        presenting = false
+        rule.waitForIdle()
+        rule.onNode(hasText(str(R.string.status_live))).assertExists()
     }
 
     @Test fun theStatusLineShowsEachOfItsStates() {

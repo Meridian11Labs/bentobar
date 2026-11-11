@@ -124,19 +124,24 @@ val tabs: List<Page> = Page.entries
 
 /**
  * What the header's status line says: what the strip is actually doing, not just whether the service is on. While it
- * is off the line names the one step left, on every tab: the control beside it, or Setup's own, takes it.
+ * is off the line names the one step left, on every tab: the control beside it, or Setup's own, takes it. While
+ * Presenting mode is on ([presenting]) and the bar is there, the line says that: the bar is all but empty on purpose,
+ * and the switch that says why is on Look. No bar at all (a full-screen app, a panel over it) is said first.
  */
 @StringRes
-fun statusLine(running: Boolean, enabled: Boolean, status: BarStatus): Int = when {
+fun statusLine(running: Boolean, enabled: Boolean, status: BarStatus, presenting: Boolean = false): Int = when {
     !running -> R.string.bar_banner_title
     !enabled -> R.string.status_hidden
     else -> when (status) {
         BarStatus.STOPPED -> R.string.status_starting
-        BarStatus.NO_ROOM -> R.string.status_no_room
-        BarStatus.EMPTY -> R.string.status_empty
         BarStatus.NO_BAR -> R.string.status_no_bar
         BarStatus.COVERED -> R.string.status_covered
-        else -> R.string.status_live
+        else -> when {
+            presenting -> R.string.status_presenting
+            status == BarStatus.NO_ROOM -> R.string.status_no_room
+            status == BarStatus.EMPTY -> R.string.status_empty
+            else -> R.string.status_live
+        }
     }
 }
 
@@ -150,8 +155,8 @@ enum class StatusTone {
     STEP,
 }
 
-fun statusTone(running: Boolean, enabled: Boolean, status: BarStatus): StatusTone =
-    if (!running) StatusTone.STEP else if (statusLine(running, enabled, status) == R.string.status_live) StatusTone.LIVE else StatusTone.WAITING
+fun statusTone(running: Boolean, enabled: Boolean, status: BarStatus, presenting: Boolean = false): StatusTone =
+    if (!running) StatusTone.STEP else if (statusLine(running, enabled, status, presenting) == R.string.status_live) StatusTone.LIVE else StatusTone.WAITING
 
 /**
  * The settings window: a header row directly under the system's caption and in its color (mark and name, the tabs,
@@ -170,6 +175,7 @@ fun Shell(
     status: BarStatus,
     onEnabled: (Boolean) -> Unit,
     onTurnOn: () -> Unit,
+    presenting: Boolean = false,
     insets: WindowInsets = WindowInsets.safeDrawing,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -179,7 +185,7 @@ fun Shell(
         CompositionLocalProvider(LocalWindowLayout provides layout, LocalContentColor provides c.ink) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxWidth().background(c.chrome).windowInsetsPadding(insets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
-                    Header(layout.kind == WindowClass.NARROW, page, onPage, running, enabled, status, onEnabled, onTurnOn)
+                    Header(layout.kind == WindowClass.NARROW, page, onPage, running, enabled, status, presenting, onEnabled, onTurnOn)
                 }
                 // The page's name is no longer written above it: a screen reader still hears it when the page changes.
                 val title = stringResource(page.title)
@@ -191,10 +197,10 @@ fun Shell(
 }
 
 @Composable
-private fun Header(narrow: Boolean, page: Page, onPage: (Page) -> Unit, running: Boolean, enabled: Boolean, status: BarStatus,
+private fun Header(narrow: Boolean, page: Page, onPage: (Page) -> Unit, running: Boolean, enabled: Boolean, status: BarStatus, presenting: Boolean,
                    onEnabled: (Boolean) -> Unit, onTurnOn: () -> Unit) {
-    val line = stringResource(statusLine(running, enabled, status))
-    val tone = statusTone(running, enabled, status)
+    val line = stringResource(statusLine(running, enabled, status, presenting))
+    val tone = statusTone(running, enabled, status, presenting)
     if (narrow) Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().heightIn(min = Target.tab).padding(start = Space.l, end = Space.m), verticalAlignment = Alignment.CenterVertically) {
             Mark(stringResource(R.string.app_name))
