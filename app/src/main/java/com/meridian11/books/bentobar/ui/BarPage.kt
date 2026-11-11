@@ -221,6 +221,8 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     var opened by mutableStateOf(emptySet<Position>())
     /** The area the library adds to while several lanes are on screen; null is the area in use. */
     var addTo by mutableStateOf<Position?>(null)
+    /** The item a drop from the library last brought: it arrived as its copy, so its row doesn't open as a clicked + one's does. */
+    var landed: String? = null
     /** An empty lane that is to take the keyboard: the one just opened. */
     var focusLane by mutableStateOf<Position?>(null)
     /** The slip that says a lane closed is to take the keyboard: its last row had it and was removed. */
@@ -372,6 +374,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     fun dropped(c: Carried, drop: Drop): Boolean = when (drop) {
         is Drop.At -> {
             said = null
+            if (c.from != From.BAR) landed = c.id
             val changed = Undo.change(added = c.id.takeIf { c.from != From.BAR }) { it.dropped(c, drop) }
             if (changed) moved(c.id, focus = false)
             changed
@@ -498,7 +501,6 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
 }
 
 private val CARD = RoundedCornerShape(Radius.large)
-private const val TURN_MS = 180
 /** The switch of three parts where the page is one wide pane: as wide as it needs, not as the page. */
 private val SWITCH_MID = 452.dp
 
@@ -624,8 +626,8 @@ private fun Panel(side: PanelSide, item: ItemConfig?, cfg: BarConfig, states: Ma
         .then(if (takes) Modifier.border(if (over) 2.dp else 1.5.dp, Bento.colors.accent, CARD) else Modifier).testTag("panel")) {
         AnimatedContent(side, transitionSpec = {
             val way = if (targetState.ordinal > initialState.ordinal) 1 else -1
-            (slideInHorizontally(Motion.spec(tween(TURN_MS))) { way * shift } + fadeIn(Motion.spec(tween(TURN_MS)))) togetherWith
-                (slideOutHorizontally(Motion.spec(tween(TURN_MS))) { -way * shift } + fadeOut(Motion.spec(tween(TURN_MS))))
+            (slideInHorizontally(Motion.spec(tween(Motion.SETTLE))) { way * shift } + fadeIn(Motion.spec(tween(Motion.SETTLE)))) togetherWith
+                (slideOutHorizontally(Motion.spec(tween(Motion.SETTLE))) { -way * shift } + fadeOut(Motion.spec(tween(Motion.SETTLE))))
         }, label = "panel") { shown ->
             when (shown) {
                 PanelSide.BAR -> BarList(cfg, states, item?.id, edit, reorder, lanes, Modifier.fillMaxSize())

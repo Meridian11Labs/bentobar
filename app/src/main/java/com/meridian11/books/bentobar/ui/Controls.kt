@@ -438,7 +438,7 @@ fun Modifier.states(interaction: InteractionSource, radius: Dp = Radius.medium, 
 @Composable
 fun SwitchMark(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val c = Bento.colors
-    val at by animateFloatAsState(if (checked) 1f else 0f, Motion.spec(tween(SWITCH_MS)), label = "switch")
+    val at by animateFloatAsState(if (checked) 1f else 0f, Motion.spec(tween(Motion.LIFT)), label = "switch")
     Canvas(modifier.size(40.dp, 24.dp).alpha(if (enabled) 1f else DIMMED)) {
         drawRoundRect(lerp(c.edge, c.accent, at), cornerRadius = CornerRadius(size.height / 2))
         drawCircle(lerp(c.panel, c.onPrimary, at), 9.dp.toPx(), Offset(12.dp.toPx() + at * 16.dp.toPx(), size.height / 2))
@@ -540,7 +540,7 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
     val c = Bento.colors
     val mirrored = !sides && LocalLayoutDirection.current == LayoutDirection.Rtl
     val type = Bento.type
-    val at by animateFloatAsState(chosen.toFloat(), Motion.spec(tween(SEGMENT_MS)), label = "segment")
+    val at by animateFloatAsState(chosen.toFloat(), Motion.spec(tween(Motion.NEIGHBOURS)), label = "segment")
     // Where each part was placed and how wide, for the raised part that is drawn behind them.
     var spans by remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
     Layout({
@@ -650,6 +650,4 @@ private val SEGMENT_GAP = 2.dp
 private val SEGMENT_PART = 34.dp
 internal val OPTION_LABEL = 96.dp
 private val SLIDER_THUMB = 16.dp
-private const val SEGMENT_MS = 160
-private const val SWITCH_MS = 120
 private const val DIMMED = 0.45f

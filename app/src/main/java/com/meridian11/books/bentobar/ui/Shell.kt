@@ -249,8 +249,8 @@ private fun Tabs(page: Page, onPage: (Page) -> Unit, step: Boolean, pad: Dp, gap
         if (under == null || under == page) {
             left.snapTo(target.first); right.snapTo(target.second)
         } else {
-            launch { left.animateTo(target.first, Motion.spec(tween(TAB_MS))) }
-            right.animateTo(target.second, Motion.spec(tween(TAB_MS)))
+            launch { left.animateTo(target.first, Motion.spec(tween(Motion.NEIGHBOURS))) }
+            right.animateTo(target.second, Motion.spec(tween(Motion.NEIGHBOURS)))
         }
         under = page
     }
@@ -340,4 +340,3 @@ internal fun Mark(description: String?, side: Dp = 24.dp) {
 
 private val MARK_BOX = Color(0xFF133F43)
 private val MARK_RICE = Color(0xFFF2FAF7)
-private const val TAB_MS = 160

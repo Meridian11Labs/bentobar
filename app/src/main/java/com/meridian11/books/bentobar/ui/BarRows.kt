@@ -33,24 +33,29 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -109,6 +114,7 @@ import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import com.meridian11.books.bentobar.data.Pill
@@ -309,6 +315,12 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     AutoScroll(reorder, scroll)
     val shown = reorder.preview(cfg)
     val dragging = reorder.dragging
+    // The lanes on screen changed (an area started or closed): for that long the rows take an area's time to their places.
+    val travel = remember { ListTravel() }
+    val had = remember { intArrayOf(lanes.on.size) }
+    if (had[0] != lanes.on.size) { had[0] = lanes.on.size; travel.ms = Motion.AREA }
+    LaunchedEffect(lanes.on.size) { delay(Motion.AREA.toLong()); travel.ms = Motion.NEIGHBOURS }
+    SideEffect { travel.standing = true }
     val entries = remember(shown, kept, dragging != null, lanes, abreast) {
         // A lane that closed says so above the list; the removed row's own slip would stand in a lane that is gone.
         listEntries(shown, slipOf(kept, shown).takeIf { lanes.fold == null }, dragging != null, lanes.on, abreast, lanes.fold, lanes.noRoom)
@@ -332,41 +344,43 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
                 drawRoundRect(tint.copy(alpha = 0.45f), at.topLeft, at.size, round, style = Stroke(1.dp.toPx()))
             }
             .pointerHoverIcon(if (dragging != null) grabbing else PointerIcon.Default, overrideDescendants = dragging != null)) {
-            Lines(if (abreast) order.size else 1) {
-                // One call site for every line: a row that moves to another part or area keeps its node, and its focus.
-                entries.forEach { e ->
-                    key(e.key) {
-                        val slot = Modifier.layoutId(slotOf(e, order))
-                        when (e) {
-                            is Entry.ListHead -> Head(stringResource(R.string.section_shown), stringResource(R.string.section_shown_help),
-                                slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.UPPER)] = it }) { AddArea(lanes.on, edit) }
-                            is Entry.AreaHead -> Head(stringResource(areaRes(e.area)), stringResource(whereRes(e.area)),
-                                slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.UPPER)] = it }, rule = !abreast && !e.first, plus = !abreast) {
-                                if (e.area == order.last() && lanes.on.size < BAR_ORDER.size) AddArea(lanes.on, edit)
-                                if (!abreast) BentoIconButton(Sym.ADD, stringResource(R.string.areas_add_item, stringResource(areaRes(e.area))),
-                                    { edit.addTo = e.area; edit.toLibrary() }, Modifier.testTag("add-to:${e.area}"), filled = false)
+            CompositionLocalProvider(LocalTravel provides travel) {
+                Lines(if (abreast) order.size else 1) {
+                    // One call site for every line: a row that moves to another part or area keeps its node, and its focus.
+                    entries.forEach { e ->
+                        key(e.key) {
+                            val slot = Modifier.layoutId(slotOf(e, order))
+                            when (e) {
+                                is Entry.ListHead -> Head(stringResource(R.string.section_shown), stringResource(R.string.section_shown_help),
+                                    slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.UPPER)] = it }) { AddArea(lanes.on, edit) }
+                                is Entry.AreaHead -> Head(stringResource(areaRes(e.area)), stringResource(whereRes(e.area)),
+                                    slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.UPPER)] = it }, rule = !abreast && !e.first, plus = !abreast) {
+                                    if (e.area == order.last() && lanes.on.size < BAR_ORDER.size) AddArea(lanes.on, edit)
+                                    if (!abreast) BentoIconButton(Sym.ADD, stringResource(R.string.areas_add_item, stringResource(areaRes(e.area))),
+                                        { edit.addTo = e.area; edit.toLibrary() }, Modifier.testTag("add-to:${e.area}"), filled = false)
+                                }
+                                is Entry.PartLine -> PartLine(cfg.hiddenMode, slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.LOWER)] = it })
+                                // Every lane's lower part starts at this one line.
+                                Entry.SharedLine -> PartLine(cfg.hiddenMode, slot.onGloballyPositioned { at -> order.forEach { reorder.headings[Zone(it, Part.LOWER)] = at } })
+                                is Entry.Row -> {
+                                    val over = e.item.id in overflow && e.zone.area !in lanes.noRoom
+                                    if (e.item.id == dragging) DropOpening(e.item.id, reorder, slot)
+                                    else ItemRow(e.item, shown, states[e.item.id], e.item.id == selected, over, mark = when (e.item.id) {
+                                        added -> Mark.ADDED
+                                        moved -> Mark.MOVED
+                                        else -> null
+                                    }, setup.calendar, edit, reorder, lanes.on, stacked = narrow || abreast, slot)
+                                }
+                                is Entry.Removed -> SlipRow(e.slip, edit, slot)
+                                Entry.Empty -> Text(stringResource(R.string.bar_empty), slot.padding(horizontal = Space.xl, vertical = Space.s),
+                                    style = Bento.type.small, color = c.ink2)
+                                is Entry.EmptyLane -> EmptyLane(e.area, lanes.on, edit, slot)
+                                is Entry.Blank -> Box(slot.fillMaxWidth().heightIn(min = Target.row).padding(horizontal = Space.xl).testTag("blank:${e.area}"),
+                                    contentAlignment = Alignment.CenterStart) { Text(stringResource(R.string.areas_nothing), style = Bento.type.help, color = c.ink3) }
+                                is Entry.Fold -> FoldSlip(e.area, edit, slot)
+                                is Entry.NoRoom -> NoRoom(e.area, cfg, slot)
+                                is Entry.Room -> Spacer(slot.fillMaxWidth().height(if (abreast) Target.row else ROOM))
                             }
-                            is Entry.PartLine -> PartLine(cfg.hiddenMode, slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.LOWER)] = it })
-                            // Every lane's lower part starts at this one line.
-                            Entry.SharedLine -> PartLine(cfg.hiddenMode, slot.onGloballyPositioned { at -> order.forEach { reorder.headings[Zone(it, Part.LOWER)] = at } })
-                            is Entry.Row -> {
-                                val over = e.item.id in overflow && e.zone.area !in lanes.noRoom
-                                if (e.item.id == dragging) DropOpening(e.item.id, reorder, slot)
-                                else ItemRow(e.item, shown, states[e.item.id], e.item.id == selected, over, mark = when (e.item.id) {
-                                    added -> Mark.ADDED
-                                    moved -> Mark.MOVED
-                                    else -> null
-                                }, setup.calendar, edit, reorder, lanes.on, stacked = narrow || abreast, slot)
-                            }
-                            is Entry.Removed -> SlipRow(e.slip, edit, slot)
-                            Entry.Empty -> Text(stringResource(R.string.bar_empty), slot.padding(horizontal = Space.xl, vertical = Space.s),
-                                style = Bento.type.small, color = c.ink2)
-                            is Entry.EmptyLane -> EmptyLane(e.area, lanes.on, edit, slot)
-                            is Entry.Blank -> Box(slot.fillMaxWidth().heightIn(min = Target.row).padding(horizontal = Space.xl).testTag("blank:${e.area}"),
-                                contentAlignment = Alignment.CenterStart) { Text(stringResource(R.string.areas_nothing), style = Bento.type.help, color = c.ink3) }
-                            is Entry.Fold -> FoldSlip(e.area, edit, slot)
-                            is Entry.NoRoom -> NoRoom(e.area, cfg, slot)
-                            is Entry.Room -> Spacer(slot.fillMaxWidth().height(if (abreast) Target.row else ROOM))
                         }
                     }
                 }
@@ -617,6 +631,12 @@ private fun ItemRow(item: ItemConfig, cfg: BarConfig, state: ItemState?, selecte
         runCatching { bring.bringIntoView() }
         if (edit.follow == follow) edit.follow = null
     }
+    // A row the library's + added opens downwards in the time the rows under it take to make room. One that was
+    // carried here arrived as its copy and is simply there, as are the rows a page starts with.
+    val travel = LocalTravel.current
+    val context = LocalContext.current
+    val open = remember { Animatable(if (mark == Mark.ADDED && travel.standing && edit.landed != id && Motion.scale(context) > 0f) 0f else 1f) }
+    LaunchedEffect(open) { if (open.value < 1f) open.animateTo(1f, tween(Motion.NEIGHBOURS)) }
     val grab = remember { PointerIcon(android.view.PointerIcon.TYPE_GRAB) }
     val pinned = item.type == Store.PINNED_LEFT
     val chevron = cfg.hiddenMode != HiddenMode.SHOW_ALL
@@ -642,6 +662,7 @@ private fun ItemRow(item: ItemConfig, cfg: BarConfig, state: ItemState?, selecte
     val behind = if (overflow && lanes.size > 1) stringResource(R.string.row_overflow_behind, if (item.area == Position.LEFT) "›" else "‹") else null
     RowBody(item, state, overflow && behind == null, behind, calendar, cfg,
         modifier.onGloballyPositioned { reorder.rows[id] = it; reorder.grabAreas[id] = it }.animatePlacement()
+            .drawWithContent { if (open.value < 1f) clipRect(bottom = size.height * open.value) { this@drawWithContent.drawContent() } else drawContent() }
             .padding(horizontal = ROW_INSET)
             .bringIntoViewRequester(bring).focusRequester(requester)
             .onFocusChanged { if (it.isFocused) edit.focusedRow = id else if (edit.focusedRow == id) edit.focusedRow = null }
@@ -743,10 +764,10 @@ internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, Item
     val setup by Setup.state.collectAsState()
     val narrow = LocalWindowLayout.current.kind == WindowClass.NARROW
     val look = reorder.look
-    val chip by animateFloatAsState(if (reorder.inPreview && look != null) 1f else 0f, Motion.spec(tween(120)), label = "chip")
+    val chip by animateFloatAsState(if (reorder.inPreview && look != null) 1f else 0f, Motion.spec(tween(Motion.LIFT)), label = "chip")
     var up by remember(carried) { mutableStateOf(false) }
     LaunchedEffect(carried) { up = true }
-    val raised by animateFloatAsState(if (up) 1f else 0f, Motion.spec(tween(120)), label = "raised")
+    val raised by animateFloatAsState(if (up) 1f else 0f, Motion.spec(tween(Motion.LIFT)), label = "raised")
     val ground = if (reorder.ground == Color.Unspecified) c.raised else reorder.ground
     Layout({
         RowBody(item, state, false, null, setup.calendar, cfg, Modifier, stacked = narrow || several || reorder.touch,

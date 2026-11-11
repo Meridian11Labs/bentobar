@@ -2,11 +2,8 @@ package com.meridian11.books.bentobar.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector2D
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -20,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
@@ -336,7 +334,7 @@ class Reorder {
         try {
             if (d is Drop.At) {
                 val to = if (inPreview) insertion else bounds(rows[c.id])?.let { Offset(it.left + (if (it.width > copyWidth) ROW_INSET_DP * density else 0f), it.top) }
-                if (to != null) glide(to, 180)
+                if (to != null) glide(to, Motion.SETTLE)
             }
             pending = Pending(c, d, config)
             // Nothing changed (the same place): nothing is on its way.
@@ -363,7 +361,7 @@ class Reorder {
             // The opening is back in the row's own place a frame later.
             withFrameNanos { }
             val home = bounds(if (c.from == From.BAR) rows[c.id] else source)
-            if (home != null) glide(Offset(home.left + (if (c.from == From.BAR) ROW_INSET_DP * density else 0f), home.top), 200)
+            if (home != null) glide(Offset(home.left + (if (c.from == From.BAR) ROW_INSET_DP * density else 0f), home.top), Motion.BACK)
             if (told is Drop.Refused) onDrop(c, told)
         } finally {
             clear()
@@ -460,10 +458,20 @@ fun Modifier.drags(r: Reorder): Modifier = pointerInput(r) {
     }
 }
 
-/** Slides a row to its new place when the rows around it change, instead of jumping there. */
+/**
+ * What the list tells its rows about travelling. [ms]: how long a row takes to its new place, [Motion.NEIGHBOURS], or
+ * [Motion.AREA] while the list is changing between one list and lanes; it is read when a row sets off. [standing]:
+ * the list has been drawn, so a row that comes now was added to it and opens, where the rows a page starts with are
+ * simply there.
+ */
+internal class ListTravel { var ms = Motion.NEIGHBOURS; var standing = false }
+internal val LocalTravel = staticCompositionLocalOf { ListTravel() }
+
+/** Slides a row to its new place when the rows around it change, instead of jumping there. Its size changes at once. */
 fun Modifier.animatePlacement(): Modifier = composed {
     val scope = rememberCoroutineScope()
     val holder = remember { PlacementHolder() }
+    holder.travel = LocalTravel.current
     onPlaced { c ->
         val t = c.positionInParent().round()
         holder.target = t
@@ -472,6 +480,7 @@ fun Modifier.animatePlacement(): Modifier = composed {
 }
 
 private class PlacementHolder {
+    var travel = ListTravel()
     var target = IntOffset.Zero
     var anim: Animatable<IntOffset, AnimationVector2D>? = null
 }
@@ -483,7 +492,7 @@ private fun Modifier.layoutOffset(holder: PlacementHolder, scope: CoroutineScope
         val a = holder.anim ?: return@absoluteOffset IntOffset.Zero
         if (a.targetValue != holder.target) {
             val t = holder.target
-            scope.launch { a.animateTo(t, Motion.spec(spring(stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset.VisibilityThreshold))) }
+            scope.launch { a.animateTo(t, Motion.spec(tween(holder.travel.ms))) }
         }
         a.value - holder.target
     }
