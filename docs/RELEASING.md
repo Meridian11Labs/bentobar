@@ -122,6 +122,68 @@ learned the hard way" says why. Run it again on every new draft.
 - **Update over the old release.** Installed over the previous release (same key), the layout and the accessibility
   switch are still there, and a strip that stood on the left or in the middle stands where it did.
 - **Online services.** With them off nothing is asked; weather shows the placeholder, not an error.
+- **The items added after 1.7.1.** None of them has run on a device yet. Each has its list below; run an item's list
+  before the release that first carries it. `./bento debug TYPE stage …` stages what a test can't make happen.
+- **Camera and mic.** Another app using the camera or the microphone brings the item out, with a time that counts;
+  BentoBar's own Mirror doesn't, nor the two seconds after it closes. A USB camera unplugged while in use doesn't
+  leave the item stuck. The mute: a recording made while it is on is silent with the built-in, a USB and a Bluetooth
+  microphone; if one of them still records, set `InUseRules.OFFER_MUTE` to false and ship without the button. The mute
+  is given back on Remove, when BentoBar is turned off, and at a start that finds the item gone; it stays while the
+  bar is hidden; a mute another app made is left alone. The link to Android's privacy settings opens them.
+- **Mirror.** The popup shows the camera's picture within a second, or "Android didn't let BentoBar use the camera."
+  (a camera opened from an overlay window is the doubt). The picture is upright and unstretched, and Mirrored turns
+  it. The camera's light goes out as the popup starts to close: by its button, Esc, a click on the item or on another
+  one, and full screen. The popup stays while you type in another window. The permission is asked on the first
+  opening; refused, the popup says so and Setup has the Camera row.
+- **Shelf.** Text and a link dragged from another app onto the item land, in each area: the item lights up, the count
+  rises, pictures and files are refused. Whether the system's window tiling takes a drag at the top edge first. A row
+  drags out into another app. "Add what's copied" adds the clipboard, and nothing the system marks sensitive. Open
+  link opens the browser. Removed from the bar the item waits as a line with what it holds; Forget deletes the kept
+  file. Nothing of what it holds is in the log.
+- **Prompter.** While its popup is open, keys still go to the other app; Space pauses and plays only when the popup
+  has the focus. The motion is even at speeds 1 and 10 and stops at "End of your notes". Edit opens the options. The
+  notes survive BentoBar being turned off and on.
+- **Notification icons.** "BentoBar notification icons" is its own entry in Notification access, and is not connected
+  while no such item is placed. With access: one icon per app (`./bento debug notices` counts those it couldn't load
+  as `bells=`), and the popup opens, dismisses and clears. `listener=` in the same line says whether it is connected:
+  only while the item is live, and gone within a second of the bar hiding. Access switched on or off while it shows is
+  followed within two seconds. `notices stage three|many|progress|none|noaccess`.
+- **Live activity.** Alone in the Middle with "Only when active" and nothing happening it draws nothing: `debug dump`,
+  and a night with Play Protect on (below). A timer started from the tile shows within a second; a meeting from ten
+  minutes before until ten minutes in; a meeting stands before a timer, and a finished timer's "Done" before both for
+  a minute. Now playing needs its access; a flight comes with `flight show NAME`; another app's progress ("App 62%")
+  only with Notification icons switched on in Live activity's options. Its sources' listeners go while the bar is
+  hidden. `live stage several`.
+- **Focus.** The popup asks for Do Not Disturb access, and the mode "BentoBar Focus" comes on. A session ends by its
+  alarm with the screen off, with the bar hidden, and with BentoBar turned off. A restart of the device before the end
+  and one after it both leave Do Not Disturb as it should be once BentoBar is on again. Switched off in Android's
+  Modes, the item follows within five seconds. A session with no end ends on Remove and when BentoBar is turned off.
+  The mode leaves Android's list when the last Focus item is forgotten. `focus stage ready|running|endless|noaccess`.
+- **Brightness.** Dimmed until "Modify system settings" is allowed. The slider and the system's own agree along the
+  whole range, also with automatic brightness on; the built-in screen only.
+- **Keyboard light.** On a backlit keyboard a dimmed "System" until the first slide, and nothing on a keyboard without
+  a light. The keys follow a slide. "Give back to the system" does; so do Remove and turning BentoBar off. Where
+  Android refuses the light the item says "Not on this device".
+- **Headphones and output.** A wired or USB-C headset's name within a second; a Bluetooth one's (it may read
+  "Bluetooth"); a change of output within five seconds; a monitor on HDMI or USB-C; the volume agrees with Sound's.
+- **Connection.** "Sign in" behind a captive portal, a VPN, "No internet", "Offline", "Metered"; and no callback left
+  behind once the item is gone (`dumpsys connectivity`).
+- **Screen time.** The glyph alone without Usage access; the time within about fifteen seconds of allowing it, close
+  to Android's own figure; a closed lid and a restart are not counted; the menu lists the apps longest in front; it
+  starts again at midnight.
+- **Day progress, Sunset, Break reminder.** Sunset within two minutes of a published table for the time zone's city; a
+  zone under an old name (`Asia/Calcutta`) still names a city, and UTC says "BentoBar doesn't know where this time
+  zone is". The week starts on the day Android's regional preferences say. The lid closed, or the bar hidden, for a
+  rest's length starts the break count again. `sun stage evening|night|polar|nozone`, `progress stage
+  morning|evening|yearend`, `breaks stage early|due`.
+- **Crypto.** Kraken answers and the prices show. Every coin with every currency the options offer has a pair at
+  Kraken (`https://api.kraken.com/0/public/AssetPairs`): one unknown pair voids the whole reply, and the pound with
+  the smaller coins is the doubt. Setup has the row "Crypto (Kraken)". `./bento debug net` shows `api.kraken.com=`
+  rising about every two minutes, only while the bar is on screen. `crypto stage calm|big|offline|old`.
+- **Value from a URL.** An HTTPS address of your own and a JSON path show the value; the log says `GET own -> ok` and
+  never the address. `http://` and a name and password in the address are refused. A server with a self-signed
+  certificate fails in a release build. Its switch off stops the requests at once. A redirect and a reply over 64 KB
+  both read "No answer", after one request. Copy settings and a backup carry no address.
 
 ## What the tag does
 

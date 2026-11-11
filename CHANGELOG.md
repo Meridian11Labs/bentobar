@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+- **Seventeen new items.** Camera and mic, Mirror, Prompter, Shelf, Notification icons, Live activity, Focus,
+  Brightness, Keyboard light, Headphones and output, Connection, Screen time, Day progress, Sunset, Break reminder,
+  Crypto and Value from a URL. None has run on a device yet; each has its list in `docs/RELEASING.md`.
+- **Seven items go online, where five did.** Crypto asks Kraken, with no key. Value from a URL asks one address you
+  type and nothing else: HTTPS only, no name or password in it, no redirect followed, no reply over 64 KB, never more
+  than once a minute. The address stays on this device, in no layout and no backup, and Setup › Online services has a
+  switch for it, Your own addresses. Until now no request could go to an address that isn't written in the code; this
+  is the one exception.
+- **New access, each optional and each asked for by the item that needs it.** Camera for Mirror; Do Not Disturb access
+  for Focus; Modify system settings for Brightness; and a second entry in Android's Notification access list, BentoBar
+  notification icons, for Notification icons, which reads other apps' notifications while it is on screen and keeps
+  none. Camera and mic's mute uses Modify audio settings, which Android gives without asking.
+- **Usage access reads more with a Screen time item in the bar.** When the screen went on and off today, and, while
+  its menu is open, which apps were in front and for how long. Until now BentoBar read only data use and storage with
+  it. Nothing of it is stored or sent.
+- **About › Privacy says all of it.** Notes for Notification icons, Mirror, Camera and mic, Screen time, Shelf and
+  Prompter, and for Crypto and Value from a URL; a backup leaves out a Prompter's notes, what a Shelf holds, the
+  addresses of Value from a URL and a Focus session.
+- **Clipboard actions are in the code and switched off.** They need a model on the device, and none is built in, so
+  nothing of them shows.
+
 ## 1.7.1 (2026-11-03)
 
 - **About, Setup and Add name every online item.** They said three items go online; five do (Weather, Air quality &

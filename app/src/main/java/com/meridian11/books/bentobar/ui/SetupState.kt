@@ -24,7 +24,7 @@ data class SetupState(
     val calendar: Boolean = false,
     val exactAlarms: Boolean = false,
     val advancedProtection: Boolean = false,
-    /** Optional: Usage access, for the top apps in the Network and Storage menus. */
+    /** Optional: Usage access, for the top apps in the Network and Storage menus and for Screen time. */
     val usageAccess: Boolean = false,
     /** Optional: Android's notification access, which Now playing needs for titles and artwork. */
     val mediaAccess: Boolean = false,

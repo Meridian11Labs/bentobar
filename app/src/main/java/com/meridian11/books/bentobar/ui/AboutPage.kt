@@ -37,8 +37,14 @@ import com.meridian11.books.bentobar.BuildConfig
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.items.ClipboardItem
 import com.meridian11.books.bentobar.items.Env
+import com.meridian11.books.bentobar.items.InUseItem
 import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.items.MediaItem
+import com.meridian11.books.bentobar.items.MirrorItem
+import com.meridian11.books.bentobar.items.NoticesItem
+import com.meridian11.books.bentobar.items.PrompterItem
+import com.meridian11.books.bentobar.items.ScreenTimeItem
+import com.meridian11.books.bentobar.items.ShelfItem
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
 
@@ -99,7 +105,7 @@ private fun OpenSource() {
             Body(stringResource(R.string.about_open_source_text))
             Spacer(Modifier.height(Space.xs))
             listOf(R.string.about_credit_symbols, R.string.about_credit_compose, R.string.about_credit_kotlin, R.string.about_credit_openmeteo,
-                R.string.about_credit_airlabs, R.string.about_credit_finnhub, R.string.about_credit_frankfurter).forEach {
+                R.string.about_credit_airlabs, R.string.about_credit_finnhub, R.string.about_credit_frankfurter, R.string.about_credit_kraken).forEach {
                 Text(stringResource(it), Modifier.padding(top = Space.xs), style = Bento.type.help, color = Bento.colors.ink3)
             }
             // Open-Meteo's licence asks for the credit and a link to it.
@@ -126,6 +132,12 @@ private fun PrivacyByItem() {
     val notes = Items.all.filter { it.online != null }.mapNotNull { type -> type.onlineNote?.let { PrivacyNote(type.type, type.icon, type.title, it) } } + listOf(
         PrivacyNote(ClipboardItem.type, ClipboardItem.icon, ClipboardItem.title, R.string.about_privacy_clipboard),
         PrivacyNote(MediaItem.type, MediaItem.icon, MediaItem.title, R.string.about_privacy_media),
+        PrivacyNote(NoticesItem.type, NoticesItem.icon, NoticesItem.title, R.string.about_privacy_notices),
+        PrivacyNote(MirrorItem.type, MirrorItem.icon, MirrorItem.title, R.string.about_privacy_mirror),
+        PrivacyNote(InUseItem.type, InUseItem.icon, InUseItem.title, R.string.about_privacy_inuse),
+        PrivacyNote(ScreenTimeItem.type, ScreenTimeItem.icon, ScreenTimeItem.title, R.string.about_privacy_screentime),
+        PrivacyNote(ShelfItem.type, ShelfItem.icon, ShelfItem.title, R.string.about_privacy_shelf),
+        PrivacyNote(PrompterItem.type, PrompterItem.icon, PrompterItem.title, R.string.about_privacy_prompter),
         PrivacyNote("others", Sym.WIDGETS, stringResource(R.string.about_privacy_others_title), R.string.about_privacy_others),
         PrivacyNote("backup", Sym.CLOUD_DONE, stringResource(R.string.about_privacy_backup_title), R.string.about_privacy_backup),
     )

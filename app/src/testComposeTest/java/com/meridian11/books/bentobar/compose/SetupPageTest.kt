@@ -279,7 +279,7 @@ class SetupPageTest {
         row.performClick()
         rule.onNode(hasText(str(R.string.about_privacy_clipboard))).assertExists()
         assertTrue(SemanticsActions.Collapse in rule.onNode(hasTestTag("privacy:clipboard")).fetchSemanticsNode().config)
-        for (key in listOf("weather", "air", "flight", "stocks", "fx", "media", "others", "backup")) rule.onNode(hasTestTag("privacy:$key")).assertExists()
+        for (key in listOf("weather", "air", "flight", "stocks", "fx", "media", "notices", "mirror", "inuse", "screentime", "shelf", "prompter", "others", "backup")) rule.onNode(hasTestTag("privacy:$key")).assertExists()
         picture("about")
         dark = true
         rule.waitForIdle()

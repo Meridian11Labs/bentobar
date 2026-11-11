@@ -2,9 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Five items go online, and only after the user set them up on this device: Weather and Air quality ask
-         Open-Meteo, Exchange rates asks Frankfurter, Flight asks AirLabs and US stocks asks Finnhub, the last two
-         with the user's own key. net/Http.kt names the hosts and is the only code that opens a connection; nothing
+    <!-- Seven items go online, and only after the user set them up on this device: Weather and Air quality ask
+         Open-Meteo, Exchange rates asks Frankfurter, Crypto asks Kraken, Flight asks AirLabs and US stocks asks
+         Finnhub, the last two with the user's own key, and Value from a URL asks the one address the user typed for
+         it. net/Http.kt names the hosts, takes that address, and is the only code that opens a connection; nothing
          the accessibility service or any other item reads goes there. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -19,7 +20,8 @@
     <!-- To explain why the bar can't run when Advanced Protection is on (normal permission). -->
     <uses-permission android:name="android.permission.QUERY_ADVANCED_PROTECTION_MODE" />
     <!-- Optional "Usage access", off until the user turns it on in Android settings: per-app data
-         use and storage for the Network and Storage menus. BentoBar reads nothing else with it. -->
+         use and storage for the Network and Storage menus, and for a Screen time item when the screen
+         was on today and, while its menu is open, which apps were in front. BentoBar reads nothing else with it. -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
