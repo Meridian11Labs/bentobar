@@ -261,6 +261,8 @@ internal fun onlineRow(service: Online.Service): OnlineRow = when (service) {
     Online.Service.AIRLABS -> OnlineRow(R.string.setup_online_flights, R.string.setup_online_flights_first, R.string.flight_remove_key)
     Online.Service.FINNHUB -> OnlineRow(R.string.setup_online_stocks, R.string.setup_online_stocks_first, R.string.stocks_remove_key)
     Online.Service.FRANKFURTER -> OnlineRow(R.string.setup_online_fx, R.string.setup_online_fx_first)
+    Online.Service.KRAKEN -> OnlineRow(R.string.setup_online_crypto, R.string.setup_online_crypto_first)
+    Online.Service.OWN -> OnlineRow(R.string.setup_online_own, R.string.setup_online_own_first)
 }
 
 /**
