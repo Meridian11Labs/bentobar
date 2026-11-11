@@ -2,16 +2,14 @@
 <!-- Shelf. Every name here starts with shelf_, item_shelf_ or trigger_shelf. -->
 <resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
     <string name="item_shelf_title">Shelf</string>
-    <string name="item_shelf_desc">Text and links you drop on it or copy, kept to copy or drag out later</string>
+    <string name="item_shelf_desc">Text and links you drop on it, kept to copy or drag out later</string>
     <string name="trigger_shelf">while something is on the shelf</string>
     <string name="trigger_shelf_short">shows when it holds something</string>
 
     <string name="shelf_empty">Nothing on the shelf</string>
     <string name="shelf_desc_empty">Shelf, empty</string>
-    <string name="shelf_note">Shelf takes text and links: drop them on its item in the bar, or add what you copied. Kept on this device only.</string>
+    <string name="shelf_note">Shelf takes text and links: drop them on its item in the bar. Kept on this device only.</string>
     <string name="shelf_full">Twenty entries is the most it keeps: the oldest goes when a new one comes.</string>
-    <string name="shelf_nothing_new">Nothing new on the clipboard to add.</string>
-    <string name="shelf_add_copied">Add what\'s copied</string>
     <string name="shelf_clear">Clear</string>
     <string name="shelf_open">Open link</string>
     <string name="shelf_remove">Remove from the shelf</string>

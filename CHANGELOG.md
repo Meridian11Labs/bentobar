@@ -1,6 +1,8 @@
 # Changelog
 
-## 2.0.0 (not yet released)
+## 2.1.0 (2026-11-11)
+
+2.0.0 was only ever a test build; 2.1.0 is the release, without the Crypto and Clipboard items.
 
 - **Left, Middle and Right.** Every item has an area (layout version 4; a version 3 layout moves each item into the
   area the strip was in). The bar is one bar in up to three windows; room goes to Right first, then Left, then Middle,
@@ -11,13 +13,13 @@
   setup becomes a library line when removed, one without is gone. Look, Setup and About on the same controls; the
   accessibility disclosure is a page under Setup with the same words and two buttons; the bar's right-click menu says
   "Remove from the bar".
-- **The 1.8 foundation.** Exchange rates moved to Frankfurter's `/v2/rates` and loads again; Clipboard no longer
-  pastes into other apps' fields; Hide, Show and Off change an item's section and never its place; a layout from a
-  newer version is refused with a message; Compose tests have their own build type; dependency verification is on.
-- **Seventeen new items.** Camera and mic, Mirror, Prompter, Shelf, Notification icons, Live activity, Focus,
-  Brightness, Keyboard light, Headphones and output, Connection, Screen time, Day progress, Sunset, Break reminder,
-  Crypto and Value from a URL. Each has its device list in `docs/RELEASING.md`.
-- **Seven items go online, where five did.** Crypto asks Kraken, with no key. Value from a URL asks one address you
+- **The 1.8 foundation.** Exchange rates moved to Frankfurter's `/v2/rates` and loads again; Hide, Show and Off change
+  an item's section and never its place; a layout from a newer version is refused with a message; Compose tests have
+  their own build type; dependency verification is on.
+- **Sixteen new items.** Camera and mic, Mirror, Prompter, Shelf, Notification icons, Live activity, Focus,
+  Brightness, Keyboard light, Headphones and output, Connection, Screen time, Day progress, Sunset, Break reminder
+  and Value from a URL. Each has its device list in `docs/RELEASING.md`.
+- **Six items go online, where five did.** Value from a URL asks one address you
   type and nothing else: HTTPS only, no name or password in it, no redirect followed, no reply over 64 KB, never more
   than once a minute. The address stays on this device, in no layout and no backup, and Setup › Online services has a
   switch for it, Your own addresses. Until now no request could go to an address that isn't written in the code; this
@@ -30,10 +32,9 @@
   its menu is open, which apps were in front and for how long. Until now BentoBar read only data use and storage with
   it. Nothing of it is stored or sent.
 - **About › Privacy says all of it.** Notes for Notification icons, Mirror, Camera and mic, Screen time, Shelf and
-  Prompter, and for Crypto and Value from a URL; a backup leaves out a Prompter's notes, what a Shelf holds, the
+  Prompter, and for Value from a URL; a backup leaves out a Prompter's notes, what a Shelf holds, the
   addresses of Value from a URL and a Focus session.
-- **Clipboard actions are in the code and switched off.** They need a model on the device, and none is built in, so
-  nothing of them shows.
+- **The Clipboard item is gone.** A layout that has one is read without it, and its pinned snippets go with it.
 
 ## 1.7.1 (2026-11-03)
 

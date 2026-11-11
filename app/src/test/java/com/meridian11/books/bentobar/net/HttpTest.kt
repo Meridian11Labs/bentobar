@@ -37,11 +37,9 @@ class HttpTest {
         Http.resetCounts()
     }
 
-    @Test fun sevenHostsAndNoOther() {
-        assertEquals(setOf("api.open-meteo.com", "air-quality-api.open-meteo.com", "geocoding-api.open-meteo.com", "airlabs.co", "api.finnhub.io", "api.frankfurter.dev",
-            "api.kraken.com"), Host.entries.map { it.domain }.toSet())
-        // Kraken's public ticker takes no key: nothing of the user's goes with a request for prices.
-        assertEquals(null, Host.KRAKEN.keyName)
+    @Test fun sixHostsAndNoOther() {
+        assertEquals(setOf("api.open-meteo.com", "air-quality-api.open-meteo.com", "geocoding-api.open-meteo.com", "airlabs.co", "api.finnhub.io", "api.frankfurter.dev"),
+            Host.entries.map { it.domain }.toSet())
     }
 
     @Test fun everyAddressIsHttpsToOneOfThem() {
@@ -302,7 +300,7 @@ class HttpTest {
             }
             refused("off, as on a new install")
             assertTrue(Online.turnOn(Online.Service.OWN))
-            items = listOf(ItemConfig("w", "webvalue", Section.OFF), ItemConfig("c", "crypto"))
+            items = listOf(ItemConfig("w", "webvalue", Section.OFF), ItemConfig("x", "fx"))
             refused("no such item outside Off")
             items = listOf(ItemConfig("w", "webvalue"))
             running = false

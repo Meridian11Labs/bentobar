@@ -9,9 +9,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draganddrop.DragAndDropTransferData
 import androidx.compose.ui.res.pluralStringResource
@@ -29,7 +26,7 @@ import com.meridian11.books.bentobar.util.Sym
 
 /**
  * The shelf's popup: a row per entry, newest first (a click copies it, a link has a button that opens it, a row can be
- * dragged out into another app and taken off), then "Add what's copied" and "Clear".
+ * dragged out into another app and taken off), then "Clear" while it holds something.
  */
 @Composable
 internal fun ShelfMenu(item: ItemConfig, host: MenuHost) {
@@ -38,8 +35,6 @@ internal fun ShelfMenu(item: ItemConfig, host: MenuHost) {
     val staged by ShelfItem.staged.collectAsState()
     LaunchedEffect(id) { ShelfItem.load(id) }
     val entries = staged ?: shelves[id]
-    // A press of "Add what's copied" that added nothing says so, until the next press.
-    var nothingNew by remember { mutableStateOf(false) }
     val label = stringResource(R.string.app_name)
     MenuCard(Sym.INBOX, stringResource(R.string.item_shelf_title), when {
         entries == null -> null
@@ -48,14 +43,14 @@ internal fun ShelfMenu(item: ItemConfig, host: MenuHost) {
     }) {
         entries.orEmpty().forEach { entry -> key(entry.text) { ShelfRow(entry, label, host) { ShelfItem.remove(id, entry.text) } } }
         MenuNote(stringResource(if (entries.orEmpty().size >= ShelfRules.MOST) R.string.shelf_full else R.string.shelf_note))
-        if (nothingNew) MenuNote(stringResource(R.string.shelf_nothing_new))
-        MenuDivider()
-        MenuEntry(Sym.CONTENT_PASTE, stringResource(R.string.shelf_add_copied)) { nothingNew = !ShelfItem.addCopied(id) }
-        if (!entries.isNullOrEmpty()) MenuEntry(Sym.DELETE, stringResource(R.string.shelf_clear)) { nothingNew = false; ShelfItem.clear(id) }
+        if (!entries.isNullOrEmpty()) {
+            MenuDivider()
+            MenuEntry(Sym.DELETE, stringResource(R.string.shelf_clear)) { ShelfItem.clear(id) }
+        }
     }
 }
 
-/** One entry: a click copies it and closes the popup, as the Clipboard item's do. */
+/** One entry: a click copies it and closes the popup. */
 @Composable
 private fun ShelfRow(entry: Entry, label: String, host: MenuHost, onRemove: () -> Unit) {
     val link = entry.kind == Kind.LINK

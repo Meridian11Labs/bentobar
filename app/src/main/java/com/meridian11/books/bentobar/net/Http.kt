@@ -23,8 +23,6 @@ enum class Host(val domain: String, /** The query name this host takes the user'
     FINNHUB("api.finnhub.io", keyName = "token"),
     /** Reference exchange rates from the European Central Bank (Frankfurter). */
     FRANKFURTER("api.frankfurter.dev"),
-    /** Prices of the coins the Crypto item follows: the Kraken exchange's public ticker, no key. */
-    KRAKEN("api.kraken.com"),
 }
 
 /**

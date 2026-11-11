@@ -2,7 +2,6 @@ package com.meridian11.books.bentobar.items
 
 import android.content.ClipData
 import android.content.ClipDescription
-import android.content.ClipboardManager
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.runtime.Composable
@@ -19,8 +18,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * Shelf: text and links kept for a moment, up to [ShelfRules.MOST]. Dragged onto its item in the bar from another app,
- * or added from what is copied; copied, opened or dragged out again from its popup. Text and links only, never files:
+ * Shelf: text and links kept for a moment, up to [ShelfRules.MOST]. Dragged onto its item in the bar from another app;
+ * copied, opened or dragged out again from its popup. Text and links only, never files:
  * a service's window cannot be given the right to read a dragged file (that belongs to an activity).
  *
  * What is on a shelf is the user's own ([discreet]): kept under the item's id in the no-backup directory
@@ -106,19 +105,6 @@ object ShelfItem : ItemType("shelf", R.string.item_shelf_title, Sym.INBOX, R.str
         if (texts.isEmpty()) return false
         val took = adds(item.id, texts)
         add(item.id, texts)
-        return took
-    }
-
-    /**
-     * Takes what is copied now. Android gives the clipboard to the app whose window has the keyboard, which an open popup
-     * has. True if it added anything. Main thread.
-     */
-    internal fun addCopied(id: String): Boolean {
-        val clip = runCatching { Env.app.getSystemService(ClipboardManager::class.java)?.primaryClip }.getOrNull() ?: return false
-        val texts = texts(clip)
-        if (texts.isEmpty()) return false
-        val took = adds(id, texts)
-        add(id, texts)
         return took
     }
 

@@ -137,7 +137,7 @@ learned the hard way" says why. Run it again on every new draft.
   opening; refused, the popup says so and Setup has the Camera row.
 - **Shelf.** Text and a link dragged from another app onto the item land, in each area: the item lights up, the count
   rises, pictures and files are refused. Whether the system's window tiling takes a drag at the top edge first. A row
-  drags out into another app. "Add what's copied" adds the clipboard, and nothing the system marks sensitive. Open
+  drags out into another app. Text the system marks sensitive is refused. Open
   link opens the browser. Removed from the bar the item waits as a line with what it holds; Forget deletes the kept
   file. Nothing of what it holds is in the log.
 - **Prompter.** While its popup is open, keys still go to the other app; Space pauses and plays only when the popup
@@ -176,10 +176,6 @@ learned the hard way" says why. Run it again on every new draft.
   zone is". The week starts on the day Android's regional preferences say. The lid closed, or the bar hidden, for a
   rest's length starts the break count again. `sun stage evening|night|polar|nozone`, `progress stage
   morning|evening|yearend`, `breaks stage early|due`.
-- **Crypto.** Kraken answers and the prices show. Every coin with every currency the options offer has a pair at
-  Kraken (`https://api.kraken.com/0/public/AssetPairs`): one unknown pair voids the whole reply, and the pound with
-  the smaller coins is the doubt. Setup has the row "Crypto (Kraken)". `./bento debug net` shows `api.kraken.com=`
-  rising about every two minutes, only while the bar is on screen. `crypto stage calm|big|offline|old`.
 - **Value from a URL.** An HTTPS address of your own and a JSON path show the value; the log says `GET own -> ok` and
   never the address. `http://` and a name and password in the address are refused. A server with a self-signed
   certificate fails in a release build. Its switch off stops the requests at once. A redirect and a reply over 64 KB

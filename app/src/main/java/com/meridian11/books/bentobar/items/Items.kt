@@ -45,7 +45,6 @@ object Items {
         CaffeineItem,
         MediaItem,
         SoundItem,
-        ClipboardItem,
         ToolsItem,
         ShortcutItem,
         FolderItem,
@@ -61,7 +60,6 @@ object Items {
         FlightItem,
         StocksItem,
         FxItem,
-        CryptoItem,
         WebValueItem,
     )
     private val byType = all.associateBy { it.type }
