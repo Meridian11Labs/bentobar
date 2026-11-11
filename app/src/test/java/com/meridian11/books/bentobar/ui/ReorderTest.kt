@@ -167,6 +167,37 @@ class ReorderTest {
         assertEquals(DropLine(Says.NONE), bar.dropLine(a, Drop.None, several = false))
     }
 
+    @Test fun theCarriedCopyIsTheItemAsItWouldBeWhereItHangs() {
+        val waits = Items.all.first { it.addsWhenActive }
+        val new = Carried("new", From.TYPE, waits.type)
+        fun words(cfg: BarConfig, item: ItemConfig?) = item != null && cfg.partOf(item) == Part.LOWER && item.whenActive
+        // A type that the + puts under the line, carried from the library: above the line it is always in the bar.
+        val above = bar.carriedAs(new, Drop.At(DropSpot(upper, 1)))
+        assertEquals(Section.SHOWN, above?.section)
+        assertTrue("above the line it says nothing about when it shows", !words(bar, above))
+        assertTrue("under the line it shows when its rule says", words(bar, bar.carriedAs(new, Drop.At(DropSpot(lower, 0)))))
+        assertEquals("in the area it hangs over", Position.LEFT, bar.carriedAs(new, Drop.At(DropSpot(left, 0), starts = true))?.area)
+        // Over no place it is in no part of the bar, and says nothing about when it shows, in any hidden mode.
+        for (drop in listOf(Drop.None, Drop.Off, Drop.Refused(lower))) for (mode in HiddenMode.entries) {
+            val cfg = bar.copy(hiddenMode = mode)
+            val nowhere = cfg.carriedAs(new, drop)
+            assertEquals(waits.type, nowhere?.type)
+            assertTrue("$drop, $mode", !words(cfg, nowhere))
+        }
+        // A row of the bar: what it would be at the place, and as it is over none.
+        val w = Carried("w", From.BAR, rule)
+        assertTrue(words(bar, bar.carriedAs(w, Drop.None)))
+        assertTrue(words(bar, bar.carriedAs(w, Drop.Off)))
+        assertTrue("carried above the line it is always in the bar", !words(bar, bar.carriedAs(w, Drop.At(DropSpot(upper, 0)))))
+        assertTrue("a row from above the line waits under it", words(bar, bar.carriedAs(Carried("a", From.BAR, rule), Drop.At(DropSpot(lower, 1)))))
+        // A remembered line: as it comes back at the place, and as it was kept over none.
+        val kept = BarConfig(items = bar.items + row("o", section = Section.OFF, active = true))
+        val o = Carried("o", From.LINE, rule)
+        assertEquals(Section.SHOWN, kept.carriedAs(o, Drop.At(DropSpot(upper, 0)))?.section)
+        assertEquals(Section.OFF, kept.carriedAs(o, Drop.None)?.section)
+        assertNull("something that is not in the layout", bar.carriedAs(Carried("gone", From.BAR, rule), Drop.None))
+    }
+
     @Test fun aTypeAndARememberedLineLandWhereTheyAreDropped() {
         val added = bar.dropped(Carried("new", From.TYPE, rule), Drop.At(DropSpot(upper, 1)))
         assertEquals(listOf("a", "new", "b", "c") to listOf("w"), added.order())

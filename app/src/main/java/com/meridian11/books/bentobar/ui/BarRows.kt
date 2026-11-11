@@ -121,8 +121,6 @@ import com.meridian11.books.bentobar.data.Pill
 import com.meridian11.books.bentobar.bar.Strip
 import com.meridian11.books.bentobar.bar.StripEntry
 import com.meridian11.books.bentobar.bar.StripEvents
-import com.meridian11.books.bentobar.data.fresh
-import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.items.Ticker
 import kotlin.math.roundToInt
 
@@ -771,9 +769,9 @@ private object ChipOnly : StripEvents {
 internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, ItemState>, several: Boolean) {
     val carried = reorder.carried ?: return
     val c = Bento.colors
-    val item = remember(carried, cfg) {
-        if (carried.from == From.TYPE) Items.of(carried.type)?.fresh(carried.id, cfg.homeArea()) else cfg.items.firstOrNull { it.id == carried.id }
-    } ?: return
+    // As it would be where it hangs: the copy says nothing of a place that is not so there.
+    val drop = reorder.drop
+    val item = remember(carried, cfg, drop) { cfg.carriedAs(carried, drop) } ?: return
     val state = states[item.id] ?: remember(item) { Ticker.placeholder(item) }
     val setup by Setup.state.collectAsState()
     val narrow = LocalWindowLayout.current.kind == WindowClass.NARROW

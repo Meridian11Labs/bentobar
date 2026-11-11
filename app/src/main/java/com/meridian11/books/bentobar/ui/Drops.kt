@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Rect
 import com.meridian11.books.bentobar.data.BAR_ORDER
 import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.HiddenMode
+import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
@@ -223,6 +224,19 @@ fun BarConfig.showing(c: Carried, drop: Drop): BarConfig = when (drop) {
     is Drop.At -> dropped(c, drop)
     Drop.Off -> if (c.from == From.BAR) without(c.id) else this
     is Drop.Refused, Drop.None -> this
+}
+
+/**
+ * The item the copy under the pointer draws while [c] is carried: as it would be if it were let go now, so the copy
+ * never says of a place what is not so there (a type that waits for its rule is always in the bar above the line).
+ * Over no place a row of the bar is what it is, a remembered line what was kept, and a type what the + would make of
+ * it without its rule: it is in no part of the bar, so it says nothing about when it shows. Null for what the layout
+ * does not have.
+ */
+fun BarConfig.carriedAs(c: Carried, drop: Drop): ItemConfig? {
+    if (drop is Drop.At) dropped(c, drop).items.firstOrNull { it.id == c.id }?.let { return it }
+    if (c.from == From.TYPE) return Items.of(c.type)?.fresh(c.id, homeArea())?.copy(whenActive = false)
+    return items.firstOrNull { it.id == c.id }
 }
 
 /** What the line under the preview says while dragging. */

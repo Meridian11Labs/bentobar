@@ -237,6 +237,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     in `BarKeys` or `AreaKeys`: the handler, the keycaps and `MainActivity.onProvideKeyboardShortcuts` (the group "Your
     bar", `BarKeys.listed()`: only what does something now) read the same one; Shift held too never counts. A `Keycap`
     of arrows draws the window's own symbols, left to right in every language, and says its text (`arrowSymbols`).
+    The filter's field shows Esc only while Esc has something to do (text to empty, or the keyboard is there and an
+    item can be let go), and nothing once it has the keyboard and Esc has not. The copy a drag carries is the item as
+    it would be where it hangs (`carriedAs`, pure): above the line it never says "shows when…".
     Every time is named in `ui/Motion.kt` (120 lift, 160 neighbours, 180 settle, 200 back and an area) and runs
     through `Motion.spec`, which "No animations" and the system's animator scale set to nothing; rows travel to their
     places (`animatePlacement`, 200 ms while the lanes change: `ListTravel`), and a row the library's + added opens
