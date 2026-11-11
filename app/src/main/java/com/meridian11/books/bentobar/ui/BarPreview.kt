@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,6 +39,7 @@ import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -46,6 +49,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
@@ -104,6 +108,15 @@ import com.meridian11.books.bentobar.items.Items
  * line, so the preview is as tall with them as without.
  * Internal for its test.
  */
+/**
+ * Whether the status bar is mirrored: the system's clock at the right and its icons at the left, as a status bar is
+ * where the layout runs from right to left. The one place that says so. The preview draws its clock and icons by it,
+ * and the words for where an area is ([whereRes]) follow it; Left and Right are sides of the screen either way, as
+ * the bar's own windows are. A desktop status bar that turns out to keep its clock on the left from right to left
+ * needs `false` here and nothing else.
+ */
+internal fun barMirrored(direction: LayoutDirection): Boolean = direction == LayoutDirection.Rtl
+
 @Composable
 internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said: String? = null, noRoom: Set<Position> = emptySet(),
                         reorder: Reorder? = null, lanesSeveral: Boolean = false, off: Boolean = false, onSelect: (String?) -> Unit) {
@@ -189,54 +202,62 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
             val now = remember(tick) { ZonedDateTime.now() }
             // The system's 12/24-hour setting and the locale's own short date, like the real status bar.
             val h24 = android.text.format.DateFormat.is24HourFormat(LocalContext.current)
-            Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(Dates.format(Dates.timeSkeleton(h24), now) + "   " + Dates.format("EEEMMMd", now), Modifier.onGloballyPositioned { reorder?.clock = it }, color = look.fg,
-                    fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = clockSize)
-                // One area's strip, as the bar composes each of its own: the area's plan, its ‹ on the area's side, and what
-                // it has no room for kept as the area's. [budget] is what its items may take.
-                // An area the layout has just lost still has its place in [PreviewAreas] until that is measured again, and
-                // is composed once more before then, with this layout: there is no plan for it, and it composes nothing.
-                val strip: @Composable (Position, Int) -> Unit = { area, budget ->
-                    plans[area]?.let { plan ->
-                        // One node, as the strip is: a drag asks it where the area stands.
-                        Box(Modifier.onGloballyPositioned { reorder?.strips?.put(area, it) }) {
-                            Strip(entries(plan.visible), entries(plan.revealed), plan.chevron,
-                                chevronAlways = plan.chevronAlways, chevronReservePx = 0, expanded = plan.open,
-                                chevronOnLeft = area != Position.LEFT, look = look, maxWidthPx = budget, heightDp = 52.dp, events = events,
-                                onOverflow = { dropped[area] = it })
+            val mirrored = barMirrored(LocalLayoutDirection.current)
+            // The bar's own direction, which is not the window's by itself: see [barMirrored].
+            CompositionLocalProvider(LocalLayoutDirection provides if (mirrored) LayoutDirection.Rtl else LayoutDirection.Ltr) {
+                Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(Dates.format(Dates.timeSkeleton(h24), now) + "   " + Dates.format("EEEMMMd", now), Modifier.testTag("preview-clock").onGloballyPositioned { reorder?.clock = it }, color = look.fg,
+                        fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = clockSize,
+                        // A time and a date read from left to right wherever the clock stands.
+                        style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+                    // One area's strip, as the bar composes each of its own: the area's plan, its ‹ on the area's side, and what
+                    // it has no room for kept as the area's. [budget] is what its items may take.
+                    // An area the layout has just lost still has its place in [PreviewAreas] until that is measured again, and
+                    // is composed once more before then, with this layout: there is no plan for it, and it composes nothing.
+                    val strip: @Composable (Position, Int) -> Unit = { area, budget ->
+                        plans[area]?.let { plan ->
+                            // One node, as the strip is: a drag asks it where the area stands.
+                            Box(Modifier.testTag("strip:$area").onGloballyPositioned { reorder?.strips?.put(area, it) }) {
+                                Strip(entries(plan.visible), entries(plan.revealed), plan.chevron,
+                                    chevronAlways = plan.chevronAlways, chevronReservePx = 0, expanded = plan.open,
+                                    chevronOnLeft = area != Position.LEFT, look = look, maxWidthPx = budget, heightDp = 52.dp, events = events,
+                                    onOverflow = { dropped[area] = it })
+                            }
                         }
                     }
-                }
-                val only = areas.singleOrNull()
-                if (only != null && !several) {
-                    // A layout in one area is the one strip between the spacers it always had.
-                    if (only == Position.LEFT) Spacer(Modifier.width(16.dp)) else Spacer(Modifier.weight(1f))
-                    strip(only, maxPx)
-                    if (only == Position.LEFT) Spacer(Modifier.weight(1f)) else if (only == Position.CENTER) Spacer(Modifier.weight(1f))
-                } else {
-                    // The bar's rule for an empty strip, asked here as there: an area that draws nothing is not in the
-                    // picture, and the empty capsule is the home area's while no other area draws.
-                    fun draws(area: Position, home: Boolean) = plans.getValue(area).let {
-                        StripContent.drawn(entries(it.visible) + entries(it.revealed), it.chevron, look.pill, home)
+                    val only = areas.singleOrNull()
+                    if (only != null && !several) {
+                        // A layout in one area is the one strip between the spacers it always had. The area keeps its side of
+                        // the screen: mirrored, it is Right that stands beside the clock, where the row starts.
+                        val beside = only == if (mirrored) Position.RIGHT else Position.LEFT
+                        if (beside) Spacer(Modifier.width(16.dp)) else Spacer(Modifier.weight(1f))
+                        strip(only, maxPx)
+                        if (beside || only == Position.CENTER) Spacer(Modifier.weight(1f))
+                    } else {
+                        // The bar's rule for an empty strip, asked here as there: an area that draws nothing is not in the
+                        // picture, and the empty capsule is the home area's while no other area draws.
+                        fun draws(area: Position, home: Boolean) = plans.getValue(area).let {
+                            StripContent.drawn(entries(it.visible) + entries(it.revealed), it.chevron, look.pill, home)
+                        }
+                        val drawing = areas.filterTo(HashSet()) { area ->
+                            draws(area, home = area == cfg.homeArea() && areas.none { it != area && draws(it, home = false) })
+                        }
+                        val pill: (@Composable () -> Unit)? = if (Position.CENTER in noRoom && Position.CENTER in wanted) { { SystemPill(look.fg) } } else null
+                        PreviewAreas(areas, drawing, maxPx, Modifier.weight(1f).onGloballyPositioned { at ->
+                            barAt[0]?.takeIf { it.isAttached }?.let { origin = it.localPositionOf(at, Offset.Zero).x.roundToInt() }
+                        }, pill, {
+                            if (spans != it) spans = it
+                            // A strip that was not placed has no place to ask about.
+                            reorder?.strips?.keys?.retainAll(it.keys)
+                        }, strip)
                     }
-                    val drawing = areas.filterTo(HashSet()) { area ->
-                        draws(area, home = area == cfg.homeArea() && areas.none { it != area && draws(it, home = false) })
+                    Spacer(Modifier.width(12.dp))
+                    Row(Modifier.testTag("preview-icons").onGloballyPositioned { reorder?.icons = it }, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("US", color = look.fg, fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = iconsSize)
+                        SymIcon(Sym.NOTIFICATIONS, size = 18.sp, color = look.fg)
+                        SymIcon(Sym.WIFI, size = 18.sp, color = look.fg)
+                        SymIcon(Sym.BATTERY_FULL, size = 18.sp, color = look.fg)
                     }
-                    val pill: (@Composable () -> Unit)? = if (Position.CENTER in noRoom && Position.CENTER in wanted) { { SystemPill(look.fg) } } else null
-                    PreviewAreas(areas, drawing, maxPx, Modifier.weight(1f).onGloballyPositioned { at ->
-                        barAt[0]?.takeIf { it.isAttached }?.let { origin = it.localPositionOf(at, Offset.Zero).x.roundToInt() }
-                    }, pill, {
-                        if (spans != it) spans = it
-                        // A strip that was not placed has no place to ask about.
-                        reorder?.strips?.keys?.retainAll(it.keys)
-                    }, strip)
-                }
-                Spacer(Modifier.width(12.dp))
-                Row(Modifier.onGloballyPositioned { reorder?.icons = it }, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("US", color = look.fg, fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = iconsSize)
-                    SymIcon(Sym.NOTIFICATIONS, size = 18.sp, color = look.fg)
-                    SymIcon(Sym.WIFI, size = 18.sp, color = look.fg)
-                    SymIcon(Sym.BATTERY_FULL, size = 18.sp, color = look.fg)
                 }
             }
             if (reorder != null && carried != null) {

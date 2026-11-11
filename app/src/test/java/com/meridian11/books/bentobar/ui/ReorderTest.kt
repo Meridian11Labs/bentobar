@@ -207,6 +207,18 @@ class ReorderTest {
         assertNull(areaAt(20f, emptyMap()))
     }
 
+    @Test fun theFreeSpaceIsBetweenTheClockAndTheIconsWhicheverSideEachIsOn() {
+        assertEquals(116f to 888f, freeSpace(clock = 20f..100f, icons = 900f..980f, width = 1000f, beside = 16f, before = 12f))
+        // Mirrored: the icons at the left, the clock at the right, and the same room kept free beside each.
+        assertEquals(112f to 884f, freeSpace(clock = 900f..980f, icons = 20f..100f, width = 1000f, beside = 16f, before = 12f))
+        // Not measured yet: the bar's ends.
+        assertEquals(16f to 988f, freeSpace(null, null, 1000f, 16f, 12f))
+        // And every area has its zone there, Left at the left, also mirrored.
+        val (lo, hi) = freeSpace(clock = 900f..980f, icons = 20f..100f, width = 1000f, beside = 16f, before = 12f)
+        assertEquals(mapOf(Position.LEFT to 112f..208f, Position.RIGHT to 788f..884f, Position.CENTER to 450f..546f),
+            previewZones(lo, hi, emptyMap(), 96f, 8f, 32f))
+    }
+
     @Test fun aZoneRunsFromItsHeadingDownItsLane() {
         // Two lanes side by side with one line between the parts across both, as the list registers them.
         val line = Rect(0f, 340f, 620f, 360f)

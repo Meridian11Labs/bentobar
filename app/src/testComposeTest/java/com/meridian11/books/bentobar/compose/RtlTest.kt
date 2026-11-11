@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.InputMode
@@ -30,13 +31,18 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
@@ -87,8 +93,8 @@ class RtlTest {
     private fun item(id: String, type: String, area: Position) = ItemConfig(id, type, area = area)
     private val three = listOf(item("w", "weather", Position.LEFT), item("t", "timer", Position.CENTER), item("a", "clock", Position.RIGHT), item("m", "memory", Position.RIGHT))
 
-    private fun page(select: String?, direction: LayoutDirection = LayoutDirection.Rtl) {
-        Store.update { BarConfig(items = three, position = Position.RIGHT) }
+    private fun page(select: String?, direction: LayoutDirection = LayoutDirection.Rtl, items: List<ItemConfig> = three, home: Position = Position.RIGHT) {
+        Store.update { BarConfig(items = items, position = home) }
         selected = select
         rule.setContent {
             inputMode = LocalInputModeManager.current
@@ -114,6 +120,66 @@ class RtlTest {
         assertTrue(bounds("row:t").left < bounds("row:a").left)
         assertTrue(bounds("bracket:LEFT").left < bounds("bracket:CENTER").left)
         assertTrue(bounds("bracket:CENTER").left < bounds("bracket:RIGHT").left)
+    }
+
+    @Test fun thePreviewIsMirroredAroundAreasThatKeepTheirSidesAndTheHeadsSayWhatIsBesideEach() {
+        page(null)
+        // The picture: the clock at the right, the system's icons at the left, Left's strip still on the left.
+        assertTrue("the mock clock is at the right", bounds("preview-clock").left > bounds("preview-icons").right)
+        assertTrue(bounds("strip:LEFT").right <= bounds("strip:CENTER").left && bounds("strip:CENTER").right <= bounds("strip:RIGHT").left)
+        assertTrue("Left is next to the icons", bounds("strip:LEFT").left - bounds("preview-icons").right < bounds("preview-clock").left - bounds("strip:LEFT").right)
+        // The words under it say that: what each area is beside, not what it is beside from left to right.
+        fun head(name: Int, where: Int) = rule.onNode(isHeading() and hasText(str(name)) and hasText(str(where), substring = true)).assertExists()
+        head(R.string.areas_left, R.string.areas_right_where)
+        head(R.string.areas_middle, R.string.areas_middle_where)
+        head(R.string.areas_right, R.string.areas_left_where)
+        // The clock's own words read from left to right, as a time does.
+        val results = mutableListOf<TextLayoutResult>()
+        rule.onNodeWithTag("preview-clock").fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+        assertEquals(ResolvedTextDirection.Ltr, results.single().getParagraphDirection(0))
+    }
+
+    @Test fun fromLeftToRightTheHeadsSayWhatTheyAlwaysDid() {
+        page(null, LayoutDirection.Ltr)
+        assertTrue(bounds("preview-clock").right < bounds("preview-icons").left)
+        fun head(name: Int, where: Int) = rule.onNode(isHeading() and hasText(str(name)) and hasText(str(where), substring = true)).assertExists()
+        head(R.string.areas_left, R.string.areas_left_where)
+        head(R.string.areas_right, R.string.areas_right_where)
+    }
+
+    @Test fun aBarOfOneAreaKeepsItsSideAndAddAnAreaSaysWhatEachAreaIsBeside() {
+        val right = listOf(item("a", "clock", Position.RIGHT), item("m", "memory", Position.RIGHT))
+        page(null, items = right)
+        val bar = bounds("preview")
+        assertTrue("Right stands at the right, which is now beside the clock", bounds("strip:RIGHT").center.x > bar.center.x)
+        assertTrue(bounds("preview-clock").left - bounds("strip:RIGHT").right < bounds("strip:RIGHT").left - bounds("preview-icons").right)
+
+        rule.onNodeWithTag("add-area").performClick()
+        rule.waitForIdle()
+        rule.onNode(hasText(str(R.string.areas_right_where)) and hasAnyAncestor(hasTestTag("add-area:LEFT")), useUnmergedTree = true).assertExists()
+        rule.onNode(hasText(str(R.string.areas_middle_where)) and hasAnyAncestor(hasTestTag("add-area:CENTER")), useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun aBarWithOnlyLeftStandsAtTheLeft() {
+        page(null, items = listOf(item("a", "clock", Position.LEFT), item("m", "memory", Position.LEFT)), home = Position.LEFT)
+        assertTrue("Left stands at the left, beside the icons", bounds("strip:LEFT").center.x < bounds("preview").center.x)
+        assertTrue(bounds("strip:LEFT").left - bounds("preview-icons").right < bounds("preview-clock").left - bounds("strip:LEFT").right)
+    }
+
+    @Test fun aRowCarriedOverThePreviewFindsEveryAreaOnItsOwnSide() {
+        page(null, items = listOf(item("a", "clock", Position.RIGHT), item("m", "memory", Position.RIGHT)))
+        val from = bounds("row:a").center
+        val over = bounds("preview").let { Offset(it.center.x, it.top + 26f) }
+        rule.onRoot().performMouseInput { moveTo(from); press(); for (i in 1..6) moveTo(from + (over - from) * (i / 6f)) }
+        rule.waitForIdle()
+        val left = bounds("zone:LEFT")
+        assertTrue("Left's zone is at the left, the Middle's between", left.right <= bounds("zone:CENTER").left && bounds("zone:CENTER").right <= bounds("zone:RIGHT").left)
+        rule.onRoot().performMouseInput { moveTo((over + left.center) / 2f); moveTo(left.center) }
+        rule.waitForIdle()
+        rule.onRoot().performMouseInput { release() }
+        rule.waitForIdle()
+        assertEquals(Position.LEFT, now("a").area)
+        assertTrue(bounds("strip:LEFT").left < bounds("strip:RIGHT").left)
     }
 
     @Test fun altWithAnArrowMovesARowTheWayTheArrowPointsOnScreen() {

@@ -297,8 +297,7 @@ class Reorder {
         val bar = previewBar?.takeIf { it.isAttached } ?: return emptyMap()
         fun within(c: LayoutCoordinates?) = c?.takeIf { it.isAttached }?.let { bar.localBoundingBoxOf(it, clipBounds = false) }
         val inUse = buildMap { BAR_ORDER.forEach { area -> within(strips[area])?.takeIf { it.width > 0f }?.let { put(area, it.left..it.right) } } }
-        val lo = (within(clock)?.right ?: 0f) + 16 * density
-        val hi = (within(icons)?.left ?: bar.size.width.toFloat()) - 12 * density
+        val (lo, hi) = freeSpace(within(clock)?.let { it.left..it.right }, within(icons)?.let { it.left..it.right }, bar.size.width.toFloat(), beside = 16 * density, before = 12 * density)
         return previewZones(lo, hi, inUse, wide = 96 * density, gap = 8 * density, least = 40 * density)
     }
 

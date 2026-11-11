@@ -221,7 +221,11 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     never read out: `ArrowWords.spoken` puts it in words wherever a text holds it (`arrowInWords`, `Modifier.said`).
     From right to left the page is mirrored and what stands for the bar is not: the lanes, the brackets, the preview and
     a `Segment(sides = true)` keep Left on the left, so Alt with an arrow moves a row the way the arrow points; the
-    words are English and read from left to right, set to the right. A key of the Bar page is a `Binding`, declared once
+    words are English and read from left to right, set to the right. The preview's bar is drawn mirrored there (the
+    clock at the right, the system's icons at the left; `barMirrored` in `ui/BarPreview.kt` is the one place that says
+    so), so an area's where-words follow it (`whereRes`: Left is then "Next to the system icons", Right "After the
+    clock"), a layout in one area keeps its side, and a drag's zones lie between the icons and the clock (`freeSpace`).
+    Whether a device's desktop status bar mirrors has not been seen on one. A key of the Bar page is a `Binding`, declared once
     in `BarKeys` or `AreaKeys`: the handler, the keycaps and `MainActivity.onProvideKeyboardShortcuts` (the group "Your
     bar", `BarKeys.listed()`: only what does something now) read the same one; Shift held too never counts. A `Keycap`
     of arrows draws the window's own symbols, left to right in every language, and says its text (`arrowSymbols`).

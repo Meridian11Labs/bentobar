@@ -310,6 +310,7 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     val narrow = LocalWindowLayout.current.kind == WindowClass.NARROW
     val several = lanes.several
     val abreast = several && !narrow
+    val mirrored = barMirrored(LocalLayoutDirection.current)
     // The Store has caught up with the drop: the row is where it landed.
     LaunchedEffect(cfg) { reorder.arrived() }
     AutoScroll(reorder, scroll)
@@ -353,7 +354,7 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
                             when (e) {
                                 is Entry.ListHead -> Head(stringResource(R.string.section_shown), stringResource(R.string.section_shown_help),
                                     slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.UPPER)] = it }) { AddArea(lanes.on, edit) }
-                                is Entry.AreaHead -> Head(stringResource(areaRes(e.area)), stringResource(whereRes(e.area)),
+                                is Entry.AreaHead -> Head(stringResource(areaRes(e.area)), stringResource(whereRes(e.area, mirrored)),
                                     slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.UPPER)] = it }, rule = !abreast && !e.first, plus = !abreast) {
                                     if (e.area == order.last() && lanes.on.size < BAR_ORDER.size) AddArea(lanes.on, edit)
                                     if (!abreast) BentoIconButton(Sym.ADD, stringResource(R.string.areas_add_item, stringResource(areaRes(e.area))),
@@ -416,11 +417,15 @@ private fun AutoScroll(reorder: Reorder, scroll: ScrollState) {
     }
 }
 
-/** Where an area is in the bar, in a few words after its name. */
-internal fun whereRes(area: Position): Int = when (area) {
-    Position.LEFT -> R.string.areas_left_where
+/**
+ * Where an area is in the bar, in a few words after its name: what it stands beside. Left is the left end of the free
+ * space on every device, so in a bar that is [mirrored] ([barMirrored]: the clock at the right) it is Left that is
+ * next to the system's icons and Right that comes after the clock.
+ */
+internal fun whereRes(area: Position, mirrored: Boolean): Int = when (area) {
+    Position.LEFT -> if (mirrored) R.string.areas_right_where else R.string.areas_left_where
     Position.CENTER -> R.string.areas_middle_where
-    Position.RIGHT -> R.string.areas_right_where
+    Position.RIGHT -> if (mirrored) R.string.areas_left_where else R.string.areas_right_where
 }
 
 /**
@@ -455,6 +460,7 @@ private fun AddArea(lanes: List<Position>, edit: BarEdit) {
     val c = Bento.colors
     val interaction = remember { MutableInteractionSource() }
     var open by remember { mutableStateOf(false) }
+    val mirrored = barMirrored(LocalLayoutDirection.current)
     Box {
         Row(Modifier.heightIn(min = 32.dp).states(interaction).background(if (open) c.sunk else Color.Transparent, ROW_SHAPE)
             .clickable(interaction, indication = null, role = Role.Button) { open = true }
@@ -469,7 +475,7 @@ private fun AddArea(lanes: List<Position>, edit: BarEdit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(areaRes(area)), style = Bento.type.label, color = c.ink, maxLines = lines())
                         Spacer(Modifier.width(Space.s))
-                        Text(stringResource(whereRes(area)), style = Bento.type.help, color = c.ink3, maxLines = lines(), overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(whereRes(area, mirrored)), style = Bento.type.help, color = c.ink3, maxLines = lines(), overflow = TextOverflow.Ellipsis)
                     }
                 }, onClick = { open = false; edit.openArea(area) }, modifier = Modifier.testTag("add-area:$area"))
             }

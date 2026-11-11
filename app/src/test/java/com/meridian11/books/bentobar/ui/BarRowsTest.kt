@@ -167,6 +167,18 @@ class BarRowsTest {
         assertEquals("b", slipOf(kept, optioned)?.item?.id)
     }
 
+    // ---- Where an area is, in words ----
+
+    @Test fun whereAnAreaIsFollowsTheSideTheClockIsDrawnOn() {
+        fun words(mirrored: Boolean) = listOf(Position.LEFT, Position.CENTER, Position.RIGHT).map { whereRes(it, mirrored) }
+        assertEquals(listOf(R.string.areas_left_where, R.string.areas_middle_where, R.string.areas_right_where), words(mirrored = false))
+        // Mirrored, the clock is at the right and the system's icons at the left; Left is still the left end of the free space.
+        assertEquals("Left is next to the system icons, Right after the clock",
+            listOf(R.string.areas_right_where, R.string.areas_middle_where, R.string.areas_left_where), words(mirrored = true))
+        assertEquals(false, barMirrored(androidx.compose.ui.unit.LayoutDirection.Ltr))
+        assertEquals(true, barMirrored(androidx.compose.ui.unit.LayoutDirection.Rtl))
+    }
+
     // ---- Order's words ----
 
     @Test fun ordinalsAreEnglishOnesWithTheTeensRight() {

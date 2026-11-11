@@ -120,9 +120,19 @@ fun listSpot(x: Float, y: Float, zones: List<Pair<Zone, Rect>>, rows: Map<Zone, 
 }
 
 /**
- * The stretch of each area along the preview's bar between [lo] (the clock's end) and [hi] (where the system's icons
- * start). An area [inUse] has the stretch its strip takes. One that is not gets a zone [wide]: Left from the clock's
- * end, Right before the icons, the Middle centered in the free space and moved aside only as far as a neighbour needs.
+ * The free space along the preview's bar, from its left end to its right: between the mock [clock] and the system's
+ * [icons] as they were measured, whichever side each is drawn on (mirrored, the icons are at the left). [beside] stays
+ * free at the clock and [before] at the icons; one not measured yet is taken to be at its end of a bar [width] wide.
+ */
+fun freeSpace(clock: ClosedFloatingPointRange<Float>?, icons: ClosedFloatingPointRange<Float>?, width: Float, beside: Float, before: Float): Pair<Float, Float> =
+    if (clock != null && icons != null && icons.start < clock.start) icons.endInclusive + before to clock.start - beside
+    else (clock?.endInclusive ?: 0f) + beside to (icons?.start ?: width) - before
+
+/**
+ * The stretch of each area along the preview's bar between [lo] and [hi], the ends of its [free space][freeSpace] (the
+ * clock's end and where the system's icons start, or mirrored the other way round). An area [inUse] has the stretch its
+ * strip takes. One that is not gets a zone [wide]: Left from the left end, Right up to the right end, the Middle
+ * centered in the free space and moved aside only as far as a neighbour needs.
  * A zone is at least [gap] from its neighbours, narrower where the room is, and not offered with less than [least].
  */
 fun previewZones(
