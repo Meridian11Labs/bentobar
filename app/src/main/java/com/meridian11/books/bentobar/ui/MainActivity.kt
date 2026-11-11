@@ -19,10 +19,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +58,8 @@ class MainActivity : ComponentActivity() {
     private var turn by mutableIntStateOf(0)
     /** The accessibility disclosure is up ([AccessibilityDisclosure]). */
     private var disclosure by mutableStateOf(false)
+    /** The permissions Android refused without showing its dialog, since this window opened: Setup says so in their rows. */
+    private var wontAsk by mutableStateOf(setOf<String>())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,11 +75,15 @@ class MainActivity : ComponentActivity() {
             // First opening, service still off: the disclosure comes up by itself, in the app's normal
             // use, not behind a page someone has to find. Once answered, only Turn on brings it back.
             disclosure = ConsentRules.asksOnFirstOpening(Store.consent.value, { serviceOn(this) }, { turnedOn(this) }, { Env.advancedProtection() })
+            // The disclosure is a page under the Setup tab: whatever its answer, Setup is what is under it.
+            if (disclosure) page = Page.SETUP
         } else {
             page = savedInstanceState.getString(STATE_PAGE).let { name -> Page.entries.firstOrNull { it.name == name } } ?: Page.BAR
             selected = savedInstanceState.getString(STATE_SELECTED)
             disclosure = savedInstanceState.getBoolean(STATE_DISCLOSURE)
         }
+        // Before the first frame: what was on is told from what comes on (the window then switches to Bar).
+        Setup.refresh(this)
         setContent { SettingsTheme { App() } }
     }
 
@@ -111,7 +119,12 @@ class MainActivity : ComponentActivity() {
      * disclosure, and Agree there opens the settings.
      */
     private fun turnOn() {
-        if (ConsentRules.turnOn(Store.consent.value) == ConsentRules.TurnOn.OPEN_SETTINGS) openAccessibility(this) else disclosure = true
+        when {
+            // Advanced Protection turns the service off anyway: Setup says so where Turn on would be.
+            Setup.state.value.advancedProtection -> page = Page.SETUP
+            ConsentRules.turnOn(Store.consent.value) == ConsentRules.TurnOn.OPEN_SETTINGS -> openAccessibility(this)
+            else -> { page = Page.SETUP; disclosure = true }
+        }
     }
 
     private fun handle(intent: Intent?) {
@@ -159,7 +172,10 @@ class MainActivity : ComponentActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         // Refused, and Android won't show its dialog again: say where it can still be allowed.
         permissions.forEachIndexed { i, p ->
-            if (grantResults.getOrNull(i) == PackageManager.PERMISSION_DENIED && !shouldShowRequestPermissionRationale(p))
+            val refused = grantResults.getOrNull(i) == PackageManager.PERMISSION_DENIED && !shouldShowRequestPermissionRationale(p)
+            wontAsk = if (refused) wontAsk + p else wontAsk - p
+            // On Setup the permission's own row says it; elsewhere, the window's message.
+            if (refused && !SetupRules.saidInItsRow(page, p))
                 Notice.post(getString(R.string.setup_denied_settings), getString(R.string.common_open_settings)) { openAppInfo(this) }
         }
         Setup.refresh(this)
@@ -185,24 +201,33 @@ class MainActivity : ComponentActivity() {
         val cfg by Store.config.collectAsState()
         val setup by Setup.state.collectAsState()
         val status by BarStatus.current.collectAsState()
+        val consent by Store.consent.collectAsState()
         val running = setup.serviceOn
-        Shell(page, { page = it }, running, cfg.enabled, status, onEnabled = { on -> Store.update { it.copy(enabled = on) } }, onTurnOn = ::turnOn) {
+        // Setup says so: once BentoBar is on, this window shows the bar. A disclosure still up has nothing left to ask.
+        val was = remember { booleanArrayOf(running) }
+        LaunchedEffect(running) {
+            if (running) disclosure = false
+            if (SetupRules.switchesToBar(was[0], running, page)) page = Page.BAR
+            was[0] = running
+        }
+        // A click on a tab leaves the disclosure like Escape does: no answer, nothing recorded.
+        Shell(page, { disclosure = false; page = it }, running, cfg.enabled, status, onEnabled = { on -> Store.update { it.copy(enabled = on) } }, onTurnOn = ::turnOn) {
             // Before the pages: a message is seen only by someone already listening.
             val snackbar = rememberNotices()
-            when (page) {
+            // The disclosure takes Setup's place while it is up: only Agree records consent and opens the system's settings.
+            if (disclosure) AccessibilityDisclosure(
+                onAgree = { disclosure = false; Store.setConsent(Store.Consent.AGREED); openAccessibility(this@MainActivity) },
+                onDecline = { disclosure = false; Store.setConsent(Store.Consent.DECLINED) },
+                onDismiss = { disclosure = false },
+            ) else when (page) {
                 Page.BAR -> BarPage(selected, onSelect = { selected = it }, turn = turn)
                 Page.LOOK -> LookPage()
-                Page.SETUP -> SetupPage(this@MainActivity, setup, onTurnOn = ::turnOn)
+                Page.SETUP -> SetupPage(setup, consent == Store.Consent.DECLINED, wontAsk, onTurnOn = ::turnOn)
                 Page.ABOUT -> AboutPage()
             }
             // Last, so it's drawn over the page (in a Box, later children are on top).
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
         }
-        if (disclosure) AccessibilityDisclosure(
-            onAgree = { disclosure = false; Store.setConsent(Store.Consent.AGREED); openAccessibility(this) },
-            onDecline = { disclosure = false; Store.setConsent(Store.Consent.DECLINED) },
-            onDismiss = { disclosure = false },
-        )
     }
 
     companion object {

@@ -496,6 +496,7 @@
     <string name="bar_banner_title">One step left: turn on BentoBar</string>
     <string name="bar_preview_hint">Preview. Click an item to edit it. Or right-click an item in the status bar.</string>
     <string name="bar_preview_hint_hidden">Preview. Click an item to edit it, and ‹ to show hidden items.</string>
+    <string name="bar_preview_hint_off">Preview. Arrange your bar now; it appears in the status bar once BentoBar is on.</string>
     <plurals name="bar_preview_more">
         <item quantity="one">%1$d more item doesn\'t fit in this preview.</item>
         <item quantity="other">%1$d more items don\'t fit in this preview.</item>
@@ -581,8 +582,18 @@
     <string name="look_kept_discard">Discard</string>
     <string name="row_from_newer">From a newer version</string>
     <string name="look_paste">Paste settings</string>
-    <string name="setup_optional">optional</string>
-    <string name="setup_done">done</string>
+    <string name="setup_on">On</string>
+    <string name="setup_needed">Needed</string>
+    <string name="setup_allowed">Allowed</string>
+    <string name="setup_declined">You chose No thanks. Turn on asks again.</string>
+    <string name="setup_switches">When BentoBar is on, this window switches to Bar by itself.</string>
+    <string name="setup_permissions">Permissions</string>
+    <string name="setup_permissions_sub">Each one is for the items named. BentoBar works without them.</string>
+    <string name="setup_later">Later, for some items</string>
+    <string name="setup_later_sub">BentoBar works without these. Each one is for the items named, and an item asks when it needs one.</string>
+    <string name="setup_stop_using">Stop using</string>
+    <!-- A button's spoken name where several rows have the same button: what it does, then the row. -->
+    <string name="setup_action_for">%1$s: %2$s</string>
     <string name="setup_aap_title">Advanced Protection is on</string>
     <string name="setup_aap_text">It allows only assistive accessibility services, so BentoBar can\'t run. The Live Update chip and Quick Settings tiles still work.</string>
     <string name="setup_turn_on_title">Turn on BentoBar</string>
@@ -643,6 +654,9 @@
     <string name="about_privacy_others">Device batteries, Heat, External displays, World clock and the volume slider use only what Android tells every app. They need no permission and send nothing. New event hands the chosen time to your calendar app.</string>
     <string name="about_privacy_backup">If you use Android\'s backup, Android keeps a copy of BentoBar\'s settings in your Google account. Your AirLabs and Finnhub keys, the online switches, your answer to the accessibility explanation, a running timer and keep awake are left out of it.</string>
     <string name="about_privacy_policy">Privacy policy</string>
+    <string name="about_privacy_items">Privacy, item by item</string>
+    <string name="about_privacy_others_title">Other items</string>
+    <string name="about_privacy_backup_title">Android\'s backup</string>
     <string name="about_how">How it works</string>
     <string name="about_how_text">Apps can\'t change Android\'s own status bar icons, so BentoBar draws its items in its own windows over the status bar\'s free space. It moves them aside when the system icons change and hides them when an app goes full screen. A running timer or meeting can also appear as a Live Update chip.</string>
     <string name="about_open_source">Open source</string>

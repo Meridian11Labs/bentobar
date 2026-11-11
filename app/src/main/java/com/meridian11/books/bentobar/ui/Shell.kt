@@ -309,10 +309,10 @@ private fun Control(page: Page, running: Boolean, enabled: Boolean, onEnabled: (
     }
 }
 
-/** The app's mark, as the launcher icon draws it (`tools/logo.py`): the same in both themes. */
+/** The app's mark, as the launcher icon draws it (`tools/logo.py`): the same in both themes. Also the disclosure's and About's, larger. */
 @Composable
-private fun Mark(description: String?) {
-    Canvas(Modifier.size(24.dp).then(if (description == null) Modifier else Modifier.semantics { contentDescription = description; role = Role.Image })) {
+internal fun Mark(description: String?, side: Dp = 24.dp) {
+    Canvas(Modifier.size(side).then(if (description == null) Modifier else Modifier.semantics { contentDescription = description; role = Role.Image })) {
         val u = size.width / 64f
         fun box(x: Float, y: Float, w: Float, h: Float, r: Float, color: Color) =
             drawRoundRect(color, Offset(x * u, y * u), Size(w * u, h * u), CornerRadius(r * u))

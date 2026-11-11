@@ -450,7 +450,7 @@ fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
         ButtonKind.WARN -> c.warnInk
     }
     val pad = when (kind) { ButtonKind.FILLED -> 18.dp; ButtonKind.TONAL, ButtonKind.WARN -> Space.l; else -> Space.m }
-    Row(modifier.height(Target.control).alpha(if (enabled) 1f else DIMMED)
+    Row(modifier.heightIn(min = Target.control).alpha(if (enabled) 1f else DIMMED)
         .states(interaction, veil = ink)
         .background(ground, RoundedCornerShape(Radius.medium))
         .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)

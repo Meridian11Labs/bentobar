@@ -53,7 +53,7 @@ internal fun PageColumn(modifier: Modifier = Modifier, width: Dp = PAGE_WIDTH, c
 }
 
 /**
- * A section's title over its card, with what the section is for under it ([sub]) and one word at the title's end
+ * A section's title over its card, with what the section is for under it ([sub]) and one word at the row's end
  * ([end]: whether the service is on).
  */
 @Composable
@@ -61,7 +61,7 @@ internal fun PageSection(title: String, sub: String? = null, end: (@Composable (
     val c = Bento.colors
     Column(Modifier.fillMaxWidth().padding(start = Space.xs, top = 20.dp, end = Space.xs, bottom = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, Modifier.weight(1f, fill = false).semantics { heading() }, style = Bento.type.title, color = c.ink)
+            Text(title, Modifier.weight(1f).semantics { heading() }, style = Bento.type.title, color = c.ink)
             if (end != null) {
                 Spacer(Modifier.width(Space.m))
                 end()
