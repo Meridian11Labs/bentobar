@@ -226,4 +226,29 @@ class SetupTest {
         val clean = layout(cpu, setUp)
         assertSame(clean, clean.withoutBareOff())
     }
+
+    /**
+     * After the first change only what a change touched can be bare: an Off item it brought in or changed. Here "old" is
+     * bare and was there before, which no layout the Store keeps can hold: that it stays shows it was not asked about.
+     */
+    @Test fun aChangeAsksOnlyAboutTheOffItemsItBroughtInOrChanged() {
+        val old = clock.copy(id = "old", section = Section.OFF)
+        val setUp = clock.copy(id = "set", section = Section.OFF).with("city", "Tokyo")
+        val before = layout(cpu, old, setUp)
+        // A change to anything else, a keystroke in an item in the bar: no Off item is asked about, and nothing goes.
+        val typed = before.copy(items = before.items.map { if (it.id == "cpu") it.with("label", "C") else it }, spacing = 20)
+        assertSame(typed, typed.withoutBareOff(before))
+        // An item turned off as it came is dropped, and so is a bare one brought in.
+        val turnedOff = before.copy(items = before.items.map { if (it.id == "cpu") it.copy(section = Section.OFF) else it })
+        assertEquals(listOf("old", "set"), turnedOff.withoutBareOff(before).items.map { it.id })
+        val brought = before.copy(items = before.items + clock.copy(id = "new", section = Section.OFF))
+        assertEquals(listOf("cpu", "old", "set"), brought.withoutBareOff(before).items.map { it.id })
+        // A kept setup changed back to no setup goes too; one still carrying a setup stays.
+        val undone = before.copy(items = before.items.map { if (it.id == "set") it.copy(options = clock.options) else it })
+        assertEquals(listOf("cpu", "old"), undone.withoutBareOff(before).items.map { it.id })
+        val retuned = before.copy(items = before.items.map { if (it.id == "set") it.with("city", "Lima") else it })
+        assertSame(retuned, retuned.withoutBareOff(before))
+        // Without a layout before it, every Off item is asked about, as on the first change after opening.
+        assertEquals(listOf("cpu", "set"), typed.withoutBareOff().items.map { it.id })
+    }
 }

@@ -24,8 +24,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   - `bar/MenuCoordinator.kt`: the strip's popups and its tooltip: when they come and go; `PopupState` decides.
   - `bar/StripContent.kt`: what an item draws and whether the strip draws anything (pure, unit-tested): the one rule for
     an empty or blank strip, whose window is made invisible. Never from how many entries it has: an entry can draw nothing.
-  - `bar/KeepAwake.kt`: keep awake: `FLAG_KEEP_SCREEN_ON` on one strip's window (the first placed that draws something;
-    it is on the next before that window goes), a screen wake lock while none can carry it.
+  - `bar/KeepAwake.kt`: keep awake: `FLAG_KEEP_SCREEN_ON` on one strip's window (`KeepAwakeRule.holder`: the first placed
+    that is visible, so not one shown and not measured yet; it is on the next before that window goes), a screen wake lock
+    while none is visible.
   - `bar/ColorReader.kt`: the strip's colours: when the bar is read (`ColorWatch` says), what a reading makes of the
     look (`StripLook`), the hints when there is no reading. The screenshot itself is `StatusBarScan.shoot`.
   - `bar/StatusBarScan.kt`: the edge of the window reading: the window list as `WindowFact`s (kind, id, bounds) and
@@ -243,8 +244,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     while they all are in it (`oneArea`); while they are in several, and only then, a line under its title says what a
     choice does. It is one step of `Undo` too (`Undo.Kept.allTo`): a line under the control says what it moved, with
     Undo, Ctrl+Z takes it back on Look (`MainActivity.onKeyDown`, which leaves a Bar page change alone there) and on
-    the Bar page, and no slip says a lane closed (`foldOf`, `movedBy`). `listAreas` and `oneArea` count an item of a type this version doesn't know, which `areasInUse` does
-    not: Settings has its row, the bar nothing of it. `Controls.areaChoices` is the one order and wording; `AreaChoosersTest`.
+    the Bar page, and no slip says a lane closed (`foldOf`, `movedBy`). `rowAreas` (under `listAreas`, `usesAreas`, `oneArea` and
+    the lanes) counts an item of a type this version doesn't know, which `areasInUse` does not: Settings has its row, the
+    bar nothing of it. What asks about the bar's room (`noRoomAreas`, `roomAhead`) counts as the bar does. `Controls.areaChoices` is the one order and wording; `AreaChoosersTest`.
     What holds in every size, language and setting: `windowLayout(widthDp, fontScale)` counts the window's width in text
     sizes above the standard one (at 200% a wide window is laid out as the narrow one), a text of one line may wrap there
     (`lines`) and a fixed height is a minimum; nothing is fine-tuned for it, nothing is cut. The arrow's sign (‹ or ›) is
@@ -586,8 +588,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   strip's window alone, and only while hidden items are out, so one press folds once: the first strip on view
   (`PopupRules.watchingArea`; a strip that draws nothing has an invisible window), the first strip's while none is. A
   press on another strip on view is not outside. `chevronOpensMenu` is the one rule for a press on a ‹: in an area with no hidden item, while another area has
-  them, it opens the menu. A drag lands among its own area's items. The empty capsule shows once, in the home area, and
-  not beside another area's items (`StripContent.drawn`).
+  them, it opens the menu. A drag lands among its own area's items. The empty capsule shows once, in the home area (the first
+  strip's while the home area has no window: `StripContent.capsuleArea`), and not beside another area's items
+  (`StripContent.drawn`).
   The settings preview draws a strip for each area the bar wants one for (`BarRules.wantedAreas`, which `arrange` asks
   too) by the same `BarRules.lane` and `middleLeft` (`PreviewAreas` in `ui/BarPreview.kt`), and a layout in one area as it
   always did; `BarPreviewTest` pins both. Its items don't come in with the strip's fade (`StripEvents.appearing`): an

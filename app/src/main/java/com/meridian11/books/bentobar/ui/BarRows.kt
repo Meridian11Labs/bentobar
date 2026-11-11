@@ -107,6 +107,7 @@ import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.canGoBelow
 import com.meridian11.books.bentobar.data.carriesSetup
 import com.meridian11.books.bentobar.data.partOf
+import com.meridian11.books.bentobar.data.rowAreas
 import com.meridian11.books.bentobar.data.parts
 import com.meridian11.books.bentobar.data.standing
 import com.meridian11.books.bentobar.data.stepped
@@ -184,7 +185,7 @@ sealed interface Entry {
 fun listEntries(cfg: BarConfig, slip: Slip?, dragging: Boolean, lanes: List<Position> = lanesOnScreen(cfg, emptySet()), abreast: Boolean = false,
                 fold: Position? = null, noRoom: Set<Position> = emptySet()): List<Entry> {
     // The bar's last row, removed: its slip stands in its own area, whichever area an empty bar would add to.
-    val alone = slip?.zone?.area?.takeIf { lanes.size < 2 && rowAreas(cfg).isEmpty() }
+    val alone = slip?.zone?.area?.takeIf { lanes.size < 2 && cfg.rowAreas().isEmpty() }
     val areas = if (alone != null) listOf(alone) else BAR_ORDER.filter { it in lanes || it == slip?.zone?.area }
     val several = areas.size > 1
     if (!several && slip == null && cfg.items.none { cfg.partOf(it) != null }) return listOf(Entry.ListHead(areas.first()), Entry.Empty)

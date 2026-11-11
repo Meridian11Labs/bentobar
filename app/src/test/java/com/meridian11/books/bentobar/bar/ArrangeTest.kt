@@ -10,7 +10,6 @@ import com.meridian11.books.bentobar.data.Position.RIGHT
 import com.meridian11.books.bentobar.data.ROOM_ORDER
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -382,7 +381,7 @@ class ArrangeTest {
         assertEquals("wider than its room: nowhere to keep it", 60, BarRules.middleLeft(lane, width = 401, natural = 60))
     }
 
-    // ---- who carries, who keeps the screen on, the first placing ----------------------------------------------
+    // ---- who carries, the first placing ----------------------------------------------
 
     @Test fun theCarrierIsTheFirstSpotInRoomOrder() {
         val strips = mapOf(RIGHT to drawing(300), LEFT to drawing(200), CENTER to drawing(250))
@@ -393,20 +392,6 @@ class ArrangeTest {
         assertEquals(RIGHT, arrange(small, RIGHT, all, strips + (RIGHT to blank())).carrier)
         // With no room for any area the one strip is the home area's.
         assertEquals(CENTER, arrange(Bar(1920, 900, 930), CENTER, setOf(LEFT, CENTER), strips).carrier)
-    }
-
-    @Test fun awakeIsTheFirstSpotWhoseStripIsNotShownYetOrPendingOrNotEmpty() {
-        val both = setOf(RIGHT, LEFT)
-        assertEquals(RIGHT, arrange(small, RIGHT, both, mapOf(RIGHT to drawing(300), LEFT to drawing(200))).awake)
-        assertEquals("Right's window is invisible", LEFT, arrange(small, RIGHT, both, mapOf(RIGHT to blank(), LEFT to drawing(200))).awake)
-        // A strip about to be shown counts, whatever it last held: a new window starts as one that draws.
-        assertEquals(RIGHT, arrange(small, RIGHT, both, mapOf(RIGHT to blank().copy(shown = false), LEFT to drawing(200))).awake)
-        assertEquals(RIGHT, arrange(small, RIGHT, both, mapOf(RIGHT to blank().copy(pending = true), LEFT to drawing(200))).awake)
-        assertEquals(RIGHT, arrange(small, RIGHT, both, emptyMap()).awake)
-        assertNull("no strip draws: the wake lock's turn", arrange(small, RIGHT, both, mapOf(RIGHT to blank(), LEFT to blank())).awake)
-        // An area that is owed has no window to hold the flag: here the one strip is Right's, and it draws nothing.
-        assertNull(arrange(Bar(1920, 900, 930), RIGHT, both, mapOf(RIGHT to blank(), LEFT to drawing(200))).awake)
-        assertEquals(RIGHT, arrange(small, RIGHT, both, mapOf(RIGHT to drawing(1466), LEFT to drawing(200))).awake)
     }
 
     @Test fun firstIsTrueExactlyWhenNoStripWasShownBefore() {

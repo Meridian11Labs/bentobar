@@ -163,8 +163,9 @@ fun ItemMenu(itemId: String, host: MenuHost) {
 /**
  * Right-click on an item in the bar. It says what Visibility in settings says, in the same words, and does it through the
  * same commands: an item is always in the bar, in it only when active (the default mode) or behind ‹; nothing here says
- * Off or Hidden. Remove from the bar is the settings' step too ([removed]): an item that was set up waits in the library,
- * so the menu needs no Undo.
+ * Off or Hidden. Remove from the bar is the settings' step too ([removed]), and the menu has no Undo: an item that was set
+ * up waits in the library, where its line's + brings it back as it was; one that was never set up is simply gone, as an
+ * item is in the bar or it isn't, and the library's + makes the same item again.
  */
 @Composable
 fun ItemContextMenu(itemId: String, host: MenuHost, openMenu: () -> Unit) {

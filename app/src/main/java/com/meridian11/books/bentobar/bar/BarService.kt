@@ -166,11 +166,15 @@ class BarController(private val service: AccessibilityService) {
      * counts a strip that has not been measured yet. The empty capsule is the home area's only while no other is among them.
      */
     private val onView = mutableStateOf(emptySet<Position>())
-    /** The area whose strip's window keeps the screen on: the first placed that draws. Null when none does. */
-    private var awakeArea: Position? = null
+    /** The areas placed, in room order: the strips whose window may keep the screen on ([KeepAwakeRule.holder]). */
+    private var placedAreas: List<Position> = emptyList()
 
-    /** Keep awake: a flag on the strip's window, a wake lock while the strip has none to carry it. */
-    private val awake = KeepAwake(main, pm, km, scope, strips.map { it.window }) { strips.firstOrNull { it.area == awakeArea }?.takeIf { it.draws }?.window }
+    /** The strip's window that keeps the screen on now: the first placed that is visible. Null when none is. */
+    private fun awakeWindow(): Overlay? =
+        KeepAwakeRule.holder(placedAreas, strips.associate { it.area to it.state() })?.let { area -> strips.first { it.area == area }.window }
+
+    /** Keep awake: a flag on the visible strip's window, a wake lock while no strip is visible to carry it. */
+    private val awake = KeepAwake(main, pm, km, scope, strips.map { it.window }) { awakeWindow() }
 
     /**
      * Presses outside the bar are heard by one strip's window alone (the first on view: [PopupRules.watchingArea]), and
@@ -530,10 +534,10 @@ class BarController(private val service: AccessibilityService) {
         // Hidden items are out and the first strip is another now: that one hears a press outside the bar.
         if (carrier != before) watchOutside()
         owed.value = a.owed
-        val held = awakeArea
-        awakeArea = a.awake
+        val held = awakeWindow()
+        placedAreas = a.spots.map { it.area }
         // The window that keeps the screen on is about to go: the flag is on the next one first, or the wake lock holds.
-        if (held != null && held in a.leave) awake.update()
+        if (held != null && strips.any { it.window === held && it.area in a.leave }) awake.update()
         for (strip in strips) if (strip.area in a.leave) leave(strip)
         // A strip keeps what it had no room for while the bar is off the screen. An area that went out of use or lost its
         // room meanwhile has no window to say otherwise: nothing of it is left to publish.
@@ -564,7 +568,9 @@ class BarController(private val service: AccessibilityService) {
         // Android refused the window (the service is going): nothing is on screen, so nothing may run or go online.
         // The next look at the bar tries again.
         if (strips.none { it.shown }) { BarStatus.current.value = BarStatus.STOPPED; return }
-        if (a.first || a.awake != held || stripEmpty != was) awake.update()
+        // Once for each placing, after every window it shows or moves is up: which strip is visible may have changed with
+        // it, or with the measure that asked for it.
+        awake.update()
         if (a.first) {
             // Back on screen (after a full-screen app, the lock screen, a covering panel): the bar may
             // look different now, or only in a while (after an unlock it kept the lock screen's look for
@@ -610,9 +616,10 @@ class BarController(private val service: AccessibilityService) {
         val shownEntries = entries(plan.visible)
         val revealedEntries = entries(plan.revealed)
         // The one rule for an empty strip: what it puts on the screen, never how many entries it has.
-        // The empty capsule shows once: in the home area, and not beside another area's items.
+        // The empty capsule shows once: in the home area, or the first strip's while the home area has no window, and not
+        // beside another area's items.
         val drawn = StripContent.drawn(shownEntries + revealedEntries, plan.chevron, look.value.pill,
-            home = strip.area == cfg.homeArea() && (onView.value - strip.area).isEmpty())
+            home = strip.area == StripContent.capsuleArea(cfg.homeArea(), carrier, owed.value) && (onView.value - strip.area).isEmpty())
         // While the window is invisible nothing draws, and the remeasure Compose hands to the next draw would wait for it for
         // good. Measuring still runs, if it is asked for: the rule above is heard as soon as the composition changes.
         val view = LocalView.current
@@ -678,10 +685,13 @@ class BarController(private val service: AccessibilityService) {
         noteOnView()
         stripEmpty = strips.none { it.draws }
         if (stripEmpty != was) {
-            trace("strip ${if (stripEmpty) "empty" else "has content"}"); awake.update()
+            trace("strip ${if (stripEmpty) "empty" else "has content"}")
             colors.contentChanged(stripEmpty)
         }
-        if (showing) lastPlace?.let { (s, screenW) -> place(s, screenW) } // never puts back a bar that has left
+        // Placed again first, then keep awake is told once, by the placing: told before, it would choose by the placing
+        // that is about to change, and take a wake lock and let it go within one measure.
+        val placing = if (showing) lastPlace else null // never puts back a bar that has left
+        if (placing != null) place(placing.first, placing.second) else awake.update()
         if (started && strips.any { it.shown }) BarStatus.current.value = status()
     }
 

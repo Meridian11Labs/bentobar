@@ -231,8 +231,6 @@ internal object BarRules {
         val owed: Set<Position>,
         /** The first spot's area: the strip that does what the bar does once. */
         val carrier: Position,
-        /** The first spot whose strip counts as drawing: the window that can keep the screen on. Null when none draws. */
-        val awake: Position?,
         /** No strip was shown before this placing. */
         val first: Boolean,
     )
@@ -348,8 +346,6 @@ internal object BarRules {
             leave = ROOM_ORDER.filter { strips[it]?.shown == true && it !in placed },
             owed = wanted.filter { it !in placed }.toSet(),
             carrier = placed.first(),
-            // A strip about to be shown counts as drawing: its window starts as one that does, until its first measure.
-            awake = placed.firstOrNull { area -> state(area).let { !it.shown || it.pending || !it.empty } },
             first = strips.values.none { it.shown },
         )
     }

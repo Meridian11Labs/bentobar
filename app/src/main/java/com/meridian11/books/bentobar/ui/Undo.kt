@@ -44,8 +44,13 @@ object Undo {
         return true
     }
 
-    /** The ids of the items of [type] that the kept change can still bring back: what is kept for one outside the layout stays that long. */
-    fun held(type: String): Set<String> = last.value?.before?.items.orEmpty().filter { it.type == type }.mapTo(HashSet()) { it.id }
+    /**
+     * The ids of the items of [type] that the kept change can still bring back: what is kept for one outside the layout
+     * stays that long. None once the change can no longer be [offered] (the layout was arranged otherwise since): a
+     * forgotten line's kept text then goes at the type's next sweep, not at the next start.
+     */
+    fun held(type: String): Set<String> =
+        last.value?.takeIf { offered(it, Store.config.value) }?.before?.items.orEmpty().filter { it.type == type }.mapTo(HashSet()) { it.id }
 
     /**
      * [old] is the change to undo no more. An item it could have brought back, that neither the layout has nor the

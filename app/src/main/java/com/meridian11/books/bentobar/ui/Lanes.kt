@@ -6,11 +6,10 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.ROOM_ORDER
 import com.meridian11.books.bentobar.data.Section
+import com.meridian11.books.bentobar.data.areasInUse
 import com.meridian11.books.bentobar.data.homeArea
+import com.meridian11.books.bentobar.data.rowAreas
 import com.meridian11.books.bentobar.data.stripPlan
-
-/** The areas of [cfg] that hold a row, in the bar's order: none with nothing in the bar. */
-internal fun rowAreas(cfg: BarConfig): List<Position> = BAR_ORDER.filter { a -> cfg.items.any { it.area == a && it.section != Section.OFF } }
 
 /**
  * The lanes the Bar page has on screen, in the bar's order: the areas with rows and the ones "Add an area" [opened] that
@@ -19,7 +18,7 @@ internal fun rowAreas(cfg: BarConfig): List<Position> = BAR_ORDER.filter { a -> 
  * three-way choice, the library's "Add to".
  */
 internal fun lanesOnScreen(cfg: BarConfig, opened: Set<Position>): List<Position> {
-    val rows = rowAreas(cfg)
+    val rows = cfg.rowAreas()
     val home = if (rows.isEmpty()) cfg.homeArea() else null
     return BAR_ORDER.filter { it in rows || it in opened || it == home }
 }
@@ -49,9 +48,9 @@ internal fun leadsRight(lanes: List<Position>, area: Position): Boolean {
  */
 internal fun foldOf(kept: Undo.Kept?, now: BarConfig, several: Boolean): Position? {
     if (!several || kept == null || kept.allTo != null || !Undo.offered(kept, now)) return null
-    val after = rowAreas(kept.after)
+    val after = kept.after.rowAreas()
     if (after.isEmpty()) return null
-    return rowAreas(kept.before).singleOrNull { it !in after }
+    return kept.before.rowAreas().singleOrNull { it !in after }
 }
 
 /**
@@ -67,10 +66,11 @@ internal fun movedBy(kept: Undo.Kept?): String? {
 /**
  * The areas the bar has no room for right now: not the one that takes the free space first, and everything its strip
  * would draw is among the items that don't fit ([overflow], as the bar reports them; [active] as for [stripPlan]). Its
- * lane says so once, in a notice, and its rows say nothing about fitting.
+ * lane says so once, in a notice, and its rows say nothing about fitting. The areas are counted as the bar counts them
+ * ([areasInUse]: an item of a type this version doesn't know takes no room), so the first is the bar's first.
  */
 internal fun noRoomAreas(cfg: BarConfig, overflow: Set<String>, active: (ItemConfig) -> Boolean): Set<Position> {
-    val used = rowAreas(cfg)
+    val used = cfg.areasInUse().let { inUse -> BAR_ORDER.filter { it in inUse } }
     if (used.size < 2 || overflow.isEmpty()) return emptySet()
     val first = ROOM_ORDER.first { it in used }
     return used.filter { area ->
@@ -79,5 +79,5 @@ internal fun noRoomAreas(cfg: BarConfig, overflow: Set<String>, active: (ItemCon
     }.toSet()
 }
 
-/** The areas in use that take the free space before [area] does, first taker first: the ones its notice names. */
-internal fun roomAhead(cfg: BarConfig, area: Position): List<Position> = rowAreas(cfg).let { used -> ROOM_ORDER.takeWhile { it != area }.filter { it in used } }
+/** The areas in use ([areasInUse], as the bar counts them) that take the free space before [area] does, first taker first: the ones its notice names. */
+internal fun roomAhead(cfg: BarConfig, area: Position): List<Position> = cfg.areasInUse().let { used -> ROOM_ORDER.takeWhile { it != area }.filter { it in used } }

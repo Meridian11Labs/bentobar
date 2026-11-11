@@ -30,10 +30,16 @@ fun ItemConfig.carriesSetup(type: ItemType? = Items.of(this.type)): Boolean {
  * The layout without the Off items that carry no setup. Up to 1.8 an item could be turned off as it came; the library
  * lists only setups, so those go with the first change after the update ([Store.update]) and a later change to a type's
  * defaults can't bring them up as setups.
+ *
+ * With [before], the layout this one was changed from, that held none: only an Off item the change brought in or changed
+ * can be bare, so only those are asked ([carriesSetup] builds the type's fresh item and can read a file). A change to
+ * anything else, a keystroke in an option of an item in the bar, asks nothing. Each item is asked once.
  */
-fun BarConfig.withoutBareOff(): BarConfig =
-    if (items.none { it.section == Section.OFF && !it.carriesSetup() }) this
-    else copy(items = items.filterNot { it.section == Section.OFF && !it.carriesSetup() })
+fun BarConfig.withoutBareOff(before: BarConfig? = null): BarConfig {
+    val was = before?.items?.associateBy { it.id }
+    val bare = items.filter { it.section == Section.OFF && (was == null || was[it.id] != it) && !it.carriesSetup() }
+    return if (bare.isEmpty()) this else copy(items = items.filterNot { item -> bare.any { it === item } })
+}
 
 /** The two parts of the bar's list: what is always in the bar, and under the line what waits (for its rule, or behind ‹). */
 enum class Part { UPPER, LOWER }
@@ -67,12 +73,18 @@ fun BarConfig.parts(area: Position): Parts {
 }
 
 /**
+ * The areas that hold a row of the bar's list, in the bar's order ([BAR_ORDER]): each with an item outside Off, of any
+ * type. An item of a type this version doesn't know has its row, so it counts here, where the bar's [areasInUse] leaves
+ * it out: a question about the bar's room asks that one. None with nothing in the bar. The one count of the list's areas:
+ * [listAreas], [usesAreas], [oneArea] and the Bar page's lanes read it.
+ */
+fun BarConfig.rowAreas(): List<Position> = BAR_ORDER.filter { a -> items.any { it.area == a && it.section != Section.OFF } }
+
+/**
  * The areas the bar's list has rows for, Left before Middle before Right; with no item in the bar, the one a new item
  * goes to. More than one is [usesAreas].
  */
-fun BarConfig.listAreas(): List<Position> =
-    listOf(Position.LEFT, Position.CENTER, Position.RIGHT).filter { a -> items.any { it.area == a && it.section != Section.OFF } }
-        .ifEmpty { listOf(homeArea()) }
+fun BarConfig.listAreas(): List<Position> = rowAreas().ifEmpty { listOf(homeArea()) }
 
 /**
  * Whether [item] can be put in the lower part. In the default mode that takes a "Show when…" rule, which not every type

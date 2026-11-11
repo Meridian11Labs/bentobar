@@ -265,14 +265,13 @@ fun BarConfig.homeArea(): Position = areasInUse().let { used ->
 }
 
 /** For Settings: more than one area holds an item outside Off. */
-fun BarConfig.usesAreas(): Boolean = items.filter { it.section != Section.OFF }.map { it.area }.distinct().size > 1
+fun BarConfig.usesAreas(): Boolean = rowAreas().size > 1
 
 /**
  * For Look's Position row: the one area every item outside Off is in, or null; with none outside Off, the home area (with
  * no items at all, that is where [BarConfig.position] says).
  */
-fun BarConfig.oneArea(): Position? =
-    items.filter { it.section != Section.OFF }.map { it.area }.distinct().let { if (it.isEmpty()) homeArea() else it.singleOrNull() }
+fun BarConfig.oneArea(): Position? = rowAreas().let { if (it.isEmpty()) homeArea() else it.singleOrNull() }
 
 /** Whether [shows] can be true for [item] once it has something to say: the items worth sampling. */
 fun BarConfig.couldShow(item: ItemConfig, type: ItemType? = Items.of(item.type)): Boolean = shows(item, active = true, type)

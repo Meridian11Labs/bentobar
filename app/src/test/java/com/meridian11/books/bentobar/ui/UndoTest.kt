@@ -66,6 +66,17 @@ class UndoTest {
         assertNull(Undo.allTo(Undo.last.value, Store.config.value))
     }
 
+    /** What Undo holds for a type's kept text: the items the last change can bring back, and none once it can't. */
+    @Test fun whatUndoHoldsIsLetGoOnceTheChangeCanNoLongerBeOffered() {
+        assertTrue(Undo.change(forgot = "b") { it.without("b") })
+        assertEquals("the forgotten line can still come back", setOf("a", "b", "c"), Undo.held("nope"))
+        assertEquals(emptySet<String>(), Undo.held("clock"))
+        // Arranged otherwise since: Undo offers it no more, and holds nothing for it.
+        Store.update { it.hide("a") }
+        assertFalse(Undo.offered(Undo.last.value!!, Store.config.value))
+        assertEquals(emptySet<String>(), Undo.held("nope"))
+    }
+
     @Test fun aChangeThatChangesNothingIsNotKeptAndTheOneBeforeItStaysToBeUndone() {
         assertTrue(Undo.change { it.hide("a") })
         assertFalse(Undo.change { it.hide("a") })

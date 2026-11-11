@@ -7,6 +7,7 @@ import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.landedIn
 import com.meridian11.books.bentobar.data.putAllIn
 import com.meridian11.books.bentobar.data.removed
+import com.meridian11.books.bentobar.data.rowAreas
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -106,5 +107,23 @@ class LanesTest {
         assertEquals(listOf(right), roomAhead(cfg, left))
         assertEquals(listOf(left), roomAhead(layout(item("l", left), item("m", middle)), middle))
         assertEquals(emptyList<Position>(), roomAhead(cfg, right))
+    }
+
+    /**
+     * An item of a type this version doesn't know has a row and a lane, but takes no room in the bar ([areasInUse]): with
+     * one alone in Right the bar's first strip is Left's, so what Left can't fit is behind Left's own ‹, and the page
+     * never says Left has no room; nor does Middle's notice name Right.
+     */
+    @Test fun anItemOfATypeThisVersionDoesntKnowHasALaneButTakesNoRoom() {
+        val newer = ItemConfig("u", "from-a-newer-version", area = right)
+        val cfg = layout(newer, item("l", left), item("m1", middle), item("m2", middle))
+        val none: (ItemConfig) -> Boolean = { false }
+        assertEquals(listOf(left, middle, right), lanesOnScreen(cfg, emptySet()))
+        assertEquals(listOf(left, middle, right), cfg.rowAreas())
+        assertEquals("Left is the bar's first strip", setOf(middle), noRoomAreas(cfg, setOf("l", "m1", "m2"), none))
+        assertEquals(listOf(left), roomAhead(cfg, middle))
+        assertEquals(emptyList<Position>(), roomAhead(cfg, left))
+        // With nothing else in use there is one area, and no lane to say it in.
+        assertEquals(emptySet<Position>(), noRoomAreas(layout(newer, item("m1", middle)), setOf("m1"), none))
     }
 }

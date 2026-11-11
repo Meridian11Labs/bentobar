@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.PowerManager
 import android.util.Log
 import android.view.WindowManager
+import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.items.Caffeine
 import com.meridian11.books.bentobar.items.DisplaysItem
 import kotlinx.coroutines.CoroutineScope
@@ -18,8 +19,8 @@ import kotlinx.coroutines.launch
  * is hidden (a full-screen app, the screen locked), keep awake waits; full-screen video players
  * keep the screen on themselves.
  *
- * [windows] are the strips' windows, and [holder] says which of them holds the flag right now: one that is on
- * screen with something to draw, or none.
+ * [windows] are the strips' windows, and [holder] says which of them holds the flag right now: one that is visible (on
+ * screen, measured, with something drawn; [KeepAwakeRule.holder]), or none.
  */
 internal class KeepAwake(
     private val main: Handler,
@@ -55,11 +56,12 @@ internal class KeepAwake(
         val on = Caffeine.active() || DisplaysItem.keepingAwake.value
         if (on != wasOn) { wasOn = on; Log.i(tag, if (on) "keep awake on" else "keep awake off") }
         val c = KeepAwakeRule.choose(on, if (on) holder() else null, pm.isInteractive, km.isKeyguardLocked)
-        // The flag is on the window that holds it now before it leaves any other: at no moment is it on none.
+        // What holds the screen now holds it before anything else lets go: the flag on its window, or the wake lock, is
+        // taken first, so at no moment does nothing hold it.
         c.flag?.let { flag(it, true) }
-        if (c.clear) for (window in windows) if (window !== c.flag) flag(window, false)
-        if (c.lock && !screenLock.isHeld) { screenLock.acquire(); Log.i(tag, "keep awake: wake lock while the bar is hidden") }
-        else if (!c.lock && screenLock.isHeld) screenLock.release()
+        if (c.lock && !screenLock.isHeld) { screenLock.acquire(); Log.i(tag, "keep awake: wake lock while no strip is visible") }
+        for (window in windows) if (window !== c.flag) flag(window, false)
+        if (!c.lock && screenLock.isHeld) screenLock.release()
     }
 
     private fun flag(window: Overlay, on: Boolean) {
@@ -79,19 +81,29 @@ internal class KeepAwake(
 
 /** What keep awake does with the strips' windows, as plain facts: [KeepAwake.update] carries it out (KeepAwakeTest). */
 internal object KeepAwakeRule {
-    /** [flag]: the window that holds the screen on, if one does. [clear]: every other window lets go. [lock]: a wake lock holds it instead. */
-    data class Choice<W>(val flag: W?, val clear: Boolean, val lock: Boolean)
+    /** [flag]: the window that holds the screen on, if one does; every other window lets go. [lock]: a wake lock holds it instead. */
+    data class Choice<W>(val flag: W?, val lock: Boolean)
 
     /**
-     * [holder] is the strip's window that is on screen with something to draw, or null. With no holder the flags stay
-     * where they are, and the window that comes back with one holds the screen at once.
+     * The area whose strip's window holds the flag: the first of [placed] (the areas placed, in room order) whose strip is
+     * visible: on screen, measured, with something drawn. A strip shown and not measured yet ([BarRules.AreaState.pending])
+     * has an invisible root until its first measure, and Android keeps the screen on for a visible window only: until it
+     * shows, it is no holder, and the wake lock holds the screen. Null when no placed strip is visible.
+     */
+    fun holder(placed: List<Position>, strips: Map<Position, BarRules.AreaState>): Position? =
+        placed.firstOrNull { area -> strips[area]?.let { it.shown && !it.pending && !it.empty } == true }
+
+    /**
+     * [holder] is the window of the area the other `holder` names, or null. The flag is on that window alone, never on
+     * one that is invisible or gone.
      *
-     * While the strip is hidden (a full-screen app, BentoBar hidden from its tile) or has nothing to draw, no visible
-     * window of ours carries the flag: a screen wake lock holds it instead, with no window. Released when the strip is
-     * back, keep awake ends, the screen goes off (the power key or the lid) or the lock screen is up.
+     * While no strip is visible (the bar is hidden by a full-screen app or from its tile, every area is empty, or the
+     * strips that came back are not measured yet) a screen wake lock holds the screen instead, with no window. Released
+     * when a strip is visible again, keep awake ends, the screen goes off (the power key or the lid) or the lock screen
+     * is up.
      */
     fun <W> choose(on: Boolean, holder: W?, interactive: Boolean, locked: Boolean): Choice<W> {
         val flag = holder.takeIf { on }
-        return Choice(flag, clear = flag != null || !on, lock = on && flag == null && interactive && !locked)
+        return Choice(flag, lock = on && flag == null && interactive && !locked)
     }
 }

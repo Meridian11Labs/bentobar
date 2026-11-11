@@ -78,6 +78,7 @@ object Store {
         val raw = file.string(KEY)
         val read = raw?.let(::readLayout)
         state.value = (read as? LayoutRead.Ok)?.config ?: Defaults.config()
+        swept = false
         when {
             raw == null -> save(state.value)
             read is LayoutRead.Ok -> {
@@ -96,13 +97,21 @@ object Store {
     }
 
     /**
+     * Whether the layout in [state] is known to hold no Off item that carries no setup: false from [open] until the first
+     * change, which looks at every Off item; after that a change is asked only about the Off items it touched.
+     */
+    private var swept = false
+
+    /**
      * Every change goes through here. What it leaves has no Off item that carries no setup ([withoutBareOff]): the first
      * change after an update from 1.8 drops those, and none can come to be afterwards.
      */
     fun update(change: (BarConfig) -> BarConfig) {
         synchronized(this) {
-            val n = change(state.value).withoutBareOff()
-            if (n == state.value) return
+            val was = state.value
+            val n = change(was).withoutBareOff(was.takeIf { swept })
+            swept = true
+            if (n == was) return
             state.value = n
             // Inside the lock, so a later change can never be saved before this one.
             save(n)

@@ -3,6 +3,7 @@ package com.meridian11.books.bentobar.bar
 import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Pill
+import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.items.BarRoute
 import com.meridian11.books.bentobar.items.BarSlider
 import com.meridian11.books.bentobar.items.ItemState
@@ -107,6 +108,24 @@ class StripContentTest {
             assertTrue("$pill around items that draw nothing, at home", StripContent.drawn(blanks, chevron = false, pill = pill, home = true))
         }
         assertFalse("no pill, no capsule, at home or not", StripContent.drawn(emptyList(), chevron = false, pill = Pill.NONE, home = true))
+    }
+
+    /**
+     * The home area is looked for Right, Middle, Left, room goes Right, Left, Middle: a Middle at home can have no room
+     * while Left has a strip. The capsule is then the first strip's, so a bar with nothing to show still shows one.
+     */
+    @Test fun theEmptyCapsuleGoesToTheFirstStripWhenTheHomeAreaHasNoWindow() {
+        assertEquals(Position.LEFT, StripContent.capsuleArea(home = Position.CENTER, carrier = Position.LEFT, owed = setOf(Position.CENTER)))
+        assertEquals(Position.CENTER, StripContent.capsuleArea(home = Position.CENTER, carrier = Position.LEFT, owed = emptySet()))
+        assertEquals(Position.RIGHT, StripContent.capsuleArea(home = Position.RIGHT, carrier = Position.RIGHT, owed = setOf(Position.LEFT)))
+        // The one-strip bar with no room for a ‹ places the home area alone: it is no owed area, and keeps the capsule.
+        assertEquals(Position.CENTER, StripContent.capsuleArea(home = Position.CENTER, carrier = Position.CENTER, owed = setOf(Position.LEFT)))
+    }
+
+    /** The strip asks [StripContent.capsuleArea], never the home area alone. */
+    @Test fun theStripAsksWhereTheCapsuleGoes() {
+        val host = File("src/main/java/com/meridian11/books/bentobar/bar/BarService.kt").readText()
+        assertTrue("home = strip.area == StripContent.capsuleArea(cfg.homeArea(), carrier, owed.value)" in host)
     }
 
     /** What a strip does draw, it draws in any area: only the empty capsule asks where home is. */

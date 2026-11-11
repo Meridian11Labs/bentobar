@@ -9,6 +9,9 @@ import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
+import com.meridian11.books.bentobar.data.canGoBelow
+import com.meridian11.books.bentobar.data.fresh
+import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.moved
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
@@ -259,6 +262,17 @@ class ReorderTest {
         // In one column each heading is as wide as the list and the next one down ends the zone.
         val stacked = mapOf(left to Rect(0f, 0f, 600f, 30f), leftLower to Rect(0f, 200f, 600f, 220f), upper to Rect(0f, 300f, 600f, 330f))
         assertEquals(listOf(left to Rect(0f, 0f, 600f, 200f), leftLower to Rect(0f, 200f, 600f, 300f), upper to Rect(0f, 300f, 600f, 700f)), zoneRects(stacked, 700f))
+    }
+
+    /** Whether a carried type may wait under the line is `canGoBelow`'s answer for the item the + makes of it, in every mode. */
+    @Test fun aCarriedTypeMayGoBelowExactlyWhenTheItemThePlusMakesCan() {
+        for (mode in HiddenMode.entries) for (type in Items.all) {
+            val cfg = BarConfig(hiddenMode = mode, items = listOf(ItemConfig("a", "clock")))
+            // A type whose defaults are words from the app's resources can't be made here; the others stand for the rule.
+            val made = runCatching { type.fresh("new", cfg.homeArea()) }.getOrNull() ?: continue
+            assertEquals("${type.type} in $mode", cfg.canGoBelow(made, type), cfg.lift(Carried("new", From.TYPE, type.type)).below)
+        }
+        assertEquals(false, BarConfig().lift(Carried("new", From.TYPE, "from-a-newer-version")).below)
     }
 
     @Test fun theInsertionBarStandsWhereTheItemWould() {

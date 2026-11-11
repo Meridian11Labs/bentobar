@@ -165,7 +165,16 @@ class HidePathTest {
      * lock holds, before it does.
      */
     @Test fun keepAwakeIsHandedOnBeforeTheWindowThatHeldItGoes() {
-        inOrder(place, "awakeArea = a.awake", "awake.update()", "leave(strip)")
+        inOrder(place, "placedAreas = a.spots", "awake.update()", "leave(strip)")
+    }
+
+    /**
+     * A measure places the bar again before keep awake is told, and tells it once: told by the placing that is about to
+     * change, it took a wake lock and let it go within one measure.
+     */
+    @Test fun aMeasurePlacesTheBarBeforeKeepAwakeIsToldAndTellsItOnce() {
+        inOrder(measured, "place(placing.first, placing.second)", "awake.update()")
+        assertEquals("one update for a measure, the placing's or its own", 1, Regex("""awake\.update\(\)""").findAll(measured).count())
     }
 
     /**
@@ -176,6 +185,7 @@ class HidePathTest {
     @Test fun keepAwakesFlagIsOnTheStripThatCarriesItBeforeItLeavesAnyOther() {
         val update = File("src/main/java/com/meridian11/books/bentobar/bar/KeepAwake.kt").readText().substringAfter("fun update() {").substringBefore("\n    }\n")
         inOrder(update, "KeepAwakeRule.choose(", "flag(it, true)", "flag(window, false)")
+        inOrder(update, "screenLock.acquire()", "flag(window, false)", "screenLock.release()")
     }
 
     /**

@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import com.meridian11.books.bentobar.data.BAR_ORDER
 import com.meridian11.books.bentobar.data.BarConfig
-import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
@@ -75,13 +74,16 @@ fun BarConfig.lift(c: Carried): Lift {
     val item = items.firstOrNull { it.id == c.id }
     val type = Items.of(c.type)
     val own = item?.takeIf { c.from == From.BAR }?.let { row -> partOf(row)?.let { Zone(row.area, it) } }
+    // A type carried is the item the + would make of it.
+    val made = if (c.from == From.TYPE) type?.fresh(c.id, homeArea()) else null
     val part = when (c.from) {
         From.BAR -> own?.part
-        From.TYPE -> type?.let { partOf(it.fresh(c.id, homeArea())) }
+        From.TYPE -> made?.let(::partOf)
         From.LINE -> broughtBack(c.id).let { back -> back.items.firstOrNull { it.id == c.id }?.let(back::partOf) }
     } ?: Part.UPPER
+    // The one rule of the lower part, canGoBelow: the preview and the drop ask the same.
     val below = when (c.from) {
-        From.TYPE -> type != null && (hiddenMode != HiddenMode.SHOW_ALL || type.canBeActive)
+        From.TYPE -> made != null && canGoBelow(made, type)
         else -> item != null && canGoBelow(item)
     }
     val others = items.filter { it.id != c.id && it.section != Section.OFF }

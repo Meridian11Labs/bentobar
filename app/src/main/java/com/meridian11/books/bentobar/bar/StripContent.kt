@@ -2,6 +2,7 @@ package com.meridian11.books.bentobar.bar
 
 import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.Pill
+import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.items.BarRoute
 import com.meridian11.books.bentobar.items.BarSlider
 import com.meridian11.books.bentobar.items.ItemState
@@ -66,6 +67,14 @@ internal object StripContent {
      */
     fun drawn(entries: List<StripEntry>, chevron: Boolean, pill: Pill, home: Boolean): Boolean =
         chevron || (home && pill != Pill.NONE) || entries.any { draws(it.item.type, it.item.display, it.state) }
+
+    /**
+     * The area whose strip may draw the empty capsule: the [home] area's, or, when the home area has no window ([owed]: it
+     * has no room), the first strip's ([carrier], the first in room order that has one). The home area is looked for
+     * Right, Middle, Left and room goes Right, Left, Middle, so a Middle at home can be owed while Left has a strip: the
+     * capsule is there then, where the one-strip bar always had one.
+     */
+    fun capsuleArea(home: Position, carrier: Position, owed: Set<Position>): Position = if (home in owed) carrier else home
 
     /** The strip's window is made invisible: nothing is drawn. [width] is only for sizing; 0 means nothing was measured to show. */
     fun empty(width: Int, drawn: Boolean) = width <= 0 || !drawn
