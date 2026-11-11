@@ -65,7 +65,10 @@ object Setup {
             sideloaded = Env.sideloaded(),
             access = Access.entries.filter { Accesses.granted(app, it) }.toSet(),
         )
-        // A running timer's alarm is exact only while exact alarms are allowed and used: follow a change.
-        if (state.value.exactAlarms != before.exactAlarms) com.meridian11.books.bentobar.items.Timers.reschedule()
+        // A running timer's alarm, and a Focus session's, is exact only while exact alarms are allowed and used: follow a change.
+        if (state.value.exactAlarms != before.exactAlarms) {
+            com.meridian11.books.bentobar.items.Timers.reschedule()
+            com.meridian11.books.bentobar.items.FocusItem.rearm()
+        }
     }
 }

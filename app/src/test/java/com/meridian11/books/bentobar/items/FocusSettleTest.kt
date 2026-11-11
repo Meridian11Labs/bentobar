@@ -125,6 +125,22 @@ class FocusSettleTest {
         assertEquals(listOf(t0 + 50 * min, null), alarms)
     }
 
+    @Test fun aSwitchOfExactAlarmsSetsATimedSessionsAlarmAgainAndNoOther() {
+        process()
+        FocusItem.rearm()
+        assertEquals("no session: nothing to set", emptyList<Long?>(), alarms)
+        assertTrue(FocusItem.keeper.start(50, dark = false))
+        alarms.clear()
+        FocusItem.rearm()
+        assertEquals(listOf<Long?>(t0 + 50 * min), alarms)
+        assertEquals(0, quiet.offs)
+        FocusItem.keeper.end()
+        assertTrue(FocusItem.keeper.start(0, dark = false))
+        alarms.clear()
+        FocusItem.rearm()
+        assertEquals("no end: no alarm", emptyList<Long?>(), alarms)
+    }
+
     @Test fun androidRefusingToSwitchItOnStartsNothingAndSaysSo() {
         quiet.accepts = false
         process()

@@ -117,6 +117,9 @@ class FocusKeeper(private val w: Wiring) {
         }
     }
 
+    /** Exact alarms were switched in Setup: a session with an end gets its alarm again, of the kind now allowed. */
+    fun rearm() = load { session?.endsAt?.takeIf { it != 0L }?.let(w.alarm) }
+
     fun settle(why: Settle) = load {
         val s = session
         when (FocusRules.settle(s, why, w.wall(), w.placed())) {
@@ -219,6 +222,9 @@ object FocusItem : ItemType("focus", R.string.item_focus_title, Sym.SELF_IMPROVE
     }
 
     override fun settle(why: Settle) = keeper.settle(why)
+
+    /** From Setup, when exact alarms are switched: see [FocusKeeper.rearm]. */
+    internal fun rearm() = keeper.rearm()
 
     /** From [FocusEnd]: the alarm at a session's end. */
     internal fun alarmRang(done: () -> Unit) = keeper.alarm(done)
