@@ -37,6 +37,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -367,6 +369,9 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     }
 }
 
+/** How long the drag keeps following after the last move: a little longer than the rows take to make room. */
+private const val SETTLED_NS = 250_000_000L
+
 /** While a row is dragged near the list's upper or lower edge, the list scrolls under it, and the opening follows. */
 @Composable
 private fun AutoScroll(reorder: Reorder, scroll: ScrollState) {
@@ -375,11 +380,18 @@ private fun AutoScroll(reorder: Reorder, scroll: ScrollState) {
     val maxStep = with(density) { 14.dp.toPx() }
     LaunchedEffect(reorder.dragging) {
         if (reorder.dragging == null) return@LaunchedEffect
-        while (true) {
-            withFrameNanos { }
-            val v = reorder.edgeSpeed(edge, maxStep)
-            if (v != 0f) scroll.scrollBy(v)
-            reorder.sync()
+        // Frames run while the list scrolls and for as long as the rows take to make room, then rest until the pointer,
+        // the target or the list (a wheel) moves again: a row held still costs nothing.
+        snapshotFlow { reorder.stirred to scroll.value }.collectLatest {
+            var rested = 0L
+            var last = withFrameNanos { it }
+            while (rested < SETTLED_NS) {
+                val now = withFrameNanos { it }
+                val v = reorder.edgeSpeed(edge, maxStep)
+                rested = if (v != 0f && scroll.scrollBy(v) != 0f) 0L else rested + (now - last)
+                last = now
+                reorder.sync()
+            }
         }
     }
 }
@@ -725,17 +737,17 @@ internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, Item
     val ground = if (reorder.ground == Color.Unspecified) c.raised else reorder.ground
     Layout({
         RowBody(item, state, false, null, setup.calendar, cfg, Modifier, stacked = narrow || several, grip = { Grip(c.accent) })
-        Box(Modifier.padding(horizontal = 10.dp).testTag("chip")) {
+        Box(Modifier.padding(horizontal = 10.dp)) {
             if (look != null) Strip(listOf(StripEntry(item, state)), emptyList(), showChevron = false, chevronAlways = false, chevronReservePx = 0,
                 expanded = false, chevronOnLeft = false, look = look.copy(pill = Pill.NONE), maxWidthPx = 4000, heightDp = 36.dp, events = ChipOnly)
         }
-    }, Modifier.offset { reorder.copyAt(chip).round() }
+    }, Modifier.offset { reorder.copyAt(chip).round() }.testTag(if (chip < 0.5f) "drag-row" else "drag-chip")
         .graphicsLayer {
             shadowElevation = 8.dp.toPx() * raised
             shape = RoundedCornerShape(lerp(Radius.medium, (size.height / 2).toDp(), chip))
             clip = true
         }
-        .background(lerp(c.raised, ground, chip)).clearAndSetSemantics { }.testTag("drag-copy")) { measurables, _ ->
+        .background(lerp(c.raised, ground, chip)).clearAndSetSemantics { }) { measurables, _ ->
         val row = measurables[0].measure(Constraints.fixedWidth(reorder.copyWidth.roundToInt().coerceAtLeast(1)))
         val pill = measurables[1].measure(Constraints())
         val w = (row.width + (pill.width - row.width) * chip).roundToInt()

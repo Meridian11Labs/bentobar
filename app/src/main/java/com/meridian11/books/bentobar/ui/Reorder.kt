@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -115,6 +116,9 @@ class Reorder {
     private var pending by mutableStateOf<Pending?>(null)
     /** The pointer, in the root's coordinates. */
     private var pointer by mutableStateOf(Offset.Zero)
+    /** Counts what a drag has to follow up on (the pointer moved, the target changed): frames run only for a while after. */
+    var stirred by mutableIntStateOf(0)
+        private set
     private var pointerInWindow = Offset.Zero
     private var grab = Offset.Zero
     /** The copy's corner while it glides by itself: into its place, or back where it came from. */
@@ -197,9 +201,11 @@ class Reorder {
             return rows[id]?.let { Picked(From.BAR, id, it) }
         }
         if (bounds(libraryView, clip = true)?.contains(pos) != true) return null
+        val root = container ?: return null
         return sources.entries.firstOrNull { (key, c) ->
             val b = bounds(c) ?: return@firstOrNull false
-            b.contains(pos) && pos.x < (bounds(stops[key])?.left ?: b.right)
+            // By its place, not its bounds: a stop may have no height, and the bounds of an empty box are all zero.
+            b.contains(pos) && pos.x < (stops[key]?.takeIf { it.isAttached }?.let { root.localPositionOf(it, Offset.Zero).x } ?: b.right)
         }?.let { Picked(it.key.first, it.key.second, it.value) }
     }
 
@@ -235,6 +241,7 @@ class Reorder {
     fun pointerAt(local: Offset) {
         val root = container?.takeIf { it.isAttached } ?: return
         pointerInWindow = root.localToWindow(local)
+        stirred++
         sync()
     }
 
@@ -247,7 +254,7 @@ class Reorder {
         val map = measure(c)
         inPreview = map.preview?.contains(pointer) == true
         val next = dropAt(pointer, pointer.y - grab.y + rowHeight / 2, map, lift ?: config.lift(c), drop)
-        if (next != drop) drop = next
+        if (next != drop) { drop = next; stirred++ }
     }
 
     private fun heads(space: LayoutCoordinates?): Map<Zone, Rect> {

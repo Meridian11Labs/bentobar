@@ -167,7 +167,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         override fun placed(id: String, at: Rect) { drags?.chips?.put(id, at) }
         override fun gone(id: String) { drags?.chips?.remove(id) }
     } }
-    Column {
+    Column(Modifier.testTag("preview")) {
         BoxWithConstraints(
             Modifier.fillMaxWidth().height(52.dp).onGloballyPositioned { barAt[0] = it; reorder?.previewBar = it }.clip(RoundedCornerShape(Radius.large))
                 .background(barBrush),

@@ -275,8 +275,8 @@ internal fun DropWell(reorder: Reorder, modifier: Modifier = Modifier) {
     val c = Bento.colors
     val over = reorder.drop == Drop.Off
     val shape = RoundedCornerShape(Radius.medium)
-    Box(modifier.background(c.panel, shape).background(c.accent.copy(alpha = if (over) 0.18f else 0.08f), shape)
-        .border(if (over) 2.dp else 1.5.dp, c.accent, shape).padding(horizontal = Space.m).testTag("well"), contentAlignment = Alignment.CenterStart) {
+    Box(modifier.testTag("well").background(c.panel, shape).background(c.accent.copy(alpha = if (over) 0.18f else 0.08f), shape)
+        .border(if (over) 2.dp else 1.5.dp, c.accent, shape).padding(horizontal = Space.m), contentAlignment = Alignment.CenterStart) {
         Text(stringResource(R.string.library_drop_off), style = Bento.type.small.copy(fontWeight = FontWeight.SemiBold), color = c.accent, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
     }
