@@ -40,7 +40,7 @@ sealed interface Reply {
     /** Whether a request really left the device: what a failure in a row counts by. Nothing goes out for a request that was [Why.OFF] or refused. */
     val sent: Boolean
 
-    /** The service answered with a 2xx status: its text (UTF-8, at most [Http.MAX_BYTES]). */
+    /** The service answered with a 2xx status: its text (UTF-8, at most [Http.MAX_BYTES], or [Http.OWN_MAX_BYTES] from an [OwnAddress]). */
     class Ok(val text: String) : Reply {
         override val sent: Boolean get() = true
         override fun toString() = "ok"
@@ -64,7 +64,7 @@ enum class Why {
     TIMEOUT,
     /** A status outside 2xx. A redirect is one: it is never followed. 429 means "slow down". */
     STATUS,
-    /** More than [Http.MAX_BYTES]. */
+    /** More than [Http.MAX_BYTES] ([Http.OWN_MAX_BYTES] from an [OwnAddress]): refused, never cut. */
     TOO_LARGE,
     /** Anything else: a broken stream. Whether a reply's text makes sense is its reader's question. */
     UNREADABLE,
@@ -98,6 +98,8 @@ object Http {
      */
     const val TOTAL_MS = 15_000
     const val MAX_BYTES = 256 * 1024
+    /** The most a reply from an address the user typed ([OwnAddress]) may be: a value is a few characters, and a page is not one. */
+    const val OWN_MAX_BYTES = 64 * 1024
 
     /** Who may be asked right now. Closed until the app wires it. */
     @Volatile var allowed: (Host) -> Boolean = { false }
