@@ -123,16 +123,20 @@ class BarPreviewTest {
         assertTrue("$left, $right", (right - left).value in 0f..1f && left.value > 100f)
     }
 
-    @Test fun inARightToLeftLanguageAOneAreaLayoutIsMirroredWithThePictureAsItAlwaysWas() {
+    // Right and Left are sides of the screen, as the bar's own windows are: the picture is mirrored around the strip.
+
+    @Test fun inARightToLeftLanguageAOneAreaLayoutOnTheRightKeepsItsSideAndStandsBesideTheClock() {
         show(listOf(item("a", Position.RIGHT), item("b", Position.RIGHT)), direction = LayoutDirection.Rtl) { copy(position = Position.RIGHT) }
-        // The icons are on the left there, "US" at their right end, and the strip stands beside them.
-        assertEquals(icons().right + 12.dp + end, at("a").left)
+        // The clock is on the right there.
+        assertEquals(clock().left - 16.dp - end, at("b").right)
         assertTrue("the strip's own order is not mirrored: ${at("a")}, ${at("b")}", at("a").right < at("b").left)
     }
 
-    @Test fun inARightToLeftLanguageAOneAreaLayoutOnTheLeftStandsBesideTheClockAsItAlwaysDid() {
+    @Test fun inARightToLeftLanguageAOneAreaLayoutOnTheLeftKeepsItsSideAndStandsBesideTheIcons() {
         show(listOf(item("a", Position.LEFT), item("b", Position.LEFT)), direction = LayoutDirection.Rtl) { copy(position = Position.LEFT) }
-        assertEquals(clock().left - 16.dp - end, at("b").right)
+        // The icons are on the left there, "US" at their right end.
+        assertEquals(icons().right + 12.dp + end, at("a").left)
+        assertTrue("the strip's own order is not mirrored: ${at("a")}, ${at("b")}", at("a").right < at("b").left)
     }
 
     @Test fun aOneAreaLayoutWithNoRoomForAllKeepsItsLastItemsAndCountsTheRestAsItAlwaysDid() {

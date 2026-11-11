@@ -95,6 +95,15 @@ import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.items.Items
 
 /**
+ * Whether the status bar is mirrored: the system's clock at the right and its icons at the left, as a status bar is
+ * where the layout runs from right to left. The one place that says so. The preview draws its clock and icons by it,
+ * and the words for where an area is ([whereRes]) follow it; Left and Right are sides of the screen either way, as
+ * the bar's own windows are. A desktop status bar that turns out to keep its clock on the left from right to left
+ * needs `false` here and nothing else.
+ */
+internal fun barMirrored(direction: LayoutDirection): Boolean = direction == LayoutDirection.Rtl
+
+/**
  * A mock status bar with the real strips in it, one for each area the layout uses, standing where the bar has them;
  * clicking an item selects it. With several areas in use each strip has its area's name on a bracket under it, the
  * selected item's in the accent; an area the bar has [noRoom] for right now has neither, and the Middle's place then
@@ -108,15 +117,6 @@ import com.meridian11.books.bentobar.items.Items
  * line, so the preview is as tall with them as without.
  * Internal for its test.
  */
-/**
- * Whether the status bar is mirrored: the system's clock at the right and its icons at the left, as a status bar is
- * where the layout runs from right to left. The one place that says so. The preview draws its clock and icons by it,
- * and the words for where an area is ([whereRes]) follow it; Left and Right are sides of the screen either way, as
- * the bar's own windows are. A desktop status bar that turns out to keep its clock on the left from right to left
- * needs `false` here and nothing else.
- */
-internal fun barMirrored(direction: LayoutDirection): Boolean = direction == LayoutDirection.Rtl
-
 @Composable
 internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said: String? = null, noRoom: Set<Position> = emptySet(),
                         reorder: Reorder? = null, lanesSeveral: Boolean = false, off: Boolean = false, onSelect: (String?) -> Unit) {
