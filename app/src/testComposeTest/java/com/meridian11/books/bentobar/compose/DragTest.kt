@@ -139,6 +139,17 @@ class DragTest {
         assertEquals(listOf("a", "b", "c"), order())
     }
 
+    @Test fun aDropIsWhereThePointerWasLetGoAlsoWhenNoMoveCameFromThere() {
+        page(null, *three)
+        hold(at("row:c").center, at("row:b").center)
+        // Injected input, and a pointer that is resampled, can let go at a place its last move did not name.
+        rule.onRoot().performMouseInput { updatePointerTo(at("library").center); release() }
+        rule.waitForIdle()
+
+        assertEquals("the release was over the library", listOf("a", "b"), order())
+        assertEquals("c", Undo.last.value?.removed)
+    }
+
     @Test fun aRowHeldAtTheListsLowerEdgeScrollsTheListAtEveryFrame() {
         val many = Items.all.take(24).mapIndexed { i, type -> item("i$i", type.type) }
         page(null, *many.toTypedArray())

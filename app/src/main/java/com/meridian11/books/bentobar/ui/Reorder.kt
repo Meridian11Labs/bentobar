@@ -451,6 +451,9 @@ fun Modifier.drags(r: Reorder): Modifier = pointerInput(r) {
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 if (!change.pressed) {
                     letGo = !change.isConsumed
+                    // The drop is where the pointer was let go, which the last move need not have named (injected
+                    // input, a resampled pointer).
+                    if (letGo) r.pointerAt(change.position)
                     change.consume()
                     break
                 }
