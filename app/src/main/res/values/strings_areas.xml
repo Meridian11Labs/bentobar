@@ -29,6 +29,16 @@
     <!-- An area the bar has no room for right now; %1$s (and %2$s) are the areas that come first, the last one the area itself. -->
     <string name="areas_no_room_one">No room right now. %1$s takes the free space first. %2$s comes back when there is room.</string>
     <string name="areas_no_room_two">No room right now. %1$s and %2$s take the free space first. %3$s comes back when there is room.</string>
+    <!-- The line under the preview while an item is dragged onto an area with no items: %1$s the item, %2$s the area. The second is for a finger. -->
+    <string name="areas_drop_starts">Drop to put %1$s in %2$s, a new area. Esc cancels.</string>
+    <string name="areas_drop_starts_touch">Drop to put %1$s in %2$s, a new area. Let go outside to cancel.</string>
+    <!-- Into a part of another area that has no items yet. -->
+    <string name="areas_drop_move_to">Drop to move %1$s to %2$s. Esc cancels.</string>
+    <string name="areas_drop_move_to_touch">Drop to move %1$s to %2$s. Let go outside to cancel.</string>
+    <string name="areas_drop_add_to">Drop to add %1$s to %2$s. Esc cancels.</string>
+    <string name="areas_drop_add_to_touch">Drop to add %1$s to %2$s. Let go outside to cancel.</string>
+    <!-- With several areas on screen the line names the area too: an item's name, then its area ("Weather in Right"). -->
+    <string name="areas_drop_in">%1$s in %2$s</string>
     <!-- In the preview, in the place of an area the bar has no room for. -->
     <string name="areas_system_now">Used by the system right now</string>
 </resources>

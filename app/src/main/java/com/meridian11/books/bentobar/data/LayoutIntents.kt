@@ -1,5 +1,6 @@
 package com.meridian11.books.bentobar.data
 
+import com.meridian11.books.bentobar.items.ItemType
 import com.meridian11.books.bentobar.items.Items
 
 // What the user can ask of an item's section or area, as steps from one layout to the next: the one rule for each command, whichever
@@ -181,6 +182,25 @@ fun BarConfig.broughtBack(id: String, area: Position = homeArea()): BarConfig {
     val item = items.firstOrNull { it.id == id && it.section == Section.OFF } ?: return this
     val back = item.copy(section = if (item.whenActive) Section.HIDDEN else Section.SHOWN, area = area)
     return copy(items = with(Store) { items.filterNot { it.id == id }.added(back) })
+}
+
+/**
+ * A new item of [type], with [id], dropped at a place in the bar: what the + makes ([fresh]), then [placed]. Under a line
+ * it can't wait under, nothing is added.
+ */
+fun BarConfig.addedAt(type: ItemType, id: String, area: Position, part: Part, index: Int): BarConfig {
+    if (items.any { it.id == id }) return this
+    val new = type.fresh(id, area)
+    if (part == Part.LOWER && !canGoBelow(new, type)) return this
+    return copy(items = with(Store) { items.added(new) }).placed(id, area, part, index)
+}
+
+/** A remembered setup dropped at a place in the bar: [broughtBack] as it was, then [placed]. Under a line it can't wait under, it stays in the library. */
+fun BarConfig.broughtBackAt(id: String, area: Position, part: Part, index: Int): BarConfig {
+    val back = broughtBack(id, area)
+    val item = back.items.firstOrNull { it.id == id }?.takeIf { back !== this } ?: return this
+    if (part == Part.LOWER && !back.canGoBelow(item)) return this
+    return back.placed(id, area, part, index)
 }
 
 /** What a layout change changes: which items there are and in which order, each one's section, rule and area, and where an empty bar stands. */

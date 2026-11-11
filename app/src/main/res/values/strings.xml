@@ -434,6 +434,33 @@
     <string name="library_as_set_up">as you set it up</string>
     <!-- The bar's list and the panel beside it. -->
     <string name="bar_empty">Nothing in the bar yet. Add an item to start.</string>
+    <!-- The line under the preview while an item is dragged: what letting go does. %1$s is the item, %2$s the item beside its new place. The second of each pair is for a finger. -->
+    <string name="bar_drop_move">Drop to move %1$s after %2$s. Esc cancels.</string>
+    <string name="bar_drop_move_touch">Drop to move %1$s after %2$s. Let go outside to cancel.</string>
+    <string name="bar_drop_move_first">Drop to move %1$s before %2$s. Esc cancels.</string>
+    <string name="bar_drop_move_first_touch">Drop to move %1$s before %2$s. Let go outside to cancel.</string>
+    <string name="bar_drop_add">Drop to add %1$s after %2$s. Esc cancels.</string>
+    <string name="bar_drop_add_touch">Drop to add %1$s after %2$s. Let go outside to cancel.</string>
+    <string name="bar_drop_add_first">Drop to add %1$s before %2$s. Esc cancels.</string>
+    <string name="bar_drop_add_first_touch">Drop to add %1$s before %2$s. Let go outside to cancel.</string>
+    <!-- Into a part of the list that has no items yet. -->
+    <string name="bar_drop_add_to_bar">Drop to add %1$s to the bar. Esc cancels.</string>
+    <string name="bar_drop_add_to_bar_touch">Drop to add %1$s to the bar. Let go outside to cancel.</string>
+    <string name="bar_drop_always">Drop to show %1$s always. Esc cancels.</string>
+    <string name="bar_drop_always_touch">Drop to show %1$s always. Let go outside to cancel.</string>
+    <string name="bar_drop_when_active">Drop to show %1$s only when active. Esc cancels.</string>
+    <string name="bar_drop_when_active_touch">Drop to show %1$s only when active. Let go outside to cancel.</string>
+    <string name="bar_drop_behind">Drop to put %1$s behind ‹. Esc cancels.</string>
+    <string name="bar_drop_behind_touch">Drop to put %1$s behind ‹. Let go outside to cancel.</string>
+    <!-- Over the library with a row of the bar. -->
+    <string name="bar_drop_off">Drop to remove %1$s from the bar. Esc cancels.</string>
+    <string name="bar_drop_off_touch">Drop to remove %1$s from the bar. Let go outside to cancel.</string>
+    <!-- Over nothing that takes a drop. -->
+    <string name="bar_drop_none">Nothing changes if you let go here.</string>
+    <!-- A type from the library over the lower part, which its type can't wait in. -->
+    <string name="bar_drop_no_rule_add">%1$s has no Show when… rule, so it can only go above the line.</string>
+    <!-- In the place of the library's filter while a row of the bar is dragged. -->
+    <string name="library_drop_off">Drop here to remove it from the bar</string>
     <string name="panel_select_item">Select an item</string>
     <string name="row_needs_calendar">needs calendar access</string>
     <!-- A moved row, read out: its name, then where it stands now ("CPU load, 5th of 7 in the bar"). -->
