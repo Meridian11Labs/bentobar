@@ -24,6 +24,7 @@ object Items {
         DevicesItem,
         DisplaysItem,
         OutputItem,
+        ConnectionItem,
         // Time
         CalendarItem,
         EventItem,
