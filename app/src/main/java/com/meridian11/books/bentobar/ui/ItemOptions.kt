@@ -142,10 +142,10 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
                 Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }.testTag("options-head"), verticalAlignment = Alignment.CenterVertically) {
                     SymIcon(type?.icon ?: Sym.UPDATE, size = 20.sp, color = c.ink)
                     Spacer(Modifier.width(10.dp))
-                    Text(itemName(res, item), Modifier.weight(1f, fill = false), style = Bento.type.title, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(itemName(res, item), Modifier.weight(1f, fill = false), style = Bento.type.title, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
                     state?.text?.takeIf { it.isNotBlank() && type != null }?.let {
                         Spacer(Modifier.width(Space.s))
-                        Text(it, style = Bento.type.small.tabular, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(it, style = Bento.type.small.tabular, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
                     }
                 }
                 if (reorder != null) DropWell(reorder, Modifier.matchParentSize())
@@ -256,7 +256,7 @@ private fun Visibility(item: ItemConfig, cfg: BarConfig, type: ItemType?, edit: 
             { if (it == 0) edit.always(item.id) else edit.below(item.id) }, Modifier.weight(1f).testTag("visibility"), equal = false)
     }
     val trigger = type?.trigger
-    Column(Modifier.fillMaxWidth().padding(start = OPTION_LABEL)) {
+    Column(Modifier.fillMaxWidth().padding(start = OPTION_LABEL.ofText())) {
         when {
             type == null -> Unit
             !chevron && !type.canBeActive ->

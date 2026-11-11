@@ -119,8 +119,8 @@ internal fun Hairline() {
 @Composable
 internal fun OptionRow(label: String, keys: List<String> = emptyList(), content: @Composable RowScope.() -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.width(OPTION_LABEL).padding(end = Space.s)) {
-            Text(label, style = Bento.type.small, color = Bento.colors.ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.width(OPTION_LABEL.ofText()).padding(end = Space.s)) {
+            Text(label, style = Bento.type.small, color = Bento.colors.ink2, maxLines = lines(2), overflow = TextOverflow.Ellipsis)
             if (keys.isNotEmpty()) Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(Space.xs)) { keys.forEach { Keycap(it) } }
         }
         content()
@@ -459,7 +459,7 @@ fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
             SymIcon(icon, size = 18.sp, color = ink)
             Spacer(Modifier.width(Space.s))
         }
-        Text(text, style = if (kind == ButtonKind.PLAIN) Bento.type.label else Bento.type.strong, color = ink, maxLines = 1)
+        Text(text, style = if (kind == ButtonKind.PLAIN) Bento.type.label else Bento.type.strong, color = ink, maxLines = lines())
     }
 }
 
@@ -484,12 +484,12 @@ fun <T> MenuButton(choices: List<Pair<T, String>>, chosen: T, onChoose: (T) -> U
     val interaction = remember { MutableInteractionSource() }
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        Row(Modifier.width(132.dp).height(Target.control)
+        Row(Modifier.width(132.dp.ofText()).heightIn(min = Target.control)
             .states(interaction)
             .background(c.sunk, RoundedCornerShape(Radius.medium))
             .clickable(interaction, indication = null, role = Role.DropdownList) { open = true }
             .padding(start = 14.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(choices.firstOrNull { it.first == chosen }?.second.orEmpty(), Modifier.weight(1f), style = Bento.type.strong, color = c.ink, maxLines = 1)
+            Text(choices.firstOrNull { it.first == chosen }?.second.orEmpty(), Modifier.weight(1f), style = Bento.type.strong, color = c.ink, maxLines = lines())
             SymIcon(Sym.EXPAND_MORE, size = 18.sp, color = c.ink2)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = c.raised) {
@@ -524,7 +524,7 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
             val interaction = remember { MutableInteractionSource() }
             val up = i == chosen
             val ink = if (part.enabled) c.ink else c.ink3
-            Row(Modifier.height(34.dp)
+            Row(Modifier.heightIn(min = SEGMENT_PART)
                 .states(interaction, radius = Radius.small, ground = !up)
                 .selectable(up, interaction, indication = null, enabled = part.enabled, role = role) { onChoose(i) }
                 .then(if (part.spoken != null) Modifier.clearAndSetSemantics { contentDescription = part.spoken } else Modifier)
@@ -534,10 +534,10 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
                     Spacer(Modifier.width(6.dp))
                 }
                 Text(part.label, style = type.small.copy(fontWeight = if (!part.enabled) FontWeight.Normal else if (up) FontWeight.SemiBold else FontWeight.Medium),
-                    color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    color = ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
             }
         }
-    }, modifier.height(Target.control).background(track, RoundedCornerShape(Radius.medium)).padding(3.dp).selectableGroup().drawBehind {
+    }, modifier.heightIn(min = Target.control).background(track, RoundedCornerShape(Radius.medium)).padding(3.dp).selectableGroup().drawBehind {
         if (chosen !in parts.indices || spans.size != parts.size) return@drawBehind
         val from = spans[at.toInt().coerceIn(parts.indices)]
         val to = spans[kotlin.math.ceil(at).toInt().coerceIn(parts.indices)]
@@ -561,8 +561,9 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
         }.toMutableList()
         // What rounding left over goes to the last part, so the parts end where the track does.
         if (n > 0) widths[n - 1] += room - widths.sum()
-        val placed = measurables.mapIndexed { i, m -> m.measure(Constraints.fixedWidth(widths[i].coerceAtLeast(0))) }
-        val height = if (cs.hasBoundedHeight) cs.maxHeight else placed.maxOfOrNull { it.height } ?: 0
+        // As tall as its tallest part needs (words on two lines at a large text size), and every part as tall as that.
+        val height = (measurables.indices.maxOfOrNull { measurables[it].minIntrinsicHeight(widths[it].coerceAtLeast(0)) } ?: 0).coerceIn(cs.minHeight, cs.maxHeight)
+        val placed = measurables.mapIndexed { i, m -> m.measure(Constraints.fixed(widths[i].coerceAtLeast(0), height)) }
         var x = 0
         val now = placed.map { p -> (x to p.width).also { x += p.width + gap } }
         if (now != spans) spans = now
@@ -586,7 +587,7 @@ fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier:
     var value by remember { mutableStateOf(TextFieldValue(text, TextRange(text.length))) }
     if (value.text != text) value = TextFieldValue(text, TextRange(text.length))
     BasicTextField(value, { value = it; if (it.text != text) onText(it.text) },
-        modifier.fillMaxWidth().height(Target.control)
+        modifier.fillMaxWidth().heightIn(min = Target.control)
             .states(interaction, ground = false)
             .background(c.sunk, RoundedCornerShape(Radius.medium))
             .focusRequester(focus)
@@ -599,7 +600,7 @@ fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier:
                 SymIcon(Sym.SEARCH, size = 16.sp, color = c.ink3)
                 Spacer(Modifier.width(Space.s))
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (text.isEmpty()) Text(label, style = Bento.type.body, color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (text.isEmpty()) Text(label, style = Bento.type.body, color = c.ink3, maxLines = lines(), overflow = TextOverflow.Ellipsis)
                     inner()
                 }
                 Spacer(Modifier.width(Space.s))
@@ -622,6 +623,7 @@ fun Keycap(text: String, modifier: Modifier = Modifier) {
 }
 
 private val SEGMENT_GAP = 2.dp
+private val SEGMENT_PART = 34.dp
 internal val OPTION_LABEL = 96.dp
 private val SLIDER_THUMB = 16.dp
 private const val SEGMENT_MS = 160

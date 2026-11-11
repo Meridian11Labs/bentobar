@@ -17,8 +17,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontFamily
@@ -161,6 +163,22 @@ object Target {
     val control = 40.dp
     val tab = 52.dp
 }
+
+/**
+ * A width that holds words, in the text's size: the design's width at the standard text size and below, and as much
+ * wider as the text is larger (twice as wide at twice the size).
+ */
+@Composable
+@ReadOnlyComposable
+internal fun Dp.ofText(): Dp = this * LocalDensity.current.fontScale.coerceAtLeast(1f)
+
+/**
+ * How many lines a text may take that the design draws on [few]: at the standard text size and below it keeps to them
+ * and ends in an ellipsis; at a larger size it takes the lines it needs, since there the room was not made for it.
+ */
+@Composable
+@ReadOnlyComposable
+internal fun lines(few: Int = 1): Int = if (LocalDensity.current.fontScale > 1f) Int.MAX_VALUE else few
 
 private val LocalPalette = staticCompositionLocalOf { Palette.Light }
 private val LocalType = staticCompositionLocalOf { Type(null) }

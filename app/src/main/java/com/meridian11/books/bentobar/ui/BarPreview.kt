@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -179,12 +180,16 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         ) {
             // The strip may take what the mock clock and system icons leave (about 380 dp go to them and the gaps).
             val maxPx = with(LocalDensity.current) { (maxWidth - 380.dp).coerceAtLeast(200.dp).roundToPx() }
+            // The stand-ins for the system's clock and icons are a drawing: they keep their size at a larger text size,
+            // where the bar in a narrow window would have no room for them.
+            val clockSize = with(LocalDensity.current) { 14.dp.toSp() }
+            val iconsSize = with(LocalDensity.current) { 13.dp.toSp() }
             val now = remember(tick) { ZonedDateTime.now() }
             // The system's 12/24-hour setting and the locale's own short date, like the real status bar.
             val h24 = android.text.format.DateFormat.is24HourFormat(LocalContext.current)
             Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(Dates.format(Dates.timeSkeleton(h24), now) + "   " + Dates.format("EEEMMMd", now), Modifier.onGloballyPositioned { reorder?.clock = it }, color = look.fg,
-                    fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = 14.sp)
+                    fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = clockSize)
                 // One area's strip, as the bar composes each of its own: the area's plan, its ‹ on the area's side, and what
                 // it has no room for kept as the area's. [budget] is what its items may take.
                 // An area the layout has just lost still has its place in [PreviewAreas] until that is measured again, and
@@ -226,7 +231,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
                 }
                 Spacer(Modifier.width(12.dp))
                 Row(Modifier.onGloballyPositioned { reorder?.icons = it }, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("US", color = look.fg, fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = 13.sp)
+                    Text("US", color = look.fg, fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = iconsSize)
                     SymIcon(Sym.NOTIFICATIONS, size = 18.sp, color = look.fg)
                     SymIcon(Sym.WIFI, size = 18.sp, color = look.fg)
                     SymIcon(Sym.BATTERY_FULL, size = 18.sp, color = look.fg)
@@ -271,7 +276,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         val words = if (reorder != null && carried != null) dropWords(res, cfg, carried, reorder.drop, lanesSeveral, reorder.touch) else null
         Text(words ?: said ?: if (more.isEmpty()) hint else hint + " " + pluralStringResource(R.plurals.bar_preview_more, more.size, more.size),
             style = if (words != null) Bento.type.help.copy(fontWeight = FontWeight.SemiBold) else Bento.type.help,
-            color = if (words != null) Bento.colors.ink else Bento.colors.ink2, maxLines = 2,
+            color = if (words != null) Bento.colors.ink else Bento.colors.ink2, maxLines = lines(2),
             modifier = Modifier.padding(start = 4.dp, top = if (several || zonesUp) 0.dp else 6.dp).semantics { liveRegion = LiveRegionMode.Polite }
                 .testTag("preview-line"))
         // The room the areas' names take while a drag shows them: kept, so that nothing under the preview moves then.
@@ -425,7 +430,7 @@ private fun PreviewAreas(areas: List<Position>, drawing: Set<Position>, maxPx: I
 /** In the place of a Middle the bar has no room for: the system has that part of the bar right now. */
 @Composable
 private fun SystemPill(fg: Color) {
-    Box(Modifier.height(32.dp).background(fg.copy(alpha = 0.1f), RoundedCornerShape(Radius.medium)).padding(horizontal = Space.m).testTag("system-pill"),
+    Box(Modifier.heightIn(min = 32.dp).background(fg.copy(alpha = 0.1f), RoundedCornerShape(Radius.medium)).padding(horizontal = Space.m).testTag("system-pill"),
         contentAlignment = Alignment.Center) {
         Text(stringResource(R.string.areas_system_now), style = Bento.type.help, color = fg.copy(alpha = 0.75f), maxLines = 1)
     }
@@ -453,7 +458,7 @@ private fun Brackets(spans: Map<Position, IntRange>, origin: Int, chosen: Positi
                 Box(Modifier.width(1.dp).height(7.dp).background(line))
             }
         }
-    }, Modifier.fillMaxWidth().height(20.dp)) { measurables, cs ->
+    }, Modifier.fillMaxWidth().heightIn(min = BRACKETS)) { measurables, cs ->
         val reach = 6.dp.roundToPx()
         val apart = 2.dp.roundToPx()
         val from = IntArray(order.size) { origin + spans.getValue(order[it]).first - reach }
@@ -464,9 +469,18 @@ private fun Brackets(spans: Map<Position, IntRange>, origin: Int, chosen: Positi
             to[i - 1] = mid - apart / 2
             from[i] = mid + apart - apart / 2
         }
-        val placed = measurables.mapIndexed { i, m -> m.measure(Constraints.fixedWidth((to[i] - from[i]).coerceAtLeast(0)).copy(maxHeight = 16.dp.roundToPx())) }
-        layout(cs.maxWidth, cs.maxHeight) {
-            placed.forEachIndexed { i, p -> p.place(from[i], 4.dp.roundToPx() + (16.dp.roundToPx() - p.height) / 2) }
+        // A name is as tall as its text size makes it; at a larger one the line under the bar grows with it.
+        // and a name wider than its strip keeps its letters: its bracket reaches past the strip on both sides.
+        val placed = measurables.mapIndexed { i, m ->
+            val wide = (to[i] - from[i]).coerceAtLeast(0)
+            m.measure(Constraints.fixedWidth(if (fontScale > 1f) maxOf(wide, m.minIntrinsicWidth(Constraints.Infinity)) else wide))
+        }
+        val tall = maxOf(16.dp.roundToPx(), placed.maxOfOrNull { it.height } ?: 0)
+        layout(cs.maxWidth, maxOf(cs.minHeight, 4.dp.roundToPx() + tall)) {
+            placed.forEachIndexed { i, p ->
+                val x = from[i] - (p.width - (to[i] - from[i]).coerceAtLeast(0)) / 2
+                p.place(if (p.width > to[i] - from[i]) x.coerceIn(0, maxOf(0, cs.maxWidth - p.width)) else x, 4.dp.roundToPx() + (tall - p.height) / 2)
+            }
         }
     }
 }

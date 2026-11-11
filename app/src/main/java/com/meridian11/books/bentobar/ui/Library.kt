@@ -240,7 +240,7 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
         if (to != null) Row(Modifier.fillMaxWidth().padding(top = 10.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             val label = stringResource(R.string.areas_add_to)
             val areas = areaChoices()
-            Text(label, Modifier.padding(start = Space.xs), style = Bento.type.small, color = c.ink2, maxLines = 1)
+            Text(label, Modifier.padding(start = Space.xs), style = Bento.type.small, color = c.ink2, maxLines = lines())
             Spacer(Modifier.width(Space.m))
             Segment(areas.map { SegmentPart(it.second, spoken = "$label ${it.second}") }, areas.indexOfFirst { it.first == to }, { edit.addTo = areas[it].first },
                 Modifier.weight(1f).testTag("add-to"))
@@ -277,7 +277,7 @@ internal fun DropWell(reorder: Reorder, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(Radius.medium)
     Box(modifier.testTag("well").background(c.panel, shape).background(c.accent.copy(alpha = if (over) 0.18f else 0.08f), shape)
         .border(if (over) 2.dp else 1.5.dp, c.accent, shape).padding(horizontal = Space.m), contentAlignment = Alignment.CenterStart) {
-        Text(stringResource(R.string.library_drop_off), style = Bento.type.small.copy(fontWeight = FontWeight.SemiBold), color = c.accent, maxLines = 1,
+        Text(stringResource(R.string.library_drop_off), style = Bento.type.small.copy(fontWeight = FontWeight.SemiBold), color = c.accent, maxLines = lines(),
             overflow = TextOverflow.Ellipsis)
     }
 }
@@ -310,8 +310,8 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
         Spacer(Modifier.width(Space.m))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(shelf.name, Modifier.weight(1f, fill = false), style = Bento.type.label, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (shelf.inBar) Text(stringResource(R.string.library_in_bar), Modifier.padding(start = Space.s), style = Bento.type.help, color = c.ink3, maxLines = 1)
+                Text(shelf.name, Modifier.weight(1f, fill = false), style = Bento.type.label, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
+                if (shelf.inBar) Text(stringResource(R.string.library_in_bar), Modifier.padding(start = Space.s), style = Bento.type.help, color = c.ink3, maxLines = lines())
             }
             if (added != null) {
                 val rule = if (added.whenActive && cfg.partOf(added) == Part.LOWER) type.trigger?.short(added) ?: stringResource(R.string.row_when_active) else null
@@ -325,7 +325,7 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
                         rule != null -> stringResource(R.string.add_added_rule, rule)
                         else -> stringResource(R.string.add_added)
                     },
-                        style = Bento.type.help.copy(fontWeight = FontWeight.SemiBold), color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        style = Bento.type.help.copy(fontWeight = FontWeight.SemiBold), color = c.ink, maxLines = lines(2), overflow = TextOverflow.Ellipsis)
                 }
             } else {
                 Text(shelf.blurb, style = Bento.type.help, color = c.ink3)
@@ -369,11 +369,11 @@ private fun LineRow(shelf: Shelf, line: Line, edit: BarEdit, to: String?, reorde
     }
     val source = From.LINE to id
     val carried = reorder.carried?.let { it.from == From.LINE && it.id == id } == true
-    Row(Modifier.bringIntoViewRequester(bring).testTag("line:$id").fillMaxWidth().height(Target.row)
+    Row(Modifier.bringIntoViewRequester(bring).testTag("line:$id").fillMaxWidth().heightIn(min = Target.row)
         .onGloballyPositioned { reorder.sources[source] = it }.alpha(if (carried) CARRIED_ALPHA else 1f).padding(start = LINE_INDENT),
         verticalAlignment = Alignment.CenterVertically) {
         Text(line.words, Modifier.weight(1f).semantics { contentDescription = spoken; customActions = actions },
-            style = Bento.type.body, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            style = Bento.type.body, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
         BentoButton(stringResource(R.string.library_forget), { edit.forget(id, onForget) },
             Modifier.onGloballyPositioned { reorder.stops[source] = it }.onFocusChanged { onForget = it.isFocused }.semantics { contentDescription = forget }.testTag("forget:$id"), kind = ButtonKind.QUIET)
         Spacer(Modifier.width(Space.xs))
@@ -384,9 +384,9 @@ private fun LineRow(shelf: Shelf, line: Line, edit: BarEdit, to: String?, reorde
 /** A forgotten line's place, until the next change: what was forgotten, and the Undo that brings it back. */
 @Composable
 private fun ForgotRow(shelf: Shelf, line: Line, edit: BarEdit) {
-    Row(Modifier.testTag("forgot").fillMaxWidth().height(Target.row).padding(start = LINE_INDENT), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.testTag("forgot").fillMaxWidth().heightIn(min = Target.row).padding(start = LINE_INDENT), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.library_forgot, stringResource(R.string.library_setup, shelf.name, line.words)), Modifier.weight(1f),
-            style = Bento.type.small, color = Bento.colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            style = Bento.type.small, color = Bento.colors.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
         LibraryUndo(edit)
     }
 }

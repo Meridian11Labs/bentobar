@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -61,6 +62,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -105,11 +107,20 @@ data class WindowLayout(val kind: WindowClass, /** The panel's width beside the 
     val switchParts: Int get() = if (kind == WindowClass.WIDE) 2 else 3
 }
 
-fun windowLayout(widthDp: Int): WindowLayout = when {
-    widthDp >= 1500 -> WindowLayout(WindowClass.WIDE, 420)
-    widthDp >= 1100 -> WindowLayout(WindowClass.WIDE, 348)
-    widthDp >= 760 -> WindowLayout(WindowClass.MID, 0)
-    else -> WindowLayout(WindowClass.NARROW, 0)
+/**
+ * The layout of a window [widthDp] wide. The design's widths are for the standard text size: at a larger one
+ * ([fontScale] above 1) the window is counted in text sizes, so that at twice the size a window of 1180 is laid out as
+ * one of 590 is (it holds as many words), and a panel beside the list grows with its words.
+ */
+fun windowLayout(widthDp: Int, fontScale: Float = 1f): WindowLayout {
+    val scale = fontScale.coerceAtLeast(1f)
+    val width = (widthDp / scale).toInt()
+    return when {
+        width >= 1500 -> WindowLayout(WindowClass.WIDE, (420 * scale).toInt())
+        width >= 1100 -> WindowLayout(WindowClass.WIDE, (348 * scale).toInt())
+        width >= 760 -> WindowLayout(WindowClass.MID, 0)
+        else -> WindowLayout(WindowClass.NARROW, 0)
+    }
 }
 
 /** The layout of the window a page is drawn in ([Shell] provides it). */
@@ -171,7 +182,7 @@ fun Shell(
 ) {
     val c = Bento.colors
     BoxWithConstraints(Modifier.fillMaxSize().background(c.surface)) {
-        val layout = windowLayout(maxWidth.value.toInt())
+        val layout = windowLayout(maxWidth.value.toInt(), LocalDensity.current.fontScale)
         CompositionLocalProvider(LocalWindowLayout provides layout, LocalContentColor provides c.ink) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxWidth().background(c.chrome).windowInsetsPadding(insets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
@@ -192,18 +203,18 @@ private fun Header(narrow: Boolean, page: Page, onPage: (Page) -> Unit, running:
     val line = stringResource(statusLine(running, enabled, status))
     val tone = statusTone(running, enabled, status)
     if (narrow) Column(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().height(Target.tab).padding(start = Space.l, end = Space.m), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = Target.tab).padding(start = Space.l, end = Space.m), verticalAlignment = Alignment.CenterVertically) {
             Mark(stringResource(R.string.app_name))
             Spacer(Modifier.width(Space.xs))
             // The row scrolls sideways in a window too narrow for the tabs; its own padding keeps the focus ring whole.
             Tabs(page, onPage, step = !running, pad = Space.m, gap = 0.dp, Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(horizontal = Space.xs))
         }
-        Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 20.dp, end = Space.l, bottom = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(start = 20.dp, end = Space.l, bottom = Space.xs), verticalAlignment = Alignment.CenterVertically) {
             Status(line, tone, Modifier.weight(1f), atEnd = false)
             Spacer(Modifier.width(Space.m))
             Control(page, running, enabled, onEnabled, onTurnOn)
         }
-    } else Row(Modifier.fillMaxWidth().height(Target.tab).padding(horizontal = Space.xl), verticalAlignment = Alignment.CenterVertically) {
+    } else Row(Modifier.fillMaxWidth().heightIn(min = Target.tab).padding(horizontal = Space.xl), verticalAlignment = Alignment.CenterVertically) {
         Mark(null)
         Spacer(Modifier.width(10.dp))
         Text(stringResource(R.string.app_name), style = Bento.type.title.copy(letterSpacing = (-0.1).sp), color = Bento.colors.ink, maxLines = 1)
@@ -252,7 +263,7 @@ private fun Tabs(page: Page, onPage: (Page) -> Unit, step: Boolean, pad: Dp, gap
             val interaction = remember { MutableInteractionSource() }
             Row(Modifier
                 .onPlaced { spans[p] = it.positionInParent().x.let { x -> x to x + it.size.width } }
-                .height(Target.tab)
+                .heightIn(min = Target.tab)
                 .focusRequester(requesters[i])
                 .onKeyEvent { e ->
                     val to = when (e.key) {
@@ -287,7 +298,7 @@ private fun Status(text: String, tone: StatusTone, modifier: Modifier, atEnd: Bo
         Box(Modifier.size(8.dp).background(when (tone) { StatusTone.LIVE -> c.accent; StatusTone.STEP -> c.warnInk; StatusTone.WAITING -> c.ink3 }, CircleShape))
         Spacer(Modifier.width(Space.s))
         Text(text, Modifier.weight(1f, fill = false).semantics { liveRegion = LiveRegionMode.Polite },
-            style = Bento.type.small, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            style = Bento.type.small, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -297,7 +308,7 @@ private fun Control(page: Page, running: Boolean, enabled: Boolean, onEnabled: (
         // Only meaningful once the service runs.
         running -> {
             val interaction = remember { MutableInteractionSource() }
-            Row(Modifier.height(Target.control).states(interaction, ground = false)
+            Row(Modifier.heightIn(min = Target.control).states(interaction, ground = false)
                 .toggleable(enabled, interaction, indication = null, role = Role.Switch, onValueChange = onEnabled),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.show_in_status_bar), style = Bento.type.small, color = Bento.colors.ink2, maxLines = 1)

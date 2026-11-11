@@ -47,6 +47,24 @@ class WindowLayoutTest {
         }
     }
 
+    @Test fun aLargerTextSizeCountsTheWindowsWidthInTextSizes() {
+        // At twice the text size a window of 1180 holds the words one of 590 does: one thing at a time, the header in two rows.
+        assertEquals(WindowLayout(WindowClass.NARROW, 0), windowLayout(1180, 2f))
+        assertEquals(WindowLayout(WindowClass.MID, 0), windowLayout(1180, 1.3f))
+        assertEquals(WindowLayout(WindowClass.MID, 0), windowLayout(1600, 2f))
+        // Where the panel still has its place beside the list it grows with its words.
+        assertEquals(WindowLayout(WindowClass.WIDE, 452), windowLayout(1500, 1.3f))
+        assertEquals(WindowLayout(WindowClass.WIDE, 696), windowLayout(2400, 2f))
+        assertEquals(WindowLayout(WindowClass.WIDE, 840), windowLayout(3000, 2f))
+    }
+
+    @Test fun theStandardTextSizeAndASmallerOneChangeNothing() {
+        for (w in listOf(700, 760, 1099, 1100, 1499, 1500)) {
+            assertEquals("at $w", windowLayout(w), windowLayout(w, 1f))
+            assertEquals("at $w", windowLayout(w), windowLayout(w, 0.85f))
+        }
+    }
+
     @Test fun theStatusLineSaysWhatTheBarIsDoing() {
         fun line(running: Boolean = true, enabled: Boolean = true, status: BarStatus = BarStatus.SHOWN) = statusLine(running, enabled, status)
         // Off: the one step left, which wins over everything the bar last said.

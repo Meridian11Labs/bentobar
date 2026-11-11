@@ -420,8 +420,8 @@ private fun Head(name: String, where: String, modifier: Modifier, rule: Boolean 
         Row(Modifier.fillMaxWidth().heightIn(min = if (plus) Target.control else 36.dp).padding(start = Space.xl, end = if (plus) Space.s else 14.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
-                Text(name, style = Bento.type.strong, color = c.ink, maxLines = 1)
-                Text(" · $where", style = Bento.type.help, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(name, style = Bento.type.strong, color = c.ink, maxLines = lines())
+                Text(" · $where", style = Bento.type.help, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
             }
             trailing()
         }
@@ -438,20 +438,20 @@ private fun AddArea(lanes: List<Position>, edit: BarEdit) {
     val interaction = remember { MutableInteractionSource() }
     var open by remember { mutableStateOf(false) }
     Box {
-        Row(Modifier.height(32.dp).states(interaction).background(if (open) c.sunk else Color.Transparent, ROW_SHAPE)
+        Row(Modifier.heightIn(min = 32.dp).states(interaction).background(if (open) c.sunk else Color.Transparent, ROW_SHAPE)
             .clickable(interaction, indication = null, role = Role.Button) { open = true }
             .padding(start = 10.dp, end = 6.dp).testTag("add-area"), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.areas_add), style = Bento.type.small.copy(fontWeight = FontWeight.Medium), color = c.ink2, maxLines = 1)
             Spacer(Modifier.width(Space.xs))
             SymIcon(Sym.EXPAND_MORE, size = 14.sp, color = c.ink2)
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.width(268.dp), containerColor = c.raised) {
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.width(268.dp.ofText()), containerColor = c.raised) {
             BAR_ORDER.filter { it !in lanes }.forEach { area ->
                 DropdownMenuItem(text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(areaRes(area)), style = Bento.type.label, color = c.ink, maxLines = 1)
+                        Text(stringResource(areaRes(area)), style = Bento.type.label, color = c.ink, maxLines = lines())
                         Spacer(Modifier.width(Space.s))
-                        Text(stringResource(whereRes(area)), style = Bento.type.help, color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(whereRes(area)), style = Bento.type.help, color = c.ink3, maxLines = lines(), overflow = TextOverflow.Ellipsis)
                     }
                 }, onClick = { open = false; edit.openArea(area) }, modifier = Modifier.testTag("add-area:$area"))
             }
@@ -497,10 +497,10 @@ private fun FoldSlip(area: Position, edit: BarEdit, modifier: Modifier) {
         runCatching { requester.requestFocus() }
         edit.focusFold = false
     }
-    Row(modifier.fillMaxWidth().padding(start = ROW_INSET, end = ROW_INSET, bottom = Space.xs).height(Target.row).background(c.sunk, ROW_SHAPE)
+    Row(modifier.fillMaxWidth().padding(start = ROW_INSET, end = ROW_INSET, bottom = Space.xs).heightIn(min = Target.row).background(c.sunk, ROW_SHAPE)
         .padding(start = 14.dp, end = Space.xs).testTag("fold"), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.areas_folded, stringResource(areaRes(area))), Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
-            style = Bento.type.small, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            style = Bento.type.small, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
         BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.focusRequester(requester).onFocusChanged { edit.slipFocused = it.hasFocus },
             kind = ButtonKind.TEXT)
     }
@@ -530,7 +530,7 @@ private fun PartLine(mode: HiddenMode, modifier: Modifier) {
     // The words take what they need and the hairline the rest, to the card's edge: weights would split the room instead.
     Layout({
         Text(title, style = Bento.type.help.copy(fontWeight = FontWeight.SemiBold), color = c.ink, maxLines = 1)
-        Text(help, style = Bento.type.help, color = c.ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(help, style = Bento.type.help, color = c.ink2, maxLines = lines(2), overflow = TextOverflow.Ellipsis)
         Box(Modifier.background(c.line))
     }, modifier.testTag("part-line").fillMaxWidth().padding(horizontal = Space.xl).clearAndSetSemantics { heading(); contentDescription = spoken }) { m, cs ->
         val gap = Space.s.roundToPx()
@@ -565,10 +565,10 @@ private fun DropOpening(id: String, reorder: Reorder, modifier: Modifier) {
 private fun SlipRow(slip: Slip, edit: BarEdit, modifier: Modifier) {
     val c = Bento.colors
     val res = LocalResources.current
-    Row(modifier.animatePlacement().fillMaxWidth().padding(horizontal = ROW_INSET).height(Target.row).background(c.sunk, ROW_SHAPE)
+    Row(modifier.animatePlacement().fillMaxWidth().padding(horizontal = ROW_INSET).heightIn(min = Target.row).background(c.sunk, ROW_SHAPE)
         .padding(start = Space.l, end = Space.xs).testTag("slip"), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.bar_removed, removedName(res, slip.item)), Modifier.weight(1f), style = Bento.type.small, color = c.ink2,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
+            maxLines = lines(), overflow = TextOverflow.Ellipsis)
         BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.onFocusChanged { edit.slipFocused = it.hasFocus }, kind = ButtonKind.TEXT)
     }
 }
@@ -679,18 +679,18 @@ private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, behi
         },
     ).joinToString(" · ")
     val warn = needs || behind != null || stale != null
-    Row(modifier.fillMaxWidth().then(if (stacked) Modifier.heightIn(min = Target.row) else Modifier.height(Target.row)).padding(start = 6.dp, end = Space.m), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().heightIn(min = Target.row).padding(start = 6.dp, end = Space.m), verticalAlignment = Alignment.CenterVertically) {
         grip()
         SymIcon(type?.icon ?: Sym.UPDATE, size = 18.sp, color = c.ink)
         Spacer(Modifier.width(10.dp))
         val name = itemName(res, item)
         // In a lane the words about fitting are long for the column: they take a second line, never an ellipsis.
-        val lines = if (behind != null && !needs) 2 else 1
-        if (stacked) Column(Modifier.weight(1f).padding(vertical = if (lines > 1) 6.dp else 0.dp)) {
-            Text(name, style = Bento.type.label, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (detail.isNotEmpty()) Detail(detail, warn, lines = lines)
+        val two = behind != null && !needs
+        if (stacked) Column(Modifier.weight(1f).padding(vertical = if (two) 6.dp else 0.dp)) {
+            Text(name, style = Bento.type.label, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
+            if (detail.isNotEmpty()) Detail(detail, warn, few = if (two) 2 else 1)
         } else {
-            Text(name, Modifier.width(188.dp), style = Bento.type.label, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(name, Modifier.width(188.dp.ofText()), style = Bento.type.label, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.width(10.dp))
             Detail(detail, warn, Modifier.weight(1f))
         }
@@ -701,11 +701,11 @@ private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, behi
 }
 
 @Composable
-private fun Detail(text: String, warn: Boolean, modifier: Modifier = Modifier, lines: Int = 1) {
+private fun Detail(text: String, warn: Boolean, modifier: Modifier = Modifier, few: Int = 1) {
     val c = Bento.colors
-    Row(modifier, verticalAlignment = if (lines > 1) Alignment.Top else Alignment.CenterVertically) {
+    Row(modifier, verticalAlignment = if (few > 1) Alignment.Top else Alignment.CenterVertically) {
         if (warn) { SymIcon(Sym.WARNING, size = 14.sp, color = c.warnInk); Spacer(Modifier.width(Space.xs)) }
-        Text(text, style = Bento.type.small.tabular, color = if (warn) c.warnInk else c.ink2, maxLines = lines, overflow = TextOverflow.Ellipsis)
+        Text(text, style = Bento.type.small.tabular, color = if (warn) c.warnInk else c.ink2, maxLines = lines(few), overflow = TextOverflow.Ellipsis)
     }
 }
 

@@ -550,7 +550,7 @@ private fun PanelSwitch(side: PanelSide, item: ItemConfig?, wide: Boolean, edit:
             PanelSide.ADD -> edit.toLibrary()
             PanelSide.OPTIONS -> edit.side = PanelSide.OPTIONS
         }
-    }, (if (LocalWindowLayout.current.kind == WindowClass.MID) Modifier.width(SWITCH_MID) else Modifier.fillMaxWidth()).testTag("panel-switch"), role = Role.Tab)
+    }, (if (LocalWindowLayout.current.kind == WindowClass.MID) Modifier.width(SWITCH_MID.ofText()) else Modifier.fillMaxWidth()).testTag("panel-switch"), role = Role.Tab)
 }
 
 /** The panel's card. The card stays; only what is in it travels, a short way, when the side changes. */
