@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- The accesses some items need (items/Accesses.kt): Setup's row for each, and the line with its button in an
-         item's options and popup. Each is given in Android's own settings, or its own dialog for the camera. -->
+<!-- The accesses some items need (items/Accesses.kt): Setup's row for each, and the line with its button in an item's
+     options and popup. Each is given in Android's own settings, or its own dialog for the camera. Every name here starts
+     with access_. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
     <string name="access_notices_label">BentoBar notification icons</string>
 
     <string name="access_camera_title">Camera</string>
