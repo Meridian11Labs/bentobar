@@ -148,6 +148,17 @@ fun BarConfig.removed(id: String): BarConfig {
     return if (clean.items.first { it.id == id }.carriesSetup(type)) clean.turnOff(id) else clean.without(id)
 }
 
+/**
+ * A remembered setup back in the bar (the + on its line in the library): in [area], the one in use and not the one it
+ * was stored with, at the place a new item lands ([Store.added]), under the line if it waited on its rule. Its options
+ * and how it is shown are untouched. Only an item in Off comes back.
+ */
+fun BarConfig.broughtBack(id: String, area: Position = homeArea()): BarConfig {
+    val item = items.firstOrNull { it.id == id && it.section == Section.OFF } ?: return this
+    val back = item.copy(section = if (item.whenActive) Section.HIDDEN else Section.SHOWN, area = area)
+    return copy(items = with(Store) { items.filterNot { it.id == id }.added(back) })
+}
+
 /** What a layout change changes: which items there are and in which order, each one's section, rule and area, and where an empty bar stands. */
 private fun BarConfig.arrangement(): Any = items.map { listOf(it.id, it.section, it.whenActive, it.area) } to position
 

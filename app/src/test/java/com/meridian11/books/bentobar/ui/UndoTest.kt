@@ -10,6 +10,7 @@ import com.meridian11.books.bentobar.data.hide
 import com.meridian11.books.bentobar.data.moved
 import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.show
+import com.meridian11.books.bentobar.data.without
 import com.meridian11.books.bentobar.data.fresh
 import com.meridian11.books.bentobar.items.Items
 import org.junit.Assert.assertEquals
@@ -81,6 +82,36 @@ class UndoTest {
         assertFalse(Undo.undo())
         assertEquals(now, Store.config.value)
         assertNull(Undo.last.value)
+    }
+
+    @Test fun anItemTheLibraryAddedIsNamedUntilTheNextChange() {
+        val before = Store.config.value
+        Store.update { it.copy(items = it.items + ItemConfig("d", "nope")) }
+        assertTrue(Undo.note(before, added = "d"))
+        assertEquals("d", Undo.last.value?.added)
+        assertNull(Undo.last.value?.removed)
+        assertEquals("d", Undo.added(Undo.last.value, Store.config.value)?.id)
+        // Its options changed since: it is still the added one. Arranged otherwise since, it is not.
+        Store.update { c -> c.copy(items = c.items.map { if (it.id == "d") it.with("k", "1") else it }) }
+        assertEquals("d", Undo.added(Undo.last.value, Store.config.value)?.id)
+        val kept = Undo.last.value
+        Store.update { it.hide("a") }
+        assertNull(Undo.added(kept, Store.config.value))
+        assertTrue(Undo.change { it.show("a") })
+        assertNull(Undo.last.value?.added)
+        assertNull(Undo.added(Undo.last.value, Store.config.value))
+    }
+
+    @Test fun aForgottenSetupIsKnownWhileItCanComeBack() {
+        val setUp = ItemConfig("s", "nope", Section.OFF, options = mapOf("k" to "1"))
+        Store.update { it.copy(items = it.items + setUp) }
+        assertNull("a removal forgets nothing", Undo.forgotten(Undo.Kept(layout, layout.removed("b")), layout.removed("b")))
+        assertTrue(Undo.change { it.without("s") })
+        assertEquals(setUp, Undo.forgotten(Undo.last.value, Store.config.value))
+        // Arranged otherwise since: there is nothing to offer.
+        Store.update { it.hide("a") }
+        assertNull(Undo.forgotten(Undo.last.value, Store.config.value))
+        assertNull(Undo.forgotten(null, Store.config.value))
     }
 
     @Test fun whatTheStoreDidItselfIsNotedAndTakenBack() {

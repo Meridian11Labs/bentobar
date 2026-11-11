@@ -90,6 +90,43 @@ class SetupTest {
         assertEquals(always.copy(section = Section.OFF), layout(always, clock).removed("media").at("media"))
     }
 
+    @Test fun aSetupComesBackWhereANewItemLandsInTheAreaInUseWithItsOptions() {
+        val tokyo = clock.with("zone", "Asia/Tokyo").copy(section = Section.OFF, area = Position.LEFT, display = Display.TEXT)
+        val c = layout(fresh("calendar"), cpu, tokyo)
+        val back = c.broughtBack("clock")
+        // Its options and its look as they were; the area is the one in use, not the one it was stored with.
+        assertEquals(tokyo.copy(section = Section.SHOWN, area = Position.RIGHT), back.at("clock"))
+        assertEquals(listOf("clock", "calendar", "cpu"), back.items.map { it.id })
+        // After Next meeting, which keeps the far left.
+        val meeting = fresh(Store.PINNED_LEFT, "e")
+        assertEquals(listOf("e", "clock", "cpu"), layout(meeting, cpu, tokyo).broughtBack("clock").items.map { it.id })
+        // An area the caller names.
+        assertEquals(Position.CENTER, c.broughtBack("clock", Position.CENTER).at("clock").area)
+    }
+
+    @Test fun aSetupThatWaitedOnItsRuleComesBackUnderTheLine() {
+        val waiting = cpu.copy(section = Section.OFF, whenActive = true)
+        val back = layout(clock, waiting, fresh("calendar")).broughtBack("cpu")
+        assertEquals(waiting.copy(section = Section.HIDDEN), back.at("cpu"))
+        assertEquals(Part.LOWER, back.partOf(back.at("cpu")))
+        assertEquals(listOf("clock", "calendar", "cpu"), back.items.map { it.id })
+        // A quiet type that was always in the bar comes back above it.
+        val always = media.copy(section = Section.OFF, whenActive = false)
+        assertEquals(Section.SHOWN, layout(clock, always).broughtBack("media").at("media").section)
+    }
+
+    @Test fun onlyARememberedSetupIsBroughtBackAndUndoPutsItAwayAgain() {
+        val tokyo = clock.with("zone", "Asia/Tokyo").copy(section = Section.OFF)
+        val c = layout(cpu, tokyo, fresh("calendar"))
+        assertSame(c, c.broughtBack("cpu"))
+        assertSame(c, c.broughtBack("nobody"))
+        val back = c.broughtBack("clock")
+        assertEquals(c, back.undone(c, back))
+        // Forget is the layout without it; Undo has it again, as it was and where it was.
+        val forgot = c.without("clock")
+        assertEquals(c, forgot.undone(c, forgot))
+    }
+
     @Test fun removingWhatIsNotInTheBarChangesNothing() {
         val c = layout(clock, cpu.copy(section = Section.OFF, display = Display.ICON))
         assertSame(c, c.removed("cpu"))
