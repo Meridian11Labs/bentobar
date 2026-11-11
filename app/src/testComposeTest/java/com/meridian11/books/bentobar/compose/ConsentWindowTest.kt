@@ -5,6 +5,7 @@ import android.app.Instrumentation
 import android.content.ContextWrapper
 import android.content.Intent
 import android.provider.Settings
+import android.view.KeyEvent
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -112,6 +113,20 @@ class ConsentWindowTest {
         assertEquals(Consent.NOT_ASKED, Store.consent.value)
         assertNull(opened())
         // Nothing says No thanks: there was none.
+        rule.onNode(hasTestTag("setup-turn-on")).assertExists()
+        rule.onNode(hasTestTag("declined")).assertDoesNotExist()
+    }
+
+    /** A platform's key map need not turn Escape into Back, so the window takes the key itself. */
+    @Test fun googlePlayWantsAProminentDisclosureWithConsent_escapeIsNoAnswer() {
+        window.onActivity {
+            it.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ESCAPE))
+            it.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ESCAPE))
+        }
+        rule.waitForIdle()
+        rule.onNode(hasTestTag("disclosure")).assertDoesNotExist()
+        assertEquals(Consent.NOT_ASKED, Store.consent.value)
+        assertNull(opened())
         rule.onNode(hasTestTag("setup-turn-on")).assertExists()
         rule.onNode(hasTestTag("declined")).assertDoesNotExist()
     }

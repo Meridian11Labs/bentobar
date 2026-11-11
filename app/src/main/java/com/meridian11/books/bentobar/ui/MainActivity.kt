@@ -145,8 +145,11 @@ class MainActivity : ComponentActivity() {
     }
 
     // A key no control took (nothing in the window has the focus): the Bar page's keys still act on the selected item.
-    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean =
-        (page == Page.BAR && BarKeys.handler?.invoke(event) == true) || super.onKeyDown(keyCode, event)
+    // Escape leaves the disclosure as Back does: a platform's key map need not turn the one into the other.
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean = when {
+        disclosure && keyCode == android.view.KeyEvent.KEYCODE_ESCAPE -> { disclosure = false; true }
+        else -> (page == Page.BAR && BarKeys.handler?.invoke(event) == true) || super.onKeyDown(keyCode, event)
+    }
 
     /**
      * The system's list of shortcuts: the Bar page's bindings themselves ([BarKeys.listed]), while that page is shown,
