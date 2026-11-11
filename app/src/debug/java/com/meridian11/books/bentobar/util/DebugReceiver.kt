@@ -106,14 +106,17 @@ class DebugReceiver : BroadcastReceiver() {
                 }
                 "net" -> { // how many requests went out, per host, and whether each service may be asked right now
                     if (args.getOrNull(1) == "reset") Http.resetCounts()
-                    Host.entries.joinToString(" ") { "${it.domain}=${Http.sent(it)}" } + " | " +
-                        Online.Service.entries.joinToString(" ") { s -> "${s.id}: on=${Online.on(s)} setUp=${Online.setUp(s)} mayAsk=${Http.allowed(s.hosts.first())}" }
+                    // Addresses the user typed are counted together, as "own": never an address or a host.
+                    Host.entries.joinToString(" ") { "${it.domain}=${Http.sent(it)}" } + " own=${Http.sentOwn()} | " +
+                        Online.Service.entries.joinToString(" ") { s ->
+                            "${s.id}: on=${Online.on(s)} setUp=${Online.setUp(s)} mayAsk=${if (s.hosts.isEmpty()) Http.ownAllowed() else Http.allowed(s.hosts.first())}"
+                        }
                 }
-                "online" -> { // online weather|flights|stocks|fx|crypto on|off (on only works once the item was set up here, as in Setup)
+                "online" -> { // online weather|flights|stocks|fx|crypto|own on|off (on only works once the item was set up here, as in Setup)
                     val s = when (args[1]) {
                         "weather" -> Online.Service.OPEN_METEO; "flights" -> Online.Service.AIRLABS; "stocks" -> Online.Service.FINNHUB; "fx" -> Online.Service.FRANKFURTER
-                        "crypto" -> Online.Service.KRAKEN
-                        else -> error("weather, flights, stocks, fx or crypto")
+                        "crypto" -> Online.Service.KRAKEN; "own" -> Online.Service.OWN
+                        else -> error("weather, flights, stocks, fx, crypto or own")
                     }
                     if (args.getOrNull(2) == "on") Online.turnOn(s) else Online.turnOff(s)
                     "${s.id} on=${Online.on(s)}"

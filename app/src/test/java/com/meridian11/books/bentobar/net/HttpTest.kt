@@ -1,5 +1,8 @@
 package com.meridian11.books.bentobar.net
 
+import com.meridian11.books.bentobar.data.ItemConfig
+import com.meridian11.books.bentobar.data.Online
+import com.meridian11.books.bentobar.data.Section
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -265,6 +268,118 @@ class HttpTest {
         fake.fail(Host.FINNHUB, "/api/v1/quote", Why.STATUS, 429, retryAfterSec = 30)
         Http.get(quote)
         assertFalse(Http.get(other).sent)
+    }
+
+    // ---- an address the user typed (Value from a URL) -----------------------------------------------
+
+    private val own = OwnAddress.parse("https://a.example:8443/x?token=abc")!!
+    private val ownAsked = ArrayList<OwnAddress>()
+    private fun ownAnswers(reply: () -> Reply) { Http.ownTransport = OwnTransport { ownAsked += it; reply() } }
+
+    @After fun ownBack() {
+        Http.ownTransport = HttpTransport()
+        Http.ownAllowed = { false }
+    }
+
+    /** Nothing of the address, its host or what came back is in [line]. */
+    private fun saysNothingOfIt(line: String) {
+        for (part in listOf("a.example", "8443", "token", "abc", "21.5", "https")) assertFalse("$line says $part", part in line)
+    }
+
+    @Test fun nothingIsAskedUntilYourOwnAddressesIsOn() {
+        // The rule the app wires (Env.wireOnline: Online.mayAsk), on a switch file of this test's own.
+        val dir = java.io.File(System.getProperty("java.io.tmpdir"), "bentobar-own-${System.nanoTime()}")
+        Online.init(dir)
+        try {
+            var running = true
+            var items = listOf(ItemConfig("w", "webvalue"))
+            Http.ownAllowed = { Online.mayAsk(Online.Service.OWN, running, items) { if (it == "webvalue") Online.Service.OWN else null } }
+            ownAnswers { Reply.Ok("21.5") }
+            fun refused(why: String) {
+                val r = Http.getOwn(own) as Reply.Failed
+                assertEquals(why, Why.OFF, r.why)
+                assertFalse(why, r.sent)
+            }
+            refused("off, as on a new install")
+            assertTrue(Online.turnOn(Online.Service.OWN))
+            items = listOf(ItemConfig("w", "webvalue", Section.OFF), ItemConfig("c", "crypto"))
+            refused("no such item outside Off")
+            items = listOf(ItemConfig("w", "webvalue"))
+            running = false
+            refused("nothing on screen")
+            running = true
+            Http.onMain = { true }
+            refused("the main thread")
+            Http.onMain = { false }
+            assertEquals(emptyList<OwnAddress>(), ownAsked)
+            assertEquals(0, Http.sentOwn())
+            // All of it holds: asked once, and counted.
+            assertTrue(Http.getOwn(own) is Reply.Ok)
+            assertEquals(listOf(own), ownAsked)
+            assertEquals(1, Http.sentOwn())
+            // Off stops it at once.
+            Online.turnOff(Online.Service.OWN)
+            refused("switched off again")
+            assertEquals(1, Http.sentOwn())
+            // Not one named host was counted for it.
+            for (host in Host.entries) assertEquals(0, Http.sent(host))
+        } finally {
+            dir.deleteRecursively()
+            Online.init(java.io.File(dir, "empty"))
+        }
+    }
+
+    @Test fun withoutANetworkNoOwnRequestIsTried() {
+        Http.ownAllowed = { true }
+        Http.connected = { false }
+        ownAnswers { Reply.Ok("21.5") }
+        val r = Http.getOwn(own) as Reply.Failed
+        assertEquals(Why.OFFLINE, r.why)
+        assertFalse(r.sent)
+        assertEquals(0, Http.sentOwn())
+        assertEquals(emptyList<OwnAddress>(), ownAsked)
+    }
+
+    @Test fun anOwnRequestIsLoggedAsOwn() {
+        Http.ownAllowed = { true }
+        ownAnswers { Reply.Ok("21.5") }
+        Http.getOwn(own)
+        ownAnswers { Reply.Failed(Why.STATUS, 302) }
+        Http.getOwn(own)
+        Http.onMain = { true }
+        Http.getOwn(own)
+        assertEquals(listOf("GET own -> ok", "GET own -> STATUS 302", "GET own refused: the main thread"), logged)
+        for (line in logged) saysNothingOfIt(line)
+    }
+
+    @Test fun whatAnOwnRequestThrewIsNeverLoggedOrRethrown() {
+        Http.ownAllowed = { true }
+        ownAnswers { throw IllegalStateException("https://a.example:8443/x?token=abc said 21.5") }
+        val reply = Http.getOwn(own)
+        assertTrue(reply is Reply.Failed && reply.why == Why.UNREADABLE)
+        saysNothingOfIt(reply.toString())
+        for (line in logged) saysNothingOfIt(line)
+        assertEquals(1, Http.sentOwn())
+    }
+
+    @Test fun anOwnAddressThatAsksToWaitHoldsTheOwnAddressesAndNoNamedService() {
+        clocked()
+        Http.ownAllowed = { true }
+        ownAnswers { Reply.Failed(Why.STATUS, 429, retryAfterSec = 30) }
+        Http.getOwn(own)
+        val held = Http.getOwn(own) as Reply.Failed
+        assertFalse(held.sent)
+        assertEquals(429, held.status)
+        assertEquals(1, ownAsked.size)
+        assertEquals("GET own held: the service asked to wait", logged.last())
+        // A named host is not held by it, and no named host's hold holds it.
+        Http.get(forecast)
+        assertEquals(1, fake.asked.size)
+        now += 31_000
+        fake.fail(Host.OPEN_METEO, "/v1/forecast", Why.STATUS, 429, retryAfterSec = 60)
+        Http.get(forecast)
+        ownAnswers { Reply.Ok("21.5") }
+        assertTrue(Http.getOwn(own) is Reply.Ok)
     }
 
     // ---- a sign-in Wi-Fi ---------------------------------------------------------------------------

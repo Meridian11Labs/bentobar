@@ -172,9 +172,44 @@ class OnlineTest {
     }
 
     @Test fun theServicesAreTheseAndNoOthers() {
-        assertEquals(listOf("openMeteo", "airLabs", "finnhub", "frankfurter", "kraken"), Online.Service.entries.map { it.id })
+        assertEquals(listOf("openMeteo", "airLabs", "finnhub", "frankfurter", "kraken", "own"), Online.Service.entries.map { it.id })
         assertEquals(setOf(Online.Service.AIRLABS, Online.Service.FINNHUB), Online.Service.entries.filter { it.needsKey }.toSet())
         assertEquals(setOf(com.meridian11.books.bentobar.net.Host.KRAKEN), Online.Service.KRAKEN.hosts)
+        // Your own addresses stands for no named host: what it asks is an address the user typed.
+        assertEquals(emptySet<com.meridian11.books.bentobar.net.Host>(), Online.Service.OWN.hosts)
+    }
+
+    @Test fun yourOwnAddressesIsOffUntilItIsTurnedOnOnThisInstall() {
+        assertFalse(Online.on(Online.Service.OWN)); assertFalse(Online.setUp(Online.Service.OWN))
+        // Setup's switch is greyed until it was set up here: the item's own Turn on is what does that.
+        assertTrue(Online.turnOn(Online.Service.OWN))
+        assertTrue(Online.on(Online.Service.OWN)); assertTrue(Online.setUp(Online.Service.OWN))
+        restart()
+        assertTrue(Online.on(Online.Service.OWN))
+        Online.turnOff(Online.Service.OWN)
+        assertEquals(listOf(Online.Service.OWN), told)
+        restart()
+        assertFalse(Online.on(Online.Service.OWN)); assertTrue(Online.setUp(Online.Service.OWN))
+        // Another install's file, restored or copied, is not this one's: a fresh directory has it off.
+        Online.init(File(dir, "elsewhere"))
+        assertFalse(Online.on(Online.Service.OWN)); assertFalse(Online.setUp(Online.Service.OWN))
+    }
+
+    @Test fun aServiceIsAskedOnlyWhileItIsOnSomethingIsOnScreenAndItsItemIsOutsideOff() {
+        val asks: (String) -> Online.Service? = { mapOf("webvalue" to Online.Service.OWN, "crypto" to Online.Service.KRAKEN)[it] }
+        val both = listOf(ItemConfig("w", "webvalue"), ItemConfig("k", "crypto"))
+        for (s in listOf(Online.Service.OWN, Online.Service.KRAKEN)) {
+            assertFalse("$s off", Online.mayAsk(s, true, both, asks))
+            Online.turnOn(s)
+            assertTrue("$s on", Online.mayAsk(s, true, both, asks))
+            assertFalse("$s with nothing on screen", Online.mayAsk(s, false, both, asks))
+            assertFalse("$s with its item in Off", Online.mayAsk(s, true, both.map { it.copy(section = Section.OFF) }, asks))
+            // Hidden is outside Off: it may still have something to say.
+            assertTrue("$s with its item hidden", Online.mayAsk(s, true, both.map { it.copy(section = Section.HIDDEN) }, asks))
+        }
+        // One service's item opens no other: an address of the user's own is not a reason to ask Kraken, nor the other way round.
+        assertFalse(Online.mayAsk(Online.Service.OWN, true, listOf(ItemConfig("k", "crypto")), asks))
+        assertFalse(Online.mayAsk(Online.Service.KRAKEN, true, listOf(ItemConfig("w", "webvalue")), asks))
     }
 
     @Test fun eachHostBelongsToOneService() {

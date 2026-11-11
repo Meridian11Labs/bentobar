@@ -1,12 +1,14 @@
 package com.meridian11.books.bentobar.net
 
 import com.meridian11.books.bentobar.data.Online
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicIntegerArray
 import java.util.concurrent.atomic.AtomicLongArray
 
 /**
- * The only hosts BentoBar may ask. A request names one of these; there is no way to name another,
- * and no call anywhere that takes an address. Adding a host means adding it here, where it shows.
+ * The only hosts BentoBar may ask by name. A request names one of these; there is no way to name another.
+ * One call takes an address instead, [Http.getOwn], for an address the user typed (Value from a URL), and only as
+ * narrow a one as [OwnAddress] lets through. Adding a host means adding it here, where it shows.
  */
 enum class Host(val domain: String, /** The query name this host takes the user's own key under ([Http.key]); null: it takes none. */ val keyName: String? = null) {
     /** Weather forecasts (Open-Meteo). */
@@ -85,7 +87,8 @@ fun interface Transport {
  * that uses it is outside Off, and something that shows items is on screen. Until the app has wired
  * it, nothing is allowed. HTTPS only, to the [Host]s; the user agent is [USER_AGENT]; no
  * cookies, no identifiers, no redirects. Nothing of a request but its host and path is ever logged,
- * and nothing at all of a reply.
+ * and nothing at all of a reply. An address the user typed ([getOwn]) has the same gate as its own
+ * ([ownAllowed]) and is logged as "own", never the address or its host.
  */
 object Http {
     const val USER_AGENT = "BentoBar"
@@ -116,6 +119,15 @@ object Http {
     @Volatile var clock: () -> Long = { System.nanoTime() / 1_000_000 }
 
     /**
+     * Whether an address the user typed may be asked right now: "Your own addresses" ([Online.Service.OWN]) is switched on
+     * for this install, an item that asks one is outside Off, and something that shows items is on screen. Closed until
+     * the app wires it.
+     */
+    @Volatile var ownAllowed: () -> Boolean = { false }
+    /** What carries an address the user typed: net's own, as [transport] is. Only tests put a fake here. */
+    @Volatile internal var ownTransport: OwnTransport = HttpTransport()
+
+    /**
      * A 429 that names no time: long enough that the rest of one pass (ten stocks, in seconds) isn't sent. It does change
      * what a request held by it comes to (a held reply reads as a 429, so an item is told to slow down and waits its
      * service's slow-down pace), which is why it is short; a press of Try again is the soonest asked again (ten seconds).
@@ -123,6 +135,8 @@ object Http {
     private const val SLOW_DOWN_SEC = 10L
 
     private val counts = AtomicIntegerArray(Host.entries.size)
+    /** Requests to addresses the user typed: one count for all of them, which says nothing of where they went. */
+    private val ownCount = AtomicInteger()
     /** Per service, the moment by [clock] before which nothing is sent to it: set from a 429 or a Retry-After. 0: none. */
     private val notBefore = AtomicLongArray(Online.Service.entries.size)
     /** Per service, the status of the reply that set [notBefore], so that a held request answers with it and not with a 429 it was never given. */
@@ -141,13 +155,7 @@ object Http {
         // Before anything is counted as sent: the counter must not say requests left when the transport would refuse them.
         if (HttpTransport.address(request) == null) { log("GET $request refused: not a plain path"); return Reply.Failed(Why.REFUSED, sent = false) }
         val service = Online.serviceOf(request.host).ordinal
-        val wait = notBefore.get(service) - clock()
-        if (wait > 0) {
-            // One reply speaks for the whole service: Finnhub says 429 about one symbol, and the other nine are not sent in the same pass.
-            // A held request answers with the status that started the hold: a 503's hold is no answer, not a call to slow down.
-            log("GET $request held: the service asked to wait")
-            return Reply.Failed(Why.STATUS, holdStatus.get(service), retryAfterSec = (wait + 999) / 1000, sent = false)
-        }
+        held(service, request.toString())?.let { return it }
         counts.incrementAndGet(request.host.ordinal)
         val reply = try {
             transport.get(request)
@@ -158,6 +166,44 @@ object Http {
         log("GET $request -> $reply")
         if (reply is Reply.Failed) noteWait(service, reply)
         return reply
+    }
+
+    /**
+     * Asks an address the user typed (Value from a URL) and waits for the answer, in [get]'s order and under its rules:
+     * never on the main thread, only while [ownAllowed] says so, not without a network, not while a reply asked to wait.
+     * A redirect is an answer, never followed; a reply over [OWN_MAX_BYTES] is refused. What it logs is "own" and what
+     * came of it: never the address, its host or the reply, which are the user's own (the address may hold a token).
+     * Call it from a background load only; `items/WebValueLoad.kt` is its one caller.
+     */
+    fun getOwn(address: OwnAddress): Reply {
+        if (onMain()) { log("GET $address refused: the main thread"); return Reply.Failed(Why.OFF, sent = false) }
+        if (!ownAllowed()) return Reply.Failed(Why.OFF, sent = false)
+        if (!connected()) return Reply.Failed(Why.OFFLINE, sent = false)
+        val service = Online.Service.OWN.ordinal
+        held(service, address.toString())?.let { return it }
+        ownCount.incrementAndGet()
+        val reply = try {
+            ownTransport.get(address)
+        } catch (t: Throwable) {
+            // A transport must not throw; if one does, its message stays here (it may hold the address).
+            Reply.Failed(Why.UNREADABLE)
+        }
+        log("GET $address -> $reply")
+        if (reply is Reply.Failed) noteWait(service, reply)
+        return reply
+    }
+
+    /**
+     * The answer for a request to [service] while that service asked to be left alone, or null: none is under way. One reply
+     * speaks for the whole service: Finnhub says 429 about one symbol, and the other nine are not sent in the same pass. A
+     * held request answers with the status that started the hold: a 503's hold is no answer, not a call to slow down.
+     * [what] is how the log names the request.
+     */
+    private fun held(service: Int, what: String): Reply.Failed? {
+        val wait = notBefore.get(service) - clock()
+        if (wait <= 0) return null
+        log("GET $what held: the service asked to wait")
+        return Reply.Failed(Why.STATUS, holdStatus.get(service), retryAfterSec = (wait + 999) / 1000, sent = false)
     }
 
     /** What a service asked for, kept for every request to it: at [Reply.Failed.retryAfterSec], or for a 429 that names none, [SLOW_DOWN_SEC]. */
@@ -182,8 +228,12 @@ object Http {
     /** How many requests really went out to [host] since the app started (or [resetCounts]): for the debug hook and for tests. */
     fun sent(host: Host): Int = counts.get(host.ordinal)
 
+    /** How many requests went out to addresses the user typed, all of them together, since the app started (or [resetCounts]). */
+    fun sentOwn(): Int = ownCount.get()
+
     fun resetCounts() {
         for (i in 0 until counts.length()) counts.set(i, 0)
+        ownCount.set(0)
         // And the waits: `net reset` starts over, and no test inherits another's 429.
         for (i in 0 until notBefore.length()) { notBefore.set(i, 0); holdStatus.set(i, 0) }
     }
