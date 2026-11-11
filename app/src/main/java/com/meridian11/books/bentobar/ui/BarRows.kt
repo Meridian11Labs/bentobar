@@ -42,7 +42,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -403,18 +403,24 @@ private fun AutoScroll(reorder: Reorder, scroll: ScrollState) {
     val maxStep = with(density) { 14.dp.toPx() }
     LaunchedEffect(reorder.dragging) {
         if (reorder.dragging == null) return@LaunchedEffect
-        // Frames run while the list scrolls and for as long as the rows take to make room, then rest until the pointer,
-        // the target or the list (a wheel) moves again: a row held still costs nothing.
-        snapshotFlow { reorder.stirred to scroll.value }.collectLatest {
+        // One loop for the whole drag. Frames run while the list scrolls and for as long as the rows take to make room,
+        // then rest until the pointer, the target or the list (a wheel) moves again: a row held still costs nothing.
+        // Its own scrolling is no reason to start anew: a loop that each step started again scrolled at every other frame.
+        while (true) {
+            var seen = reorder.stirred to scroll.value
             var rested = 0L
             var last = withFrameNanos { it }
             while (rested < SETTLED_NS) {
                 val now = withFrameNanos { it }
                 val v = reorder.edgeSpeed(edge, maxStep)
-                rested = if (v != 0f && scroll.scrollBy(v) != 0f) 0L else rested + (now - last)
-                last = now
+                if (v != 0f) scroll.scrollBy(v)
                 reorder.sync()
+                val at = reorder.stirred to scroll.value
+                rested = if (at != seen) 0L else rested + (now - last)
+                seen = at
+                last = now
             }
+            snapshotFlow { reorder.stirred to scroll.value }.first { it != seen }
         }
     }
 }

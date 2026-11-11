@@ -139,6 +139,27 @@ class DragTest {
         assertEquals(listOf("a", "b", "c"), order())
     }
 
+    @Test fun aRowHeldAtTheListsLowerEdgeScrollsTheListAtEveryFrame() {
+        val many = Items.all.take(24).mapIndexed { i, type -> item("i$i", type.type) }
+        page(null, *many.toTypedArray())
+        val list = at("bar-list") // the part of it on screen
+        hold(grip("i3"), list.center)
+        fun top() = tag("row:i1").fetchSemanticsNode().positionInRoot.y
+
+        rule.mainClock.autoAdvance = false
+        rule.onRoot().performMouseInput { moveTo(Offset(list.center.x, list.bottom - 4f)) }
+        // The loop rested while the row was held still: it is told of the move, and takes a few frames to be scrolling again.
+        top()
+        repeat(6) { rule.mainClock.advanceTimeByFrame() }
+        var moved = 0
+        var last = top()
+        repeat(10) { rule.mainClock.advanceTimeByFrame(); val y = top(); if (y != last) moved++; last = y }
+        assertEquals("the list moves at every frame while the pointer is at its edge", 10, moved)
+
+        rule.mainClock.autoAdvance = true
+        letGo()
+    }
+
     @Test fun aRemovedRowsSlipStaysWhereItIsWhileAnotherRowIsCarried() {
         page(null, *three)
         drag(at("row:a").center, at("library").center)
