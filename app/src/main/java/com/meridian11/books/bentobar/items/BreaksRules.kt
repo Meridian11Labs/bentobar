@@ -18,7 +18,7 @@ object BreaksRules {
     class Words(
         val minutes: (Long) -> String = { "$it min" },
         val hoursMinutes: (Long, Long) -> String = { h, m -> String.format(Locale.ROOT, "%d h %02d", h, m) },
-        val due: String = "Break",
+        val due: () -> String = { "Break" },
     )
 
     /**
@@ -41,9 +41,12 @@ object BreaksRules {
     fun tookOne(now: Long): Watch = Watch(0L, 0L, now)
 
     /** The time until the next break, rounded up ("12 min", "1 h 20"), or "Break" when one is due. */
-    fun text(w: Watch, everyMs: Long, words: Words = Words()): String {
-        if (due(w, everyMs)) return words.due
-        val minutes = (everyMs - w.workedMs + 59_999) / 60_000
+    fun text(w: Watch, everyMs: Long, words: Words = Words()): String =
+        if (due(w, everyMs)) words.due() else length(everyMs - w.workedMs, words, up = true)
+
+    /** [ms] as "12 min" or "1 h 20": to the minute, rounded down, or [up] (a time still to come, which never reads 0 before it is). */
+    fun length(ms: Long, words: Words = Words(), up: Boolean = false): String {
+        val minutes = (ms.coerceAtLeast(0) + if (up) 59_999 else 0) / 60_000
         return if (minutes < 60) words.minutes(minutes) else words.hoursMinutes(minutes / 60, minutes % 60)
     }
 }

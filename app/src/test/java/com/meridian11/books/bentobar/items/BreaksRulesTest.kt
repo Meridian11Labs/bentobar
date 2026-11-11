@@ -86,6 +86,27 @@ class BreaksRulesTest {
         assertEquals(Watch(0L, 0L, t0), first)
     }
 
+    @Test fun theItemCountsWhatTheScreenSaysAtEachSample() {
+        // The seam: the ticker's sample feeds the rule with whether the screen is on, and a break as long as the item's.
+        val before = BreaksItem.interactive
+        try {
+            BreaksItem.watch = Watch()
+            var on = true
+            BreaksItem.interactive = { on }
+            var t = t0
+            repeat(10 * 60) { t += sec; BreaksItem.sample(t) }
+            assertEquals("the first sample only starts it", 10 * min - sec, BreaksItem.watch.workedMs)
+            on = false
+            repeat(4 * 60) { t += sec; BreaksItem.sample(t) }
+            assertEquals("four minutes off are not yet a break", 10 * min - sec, BreaksItem.watch.workedMs)
+            repeat(60) { t += sec; BreaksItem.sample(t) }
+            assertEquals("five are", 0L, BreaksItem.watch.workedMs)
+        } finally {
+            BreaksItem.interactive = before
+            BreaksItem.watch = Watch()
+        }
+    }
+
     @Test fun theTimeToTheNextIsInMinutesThenHours() {
         assertEquals("38 min", BreaksRules.text(Watch(12 * min, 0, t0), every))
         assertEquals("rounded up: a part of a minute is a minute", "39 min", BreaksRules.text(Watch(12 * min - 30 * sec, 0, t0), every))
