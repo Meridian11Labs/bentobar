@@ -5,6 +5,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.mimeTypes
+import androidx.compose.ui.draganddrop.toAndroidDragEvent
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -652,6 +657,7 @@ private fun ItemView(entry: StripEntry, look: StripLook, events: StripEvents, gl
                 if (com.meridian11.books.bentobar.items.Items.of(entry.item.type)?.usesWheel == true) { steps -> events.scroll(entry.item, steps) } else null,
                 onDrag = if (!events.draggable) null else { localX, downX, done -> drag.move(localX, downX, done) { dx -> events.drag(entry.item, dx, done) } },
                 onDragTakenAway = { if (drag.lifted) { drag.drop(); events.dragTakenAway(entry.item) } })
+            .dropsOn(entry.item, glow)
             // Neighbors slide to their new places like magnets; the lifted item follows the pointer instead.
             .then(if (drag.moving) Modifier else Modifier.animatePlacement())
             // Where it is drawn, sliding included, for the strip's highlight, which sits on the item wherever it goes.
@@ -994,6 +1000,30 @@ private fun Modifier.clicks(onClick: () -> Unit, onContext: () -> Unit, onScroll
             // Cut short (the item left the strip mid-drag): a drag in progress must not stay behind.
             act(gesture.cancel(), gesture.downX)
         }
+    }
+}
+
+/**
+ * Text or links dragged onto [item] from another app go to its type's `onDrop`, behind the guard, where its type
+ * `takesDrops` (the Shelf); while such a drag is over it, the strip's highlight stays on it. Any other item gets no target.
+ */
+private fun Modifier.dropsOn(item: ItemConfig, glow: Glow): Modifier {
+    val type = com.meridian11.books.bentobar.items.Items.of(item.type)?.takeIf { it.takesDrops } ?: return this
+    return composed {
+        val current by rememberUpdatedState(item)
+        val target = remember(type, glow) {
+            object : DragAndDropTarget {
+                override fun onEntered(event: DragAndDropEvent) = glow.pin(current.id, true)
+                override fun onExited(event: DragAndDropEvent) = glow.pin(current.id, false)
+                override fun onEnded(event: DragAndDropEvent) = glow.pin(current.id, false)
+                override fun onDrop(event: DragAndDropEvent): Boolean {
+                    glow.pin(current.id, false)
+                    val clip = event.toAndroidDragEvent().clipData ?: return false
+                    return com.meridian11.books.bentobar.items.Ticker.guarded(type, "onDrop") { type.onDrop(current, clip) } == true
+                }
+            }
+        }
+        dragAndDropTarget(shouldStartDragAndDrop = { e -> e.mimeTypes().any { android.content.ClipDescription.compareMimeTypes(it, "text/*") } }, target = target)
     }
 }
 
