@@ -50,6 +50,7 @@ import com.meridian11.books.bentobar.items.Chips
 import com.meridian11.books.bentobar.items.DisplaysItem
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.Items
+import com.meridian11.books.bentobar.items.Settle
 import com.meridian11.books.bentobar.items.Ticker
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -103,6 +104,9 @@ class BarService : AccessibilityService() {
     private fun shutdown() {
         val stopping = bar
         bar = null // first: whatever stop() does, it runs once per controller
+        // While the controller is still there, once for it: what a type holds beyond the bar (a mute, an endless Focus) ends
+        // with the service. A rebind ends it too: it can't be told from an ending.
+        if (stopping != null) for (t in Items.all) Ticker.guarded(t, "settle") { t.settle(Settle.SERVICE_ENDING) }
         stopping?.stop()
         if (current === this) current = null
         Chips.update(this)
@@ -308,6 +312,9 @@ class BarController(private val service: AccessibilityService) {
         awake.start()
         scan()
         main.postDelayed(poll, 2_000)
+        // Last: what a type left behind when the service last ended, or the process with it (a mute of its own with no such
+        // item placed any more, a Focus session past its end), it gives back now.
+        for (t in Items.all) Ticker.guarded(t, "settle") { t.settle(Settle.SERVICE_STARTED) }
     }
 
     fun stop() {
