@@ -1,0 +1,84 @@
+package com.meridian11.books.bentobar.ui
+
+import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.ItemConfig
+import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.data.Section
+import com.meridian11.books.bentobar.data.landedIn
+import com.meridian11.books.bentobar.data.removed
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+/** Which areas the settings window has on screen, where a key leads from one, and when one closes. */
+class LanesTest {
+    private val left = Position.LEFT
+    private val middle = Position.CENTER
+    private val right = Position.RIGHT
+    private fun item(id: String, area: Position, section: Section = Section.SHOWN) = ItemConfig(id, "cpu", section, area = area)
+    private fun layout(vararg items: ItemConfig) = BarConfig(items = items.toList(), position = Position.RIGHT)
+
+    @Test fun theLanesOnScreenAreTheAreasWithRowsAndTheOnesOpenedInBarOrder() {
+        val one = layout(item("a", right), item("o", left, Section.OFF))
+        assertEquals("an item that is not in the bar opens nothing", listOf(right), lanesOnScreen(one, emptySet()))
+        assertEquals(listOf(left, right), lanesOnScreen(one, setOf(left)))
+        assertEquals(listOf(left, middle, right), lanesOnScreen(one, setOf(middle, left)))
+        assertEquals(listOf(left, right), lanesOnScreen(layout(item("a", right), item("b", left, Section.HIDDEN)), emptySet()))
+        assertEquals("an opened area that has rows is counted once", listOf(left, right), lanesOnScreen(layout(item("a", right), item("b", left)), setOf(left)))
+        // With nothing in the bar the list is where a new item goes, and an opened area stands beside it.
+        assertEquals(listOf(right), lanesOnScreen(layout(), emptySet()))
+        assertEquals(listOf(middle, right), lanesOnScreen(layout(), setOf(middle)))
+    }
+
+    @Test fun aKeyLeadsToTheNextLaneOnThatSideAndNowhereAtTheEnd() {
+        val all = listOf(left, middle, right)
+        assertEquals(middle, laneBeside(all, left, right = true))
+        assertEquals(right, laneBeside(all, middle, right = true))
+        assertNull(laneBeside(all, right, right = true))
+        assertEquals(middle, laneBeside(all, right, right = false))
+        assertNull(laneBeside(all, left, right = false))
+        // An area with no lane is passed over: it is reached with Area or with Add an area.
+        assertEquals(right, laneBeside(listOf(left, right), left, right = true))
+        assertEquals(left, laneBeside(listOf(left, right), right, right = false))
+        assertNull("one lane leads nowhere", laneBeside(listOf(right), right, right = false))
+        assertNull(laneBeside(listOf(left, right), middle, right = true))
+    }
+
+    @Test fun anEmptyLaneSaysTheKeyThatReachesItFromWhereTheItemsAre() {
+        assertEquals("Left is reached going left", false, leadsRight(listOf(left, right), left))
+        assertEquals(true, leadsRight(listOf(left, right), right))
+        assertEquals("the Middle from Right", false, leadsRight(listOf(middle, right), middle))
+        assertEquals("the Middle from Left", true, leadsRight(listOf(left, middle), middle))
+        assertEquals("between two, from the side the bar fills first", false, leadsRight(listOf(left, middle, right), middle))
+    }
+
+    @Test fun aLaneClosesWhenItsLastItemMovesAwayOrIsRemovedAndOnlyThen() {
+        val two = layout(item("l", left), item("r1", right), item("r2", right))
+        fun kept(after: BarConfig, removed: String? = null) = Undo.Kept(two, after, removed)
+        val moved = two.landedIn("l", right)
+        assertEquals(left, foldOf(kept(moved), moved, several = true))
+        assertEquals("l", movedBy(kept(moved)))
+        val gone = two.removed("l")
+        assertEquals(left, foldOf(kept(gone, "l"), gone, several = true))
+        assertNull("a removed item moved nowhere", movedBy(kept(gone, "l")))
+        // An item that leaves a lane with others in it closes nothing.
+        val still = two.landedIn("r1", left)
+        assertNull(foldOf(kept(still), still, several = true))
+        assertNull(foldOf(null, two, several = true))
+        // Arranged otherwise since: the change can no longer be taken back, and nothing is said about it.
+        assertNull(foldOf(kept(moved), moved.landedIn("r1", middle), several = true))
+    }
+
+    @Test fun withOneLaneOnScreenNothingClosesAndAnOpenedLaneCountsAsOne() {
+        // The bar's last row keeps its place with Undo in it: the list is not a lane that closed.
+        val one = layout(item("a", right))
+        val gone = one.removed("a")
+        assertNull(foldOf(Undo.Kept(one, gone, "a"), gone, several = false))
+        assertNull("nor beside an opened lane: nothing is left in the bar", foldOf(Undo.Kept(one, gone, "a"), gone, several = true))
+        // An item that takes its area with it to another closes none: there was one lane and there is one.
+        val over = one.landedIn("a", left)
+        assertNull(foldOf(Undo.Kept(one, over), over, several = false))
+        // Into a lane that was opened and still empty, the one it left closes.
+        assertEquals(right, foldOf(Undo.Kept(one, over), over, several = true))
+    }
+}

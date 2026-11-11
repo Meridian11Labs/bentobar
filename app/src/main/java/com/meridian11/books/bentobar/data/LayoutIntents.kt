@@ -30,6 +30,30 @@ fun BarConfig.turnOff(id: String): BarConfig = putIn(id, Section.OFF)
 fun BarConfig.putInArea(id: String, area: Position): BarConfig =
     if (items.none { it.id == id && it.area != area }) this else copy(items = items.map { if (it.id == id) it.copy(area = area) else it })
 
+/** The areas in the order they stand in the bar, which is the order of the settings window's lanes. */
+val BAR_ORDER = listOf(Position.LEFT, Position.CENTER, Position.RIGHT)
+
+/**
+ * Into [area] by a click or a key (Area in the options, Alt with an arrow): the item keeps its part and its section, and
+ * lands where it came in from. Moving right it is the first of its part there, moving left the last, so a row that
+ * crosses to the lane beside it stands next to where it stood. Next meeting takes the area and is drawn first there as
+ * everywhere; an item that is not in the bar only takes the area.
+ */
+fun BarConfig.landedIn(id: String, area: Position): BarConfig {
+    val item = items.firstOrNull { it.id == id } ?: return this
+    if (item.area == area) return this
+    val there = putInArea(id, area)
+    val part = partOf(item) ?: return there
+    if (item.type == Store.PINNED_LEFT) return there
+    val others = there.parts(area)[part].filter { it.id != id && it.type != Store.PINNED_LEFT }
+    if (others.isEmpty()) return there
+    val moved = there.items.first { it.id == id }
+    val rest = there.items.filterNot { it.id == id }
+    val right = BAR_ORDER.indexOf(area) > BAR_ORDER.indexOf(item.area)
+    val before = if (right) rest.indexOfFirst { it.id == others.first().id } else rest.indexOfFirst { it.id == others.last().id } + 1
+    return there.copy(items = rest.toMutableList().apply { add(before, moved) })
+}
+
 /**
  * Every item into [area], Off ones too, so the layout is a one-area layout again and what comes back from Off joins the rest.
  * A layout with no items has no area to change: there the place is kept in [BarConfig.position], which says where the

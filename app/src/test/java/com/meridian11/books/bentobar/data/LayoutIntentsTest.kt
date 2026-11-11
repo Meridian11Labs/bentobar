@@ -273,6 +273,52 @@ class LayoutIntentsTest {
         assertEquals(Step.End, shown.stepped("a", down = false))
     }
 
+    // ---- An area by a click or a key ----
+
+    private fun inArea(id: String, area: Position, section: Section = Section.SHOWN, rule: Boolean = false, type: String = "cpu") =
+        ItemConfig(id, type, section, whenActive = rule, area = area)
+    private fun BarConfig.rows(area: Position, part: Part) = parts(area)[part].map { it.id }
+
+    @Test fun movingRightAnItemLandsFirstInItsPartThereAndMovingLeftLast() {
+        val c = BarConfig(items = listOf(inArea("l1", Position.LEFT), inArea("l2", Position.LEFT), inArea("m1", Position.CENTER), inArea("m2", Position.CENTER),
+            inArea("r1", Position.RIGHT), inArea("r2", Position.RIGHT)))
+        assertEquals("from Left into Middle: at the top", listOf("l2", "m1", "m2"), c.landedIn("l2", Position.CENTER).rows(Position.CENTER, Part.UPPER))
+        assertEquals("from Right into Middle: at the bottom", listOf("m1", "m2", "r1"), c.landedIn("r1", Position.CENTER).rows(Position.CENTER, Part.UPPER))
+        assertEquals("past the Middle too", listOf("l1", "r1", "r2"), c.landedIn("l1", Position.RIGHT).rows(Position.RIGHT, Part.UPPER))
+        assertEquals(listOf("l1", "l2", "r2"), c.landedIn("r2", Position.LEFT).rows(Position.LEFT, Part.UPPER))
+        assertEquals("the lane it left keeps its order", listOf("r2"), c.landedIn("r1", Position.CENTER).rows(Position.RIGHT, Part.UPPER))
+    }
+
+    @Test fun anItemKeepsItsPartAndItsSectionWhenItChangesArea() {
+        val waits = inArea("w", Position.RIGHT, Section.HIDDEN, rule = true)
+        val quiet = inArea("q", Position.RIGHT, Section.HIDDEN)
+        val c = BarConfig(items = listOf(inArea("l", Position.LEFT), inArea("lw", Position.LEFT, Section.HIDDEN, rule = true), inArea("r", Position.RIGHT), waits, quiet))
+        val moved = c.landedIn("w", Position.LEFT)
+        assertEquals("under the line there, after what waits there", listOf("lw", "w"), moved.rows(Position.LEFT, Part.LOWER))
+        assertEquals(waits.copy(area = Position.LEFT), moved.at("w"))
+        // A Hidden item without a rule is listed above in the default mode, and a change of area does not make it Shown.
+        val above = c.landedIn("q", Position.LEFT)
+        assertEquals(listOf("l", "q"), above.rows(Position.LEFT, Part.UPPER))
+        assertEquals(quiet.copy(area = Position.LEFT), above.at("q"))
+    }
+
+    @Test fun intoAnAreaWithNothingInThatPartOnlyTheAreaChangesAndTheSameAreaChangesNothing() {
+        val c = BarConfig(items = listOf(inArea("a", Position.RIGHT), inArea("b", Position.RIGHT), inArea("o", Position.RIGHT, Section.OFF)))
+        assertEquals(c.putInArea("a", Position.LEFT), c.landedIn("a", Position.LEFT))
+        assertSame(c, c.landedIn("a", Position.RIGHT))
+        assertSame(c, c.landedIn("nobody", Position.LEFT))
+        assertEquals("an item that is not in the bar takes the area it comes back in", c.putInArea("o", Position.LEFT), c.landedIn("o", Position.LEFT))
+    }
+
+    @Test fun nextMeetingTakesTheAreaAndIsFirstThereWhereverTheListHasIt() {
+        val c = BarConfig(items = listOf(inArea("m", Position.CENTER), inArea("e", Position.LEFT, type = Store.PINNED_LEFT), inArea("r", Position.RIGHT)))
+        assertEquals(c.putInArea("e", Position.CENTER), c.landedIn("e", Position.CENTER))
+        assertEquals(listOf("e", "m"), c.landedIn("e", Position.CENTER).rows(Position.CENTER, Part.UPPER))
+        // And nothing lands before it.
+        val pinned = BarConfig(items = listOf(inArea("e", Position.RIGHT, type = Store.PINNED_LEFT), inArea("r", Position.RIGHT), inArea("l", Position.LEFT)))
+        assertEquals(listOf("e", "l", "r"), pinned.landedIn("l", Position.RIGHT).rows(Position.RIGHT, Part.UPPER))
+    }
+
     @Test fun noScreenWritesASectionARuleOrAnAreaOfItsOwn() {
         val handlers = SourceScan.sources.filter { val p = it.path.replace('\\', '/'); "/bentobar/ui/" in p || "/bentobar/bar/" in p }
         assertTrue(handlers.size > 10)
