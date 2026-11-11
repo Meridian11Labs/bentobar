@@ -13,6 +13,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
@@ -317,6 +319,36 @@ class DragTest {
         assertEquals("the button let go later drops nothing", layout, Store.config.value)
         assertNull(Undo.last.value)
         assertTrue(at("row:a").top < at("row:b").top)
+    }
+
+    @Test fun escWhileAFingerCarriesATypeOutOfAFilteredLibraryEndsTheDragAndTheFilterStays() {
+        val layout = page(null, *three)
+        fun filter() = tag("filter").fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+        tag("filter").requestFocus()
+        tag("filter").performTextInput("stor")
+        rule.waitForIdle()
+        // A finger leaves the keyboard with the field (a mouse press beside it takes it away, and Esc then is the page's).
+        val from = line("type:storage")
+        val to = Offset(at("row:a").center.x, at("row:a").bottom)
+        rule.onRoot().performTouchInput { down(from) }
+        rule.mainClock.advanceTimeBy(700)
+        rule.onRoot().performTouchInput { moveBy(Offset(-4f, 0f)); for (i in 1..6) moveTo(from + (to - from) * (i / 6f)) }
+        rule.waitForIdle()
+        tag("drag-row").assertExists()
+        tag("filter").assertIsFocused()
+
+        tag("filter").performKeyInput { pressKey(Key.Escape) }
+        rule.waitForIdle()
+        tag("drag-row").assertDoesNotExist()
+        assertEquals("the drag is nearer than the field's text", "stor", filter())
+        rule.onRoot().performTouchInput { up() }
+        rule.waitForIdle()
+        assertEquals(layout, Store.config.value)
+        assertNull(Undo.last.value)
+
+        tag("filter").performKeyInput { pressKey(Key.Escape) }
+        rule.waitForIdle()
+        assertEquals("with nothing carried Esc empties the filter", "", filter())
     }
 
     @Test fun aDropOutsideChangesNothingAndLeavesNoUndo() {

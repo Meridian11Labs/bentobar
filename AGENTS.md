@@ -173,7 +173,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     it: the library shows a well in its filter's place, an item's options in their first row's. A copy travels under
     the pointer, a row in the list and the item's chip over the preview; the others make room by moving; the Store
     changes once on the drop, as one step of `Undo` through `BarEdit.dropped`; Esc, a pointer the system
-    takes away (a cancel) or a drop anywhere else puts everything back with no change. A mouse picks up at once, a finger by a row's handle or after a long press on a
+    takes away (a cancel) or a drop anywhere else puts everything back with no change. Esc ends a drag before it empties
+    the library's filter, also while the filter has the keyboard (`FilterField`'s `held`). A mouse picks up at once, a finger by a row's handle or after a long press on a
     library line; a press let go without moving selects, a pickup never does and never turns the panel. What a point
     means is pure, in `ui/Drops.kt` (`dropAt` over a `DropMap` of rectangles, `dropped`, `showing`, `dropLine`;
     `ReorderTest`); `Reorder` only measures and carries. Frames run while the pointer moves or the list scrolls and

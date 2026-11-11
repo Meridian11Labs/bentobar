@@ -608,11 +608,12 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
 /**
  * A filter's field: sunk, a search glyph, [label] as its placeholder and spoken name, and at its end the keycaps of the
  * keys that go with it, as its page binds them: [find], which brings the keyboard here (Ctrl F), and [clear], which
- * empties it (Esc), once it has the keyboard or holds something. Esc is the field's own while there is something to empty.
+ * empties it (Esc), once it has the keyboard or holds something. Esc is the field's own while there is something to empty,
+ * unless its page has something nearer for Esc to end ([held]: a drag), which the page's own handler then gets.
  */
 @Composable
 fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier: Modifier = Modifier, focus: FocusRequester = remember { FocusRequester() },
-    find: List<String> = emptyList(), clear: List<String> = emptyList()) {
+    find: List<String> = emptyList(), clear: List<String> = emptyList(), held: Boolean = false) {
     val c = Bento.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -624,7 +625,7 @@ fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier:
             .states(interaction, ground = false)
             .background(c.sunk, RoundedCornerShape(Radius.medium))
             .focusRequester(focus)
-            .onPreviewKeyEvent { it.type == KeyEventType.KeyDown && it.key == Key.Escape && text.isNotEmpty() && run { onText(""); true } }
+            .onPreviewKeyEvent { !held && it.type == KeyEventType.KeyDown && it.key == Key.Escape && text.isNotEmpty() && run { onText(""); true } }
             .semantics { contentDescription = label },
         textStyle = Bento.type.body.copy(color = c.ink), singleLine = true, cursorBrush = SolidColor(c.accent), interactionSource = interaction,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

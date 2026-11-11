@@ -236,7 +236,7 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
     Column(modifier.fillMaxSize().padding(start = Space.l, top = 14.dp, end = 6.dp).testTag("library")) {
         Box(Modifier.padding(end = 10.dp)) {
             FilterField(edit.filter, { edit.filter = it }, stringResource(R.string.library_filter), Modifier.testTag("filter"), field,
-                find = BarKeys.FIND.caps(res), clear = BarKeys.ESC.caps(res))
+                find = BarKeys.FIND.caps(res), clear = BarKeys.ESC.caps(res), held = reorder.busy)
             DropWell(reorder, Modifier.matchParentSize())
         }
         if (query.isNotBlank()) Text(pluralStringResource(R.plurals.add_filter_count, shown.rows(), shown.rows(), shelves.rows()),
