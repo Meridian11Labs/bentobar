@@ -331,6 +331,37 @@ class DragTest {
         tag("drag-row").assertDoesNotExist()
     }
 
+    @Test fun aPointerTheSystemTakesAwayPutsEverythingBackAndWritesNothing() {
+        val layout = page(null, *three)
+        // A finger, over a place a drop would move the row to: the system takes the pointer (a gesture from the screen's edge).
+        rule.onRoot().performTouchInput { down(grip("a")); repeat(4) { moveBy(Offset(0f, 16f)) } }
+        rule.waitForIdle()
+        tag("drag-row").assertExists()
+        says(str(R.string.bar_drop_move_touch, title("clock"), title("memory")))
+        rule.onRoot().performTouchInput { cancel() }
+        rule.waitForIdle()
+        tag("drag-row").assertDoesNotExist()
+        assertEquals("a cancel is no drop", layout, Store.config.value)
+        assertNull(Undo.last.value)
+        assertNull(selected)
+        assertTrue(at("row:a").top < at("row:b").top)
+
+        // A mouse, carrying a row to the library, where letting go would remove it.
+        hold(at("row:c").center, at("library").center)
+        says(str(R.string.bar_drop_off, title("battery")))
+        rule.onRoot().performMouseInput { cancel() }
+        rule.waitForIdle()
+        tag("drag-row").assertDoesNotExist()
+        tag("row:c").assertExists()
+        tag("slip").assertDoesNotExist()
+        assertEquals(layout, Store.config.value)
+        assertNull(Undo.last.value)
+
+        // And the next drag is an ordinary one.
+        drag(at("row:a").center, at("row:b").center + Offset(0f, 12f))
+        assertEquals(listOf("b", "a", "c"), order())
+    }
+
     // ---- Touch ----
 
     @Test fun aFingerPicksARowUpOnlyByItsHandle() {

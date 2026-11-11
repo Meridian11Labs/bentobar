@@ -344,7 +344,7 @@ class Reorder {
         }
     }
 
-    /** Esc: everything back, nothing written. */
+    /** Esc, or a pointer that was taken away: everything back, nothing written. */
     fun cancel() {
         if (!live) return
         scope?.launch { back(told = null) } ?: clear()
@@ -442,18 +442,24 @@ fun Modifier.drags(r: Reorder): Modifier = pointerInput(r) {
         }
         if (!r.start(picked, down.position, touch)) return@awaitEachGesture
         r.pointerAt(at)
+        // Only the pointer let go is a drop. A pointer the system took away (its cancel comes as every pointer up, already
+        // consumed), one that is gone from the event, or a gesture that was interrupted puts everything back, as Esc does.
+        var letGo = false
         try {
             while (true) {
                 val event = awaitPointerEvent(PointerEventPass.Initial)
                 if (event.type == PointerEventType.Scroll) continue // the wheel still scrolls; sync() follows
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) {
+                    letGo = !change.isConsumed
+                    change.consume()
+                    break
+                }
                 change.consume()
-                if (!change.pressed) break
                 r.pointerAt(change.position)
             }
         } finally {
-            // Released, lost or interrupted: it lands where it would, or goes back.
-            if (r.live) r.scope?.launch { r.release() }
+            if (r.live) { if (letGo) r.scope?.launch { r.release() } else r.cancel() }
         }
     }
 }
