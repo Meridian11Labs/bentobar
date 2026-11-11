@@ -142,6 +142,14 @@ object Http {
     /** Per service, the status of the reply that set [notBefore], so that a held request answers with it and not with a 429 it was never given. */
     private val holdStatus = AtomicIntegerArray(Online.Service.entries.size)
 
+    /** A wait an address the user typed asked for: until [until] by [clock], with the [status] that asked. */
+    private class OwnWait(val until: Long, val status: Int)
+    /**
+     * The waits of addresses the user typed, per host: one user's server asking to wait holds that server and no other
+     * item's (they are separate machines, not one service). In memory only, never logged; guarded by itself.
+     */
+    private val ownWaits = HashMap<String, OwnWait>()
+
     /**
      * Asks, and waits for the answer: call it from a background load ([com.meridian11.books.bentobar.items.Refresher],
      * [com.meridian11.books.bentobar.items.Ask]), never from an item's state or from a composable.
@@ -179,8 +187,8 @@ object Http {
         if (onMain()) { log("GET $address refused: the main thread"); return Reply.Failed(Why.OFF, sent = false) }
         if (!ownAllowed()) return Reply.Failed(Why.OFF, sent = false)
         if (!connected()) return Reply.Failed(Why.OFFLINE, sent = false)
-        val service = Online.Service.OWN.ordinal
-        held(service, address.toString())?.let { return it }
+        val host = address.host.lowercase(java.util.Locale.ROOT)
+        heldOwn(host, address.toString())?.let { return it }
         ownCount.incrementAndGet()
         val reply = try {
             ownTransport.get(address)
@@ -189,8 +197,28 @@ object Http {
             Reply.Failed(Why.UNREADABLE)
         }
         log("GET $address -> $reply")
-        if (reply is Reply.Failed) noteWait(service, reply)
+        if (reply is Reply.Failed) noteOwnWait(host, reply)
         return reply
+    }
+
+    /** [held] for the addresses of [host]. */
+    private fun heldOwn(host: String, what: String): Reply.Failed? {
+        val w = synchronized(ownWaits) { ownWaits[host] } ?: return null
+        val wait = w.until - clock()
+        if (wait <= 0) return null
+        log("GET $what held: the service asked to wait")
+        return Reply.Failed(Why.STATUS, w.status, retryAfterSec = (wait + 999) / 1000, sent = false)
+    }
+
+    /** [noteWait] for the addresses of [host]; waits that are over are dropped on the way. */
+    private fun noteOwnWait(host: String, reply: Reply.Failed) {
+        val seconds = waitSeconds(reply) ?: return
+        synchronized(ownWaits) {
+            val now = clock()
+            ownWaits.values.removeAll { it.until <= now }
+            val until = now + seconds * 1000
+            if (until > (ownWaits[host]?.until ?: 0)) ownWaits[host] = OwnWait(until, reply.status)
+        }
     }
 
     /**
@@ -208,14 +236,17 @@ object Http {
 
     /** What a service asked for, kept for every request to it: at [Reply.Failed.retryAfterSec], or for a 429 that names none, [SLOW_DOWN_SEC]. */
     private fun noteWait(service: Int, reply: Reply.Failed) {
-        val seconds = reply.retryAfterSec ?: if (reply.status == 429) SLOW_DOWN_SEC else return
-        if (seconds <= 0) return
+        val seconds = waitSeconds(reply) ?: return
         synchronized(notBefore) {
             val until = clock() + seconds * 1000
             // The longer wait wins, and so does its status.
             if (until > notBefore.get(service)) { notBefore.set(service, until); holdStatus.set(service, reply.status) }
         }
     }
+
+    /** How long [reply] asks to be left alone, in seconds, or null: it doesn't. */
+    private fun waitSeconds(reply: Reply.Failed): Long? =
+        (reply.retryAfterSec ?: if (reply.status == 429) SLOW_DOWN_SEC else null)?.takeIf { it > 0 }
 
     /** A network that can carry a request: there is one and it isn't a sign-in page's. Validated isn't asked for: Android's own check fails on some working networks. */
     fun usable(hasNetwork: Boolean, captivePortal: Boolean): Boolean = hasNetwork && !captivePortal
@@ -236,5 +267,6 @@ object Http {
         ownCount.set(0)
         // And the waits: `net reset` starts over, and no test inherits another's 429.
         for (i in 0 until notBefore.length()) { notBefore.set(i, 0); holdStatus.set(i, 0) }
+        synchronized(ownWaits) { ownWaits.clear() }
     }
 }

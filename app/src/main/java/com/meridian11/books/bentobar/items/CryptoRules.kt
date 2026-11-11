@@ -40,6 +40,15 @@ object CryptoRules {
     /** Where the exchange's name for a coin is not the usual one. */
     private val EXCHANGE = mapOf("BTC" to "XBT", "DOGE" to "XDG")
 
+    /**
+     * Pairs of [COINS] and [QUOTES] the exchange doesn't list (its `/0/public/AssetPairs`, checked 2026-11-11). They are
+     * never asked for: one unknown pair makes the exchange refuse the whole request, every other coin's price with it.
+     */
+    private val UNLISTED = setOf("AVAXGBP")
+
+    /** Whether the exchange lists [coin] in [quote]. */
+    fun listed(coin: String, quote: String): Boolean = pair(coin, quote) !in UNLISTED
+
     /** A price of one coin in the quote currency: the last trade, and the UTC day's opening price, high and low. */
     data class Price(val coin: String, val last: Double, val open: Double, val high: Double, val low: Double)
 

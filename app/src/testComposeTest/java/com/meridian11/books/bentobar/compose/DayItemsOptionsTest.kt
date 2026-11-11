@@ -66,6 +66,6 @@ class DayItemsOptionsTest {
         rule.onNodeWithText(str(R.string.breaks_every)).assertExists()
         rule.onNodeWithText(str(R.string.breaks_rest)).assertExists()
         // The slider's value, as written beside it (the slider hides it from the merged tree, and says it itself).
-        rule.onNodeWithText(app.getString(R.string.breaks_minutes, 50), useUnmergedTree = true).assertExists()
+        rule.onNodeWithText(app.getString(R.string.common_bar_minutes, 50), useUnmergedTree = true).assertExists()
     }
 }

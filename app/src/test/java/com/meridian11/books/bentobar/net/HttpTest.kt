@@ -382,6 +382,23 @@ class HttpTest {
         assertTrue(Http.getOwn(own) is Reply.Ok)
     }
 
+    // Two items asking two servers of the user's: one asking to wait for an hour leaves the other asked.
+    @Test fun oneOwnServerAskingToWaitHoldsThatServerAndNoOther() {
+        clocked()
+        Http.ownAllowed = { true }
+        val other = OwnAddress.parse("https://b.example/status")!!
+        ownAnswers { Reply.Failed(Why.STATUS, 429, retryAfterSec = 3600) }
+        Http.getOwn(own)
+        ownAnswers { Reply.Ok("up") }
+        assertTrue(Http.getOwn(other) is Reply.Ok)
+        val held = Http.getOwn(OwnAddress.parse("https://A.EXAMPLE:8443/y")!!) as Reply.Failed
+        assertFalse(held.sent)
+        assertEquals(429, held.status)
+        assertEquals(2, ownAsked.size)
+        now += 3_601_000
+        assertTrue(Http.getOwn(own) is Reply.Ok)
+    }
+
     // ---- a sign-in Wi-Fi ---------------------------------------------------------------------------
 
     @Test fun aSignInWifiCountsAsNoConnection() {

@@ -7,7 +7,6 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Kept
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.PrompterRules.Run
-import com.meridian11.books.bentobar.ui.Undo
 import com.meridian11.books.bentobar.util.Sym
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -99,11 +98,6 @@ object PrompterItem : ItemType("prompter", R.string.item_prompter_title, Sym.SUB
         }
     }
 
-    /**
-     * The Prompter items of the layout, in the bar or a line in the library, and any the Bar page's Undo can still bring
-     * back: a script kept under another id belonged to an item that is gone.
-     */
-    internal fun ids(): Set<String> = Store.config.value.items.filter { it.type == type }.mapTo(HashSet()) { it.id }.also { it += Undo.held(type) }
 
     override fun settle(why: Settle) {
         when (why) {

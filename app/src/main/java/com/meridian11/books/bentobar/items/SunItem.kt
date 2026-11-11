@@ -67,8 +67,8 @@ object SunItem : ItemType("sun", R.string.item_sun_title, Sym.WB_TWILIGHT, R.str
     }
 
     private val words = SunRules.Words(
-        minutes = { Env.str(R.string.sun_minutes, it) },
-        hoursMinutes = { h, m -> Env.str(R.string.sun_hours_minutes, h, m) },
+        minutes = { Env.str(R.string.common_bar_minutes, it) },
+        hoursMinutes = { h, m -> Env.str(R.string.common_bar_hours_minutes, h, m) },
     )
 
     private fun which(item: ItemConfig): Boolean? = when (show.of(item)) { "sunrise" -> true; "sunset" -> false; else -> null }

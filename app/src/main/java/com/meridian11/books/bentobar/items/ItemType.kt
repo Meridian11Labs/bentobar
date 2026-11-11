@@ -332,6 +332,14 @@ abstract class ItemType(
     open fun forgetOwn(id: String) {}
 
     /**
+     * This type's items in the layout, in the bar or a line in the library, and any the Bar page's Undo can still bring
+     * back: what a type keeps under another id ([keepsOwn]) belonged to an item that is gone. Main thread.
+     */
+    internal fun ids(): Set<String> =
+        com.meridian11.books.bentobar.data.Store.config.value.items.filter { it.type == type }.mapTo(HashSet()) { it.id }
+            .also { it += com.meridian11.books.bentobar.ui.Undo.held(type) }
+
+    /**
      * Gives back what outlives the bar being on screen (a mute, a Do Not Disturb rule, a keyboard's light), at the moments
      * [Settle] names; the bar merely hiding is none of them. Main thread, behind `Ticker.guarded`. Never throws; disk
      * work goes to the background, as `FlightItem.sweepAtStart` does.

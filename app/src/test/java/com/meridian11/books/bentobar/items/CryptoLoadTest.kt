@@ -37,7 +37,7 @@ class CryptoLoadTest : OnlineServiceContract<Table>() {
     }
 
     @Test fun theRequestIsOnePairPerCoinAndNothingElse() {
-        val r = CryptoLoad.request(CryptoLoad.Ask(listOf("BTC", "ETH", "DOGE"), "EUR"))
+        val r = CryptoLoad.request(CryptoLoad.Ask(listOf("BTC", "ETH", "DOGE"), "EUR"))!!
         assertEquals(Host.KRAKEN, r.host)
         assertEquals("/0/public/Ticker", r.path)
         assertEquals(listOf("pair" to "XBTEUR,ETHEUR,XDGEUR"), r.query)
@@ -50,5 +50,21 @@ class CryptoLoadTest : OnlineServiceContract<Table>() {
         assertNotNull(t)
         assertEquals(listOf("BTC", "ETH"), t!!.prices.map { it.coin })
         assertEquals("XBTUSD,ETHUSD", net.query("pair"))
+    }
+
+    // Kraken refuses a whole request for one pair it doesn't list ({"error":["EQuery:Unknown asset pair"]}), and it has
+    // no AVAX in pounds: that pair is never asked for, so the other coins keep their prices.
+    @Test fun aPairTheExchangeDoesNotListIsLeftOutOfTheRequest() {
+        assertEquals(false, CryptoRules.listed("AVAX", "GBP"))
+        for (c in CryptoRules.COINS) for (q in CryptoRules.QUOTES) if (c != "AVAX" || q != "GBP") assertEquals("$c$q", true, CryptoRules.listed(c, q))
+        val r = CryptoLoad.request(CryptoLoad.Ask(listOf("BTC", "AVAX"), "GBP"))!!
+        assertEquals(listOf("pair" to "XBTGBP"), r.query)
+    }
+
+    @Test fun onlyUnlistedPairsAskNothingAndSayThereAreNoPrices() = FakeHttp.use { net ->
+        val t = CryptoLoad.load(CryptoLoad.Ask(listOf("AVAX"), "GBP"), null, now)
+        assertEquals(emptyList<Any>(), net.asked)
+        assertEquals(Failure.NO_ANSWER, t!!.failure)
+        assertEquals(false, t.hasPrices)
     }
 }

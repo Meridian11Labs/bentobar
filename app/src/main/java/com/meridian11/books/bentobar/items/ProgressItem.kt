@@ -52,8 +52,8 @@ object ProgressItem : ItemType("progress", R.string.item_progress_title, Sym.CLO
     private fun weekStart() = ProgressRules.weekStart(Locale.getDefault())
 
     private val words = ProgressRules.Words(
-        minutes = { Env.str(R.string.progress_minutes, it) },
-        hoursMinutes = { h, m -> Env.str(R.string.progress_hours_minutes, h, m) },
+        minutes = { Env.str(R.string.common_bar_minutes, it) },
+        hoursMinutes = { h, m -> Env.str(R.string.common_bar_hours_minutes, h, m) },
         days = { Env.plural(R.plurals.progress_days, it.toInt(), it) },
         left = { Env.str(R.string.progress_left, it) },
         over = { Env.str(R.string.progress_over) },

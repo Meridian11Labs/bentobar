@@ -14,7 +14,6 @@ import com.meridian11.books.bentobar.items.FlightSamples.Staged
 import com.meridian11.books.bentobar.items.FlightText.Count
 import com.meridian11.books.bentobar.items.FlightText.TimeForm
 import com.meridian11.books.bentobar.items.FlightText.Word
-import com.meridian11.books.bentobar.ui.Undo
 import com.meridian11.books.bentobar.util.Dates
 import com.meridian11.books.bentobar.util.Now
 import com.meridian11.books.bentobar.util.Sym
@@ -55,11 +54,6 @@ object FlightItem : ItemType("flight", R.string.item_flight_title, Sym.FLIGHT, R
     private val before = Threshold("beforeHours", 24, 3..48, step = 3) { Env.plural(R.plurals.common_hours, it, it) }
     override val trigger = Trigger(R.string.trigger_flight, R.string.trigger_flight_short, before)
 
-    /**
-     * The Flight items of the layout, in the bar or a line in the library, and any the Bar page's Undo can still bring
-     * back: whatever is kept under another id belonged to an item that is gone.
-     */
-    internal fun ids(): Set<String> = Store.config.value.items.filter { it.type == type }.mapTo(HashSet()) { it.id }.also { it += Undo.held(type) }
 
     /** What each item follows and what was last heard of it, by the item's id. A restart reads it back; nothing is asked while it is fresh. */
     internal val tracker: Refresher<String, Tracked> = Background.refresher(type, online,

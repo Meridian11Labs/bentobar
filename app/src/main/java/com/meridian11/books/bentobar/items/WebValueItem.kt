@@ -36,7 +36,6 @@ import com.meridian11.books.bentobar.ui.MenuEntry
 import com.meridian11.books.bentobar.ui.MenuNote
 import com.meridian11.books.bentobar.ui.OffGate
 import com.meridian11.books.bentobar.ui.TextRow
-import com.meridian11.books.bentobar.ui.Undo
 import com.meridian11.books.bentobar.ui.rememberTick
 import com.meridian11.books.bentobar.ui.updatedNote
 import com.meridian11.books.bentobar.util.Now
@@ -140,8 +139,6 @@ object WebValueItem : ItemType("webvalue", R.string.item_webvalue_title, Sym.DAT
         }
     }
 
-    /** The items of the layout, in the bar or a line in the library, and any the Bar page's Undo can still bring back. */
-    internal fun ids(): Set<String> = Store.config.value.items.filter { it.type == type }.mapTo(HashSet()) { it.id }.also { it += Undo.held(type) }
 
     override fun settle(why: Settle) {
         // What neither forgetOwn nor anything else got to (the process ended while Undo still held an item) goes now.

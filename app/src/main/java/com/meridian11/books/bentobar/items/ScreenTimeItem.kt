@@ -59,8 +59,8 @@ object ScreenTimeItem : ItemType("screentime", R.string.item_screentime_title, S
     override val trigger = Trigger(R.string.trigger_screentime, R.string.trigger_screentime_short, from)
 
     private val words = ScreenTimeRules.Words(
-        minutes = { Env.str(R.string.screentime_minutes, it) },
-        hoursMinutes = { h, m -> Env.str(R.string.screentime_hours_minutes, h, m) },
+        minutes = { Env.str(R.string.common_bar_minutes, it) },
+        hoursMinutes = { h, m -> Env.str(R.string.common_bar_hours_minutes, h, m) },
     )
 
     /** When the bar last came back (wall clock): the screen has been on since, which a reading from before can't know. */

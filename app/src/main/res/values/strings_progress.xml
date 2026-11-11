@@ -14,8 +14,6 @@
     <string name="progress_to">Workday ends</string>
     <string name="progress_midnight">Midnight</string>
     <!-- What is left: "48 min left", "5 h 12 left" (hours, then minutes in two figures), "212 days left". -->
-    <string name="progress_minutes">%1$d min</string>
-    <string name="progress_hours_minutes">%1$d h %2$02d</string>
     <plurals name="progress_days">
         <item quantity="one">%1$d day</item>
         <item quantity="other">%1$d days</item>

@@ -6,8 +6,6 @@
     <string name="trigger_breaks">while a break is due</string>
     <string name="trigger_breaks_short">shows when a break is due</string>
     <!-- The bar's time until the next break: "38 min", "1 h 20" (hours, then minutes in two figures). -->
-    <string name="breaks_minutes">%1$d min</string>
-    <string name="breaks_hours_minutes">%1$d h %2$02d</string>
     <!-- The bar's word when one is due. -->
     <string name="breaks_due">Break</string>
     <!-- Spoken: %1$s is a length of time in words ("38 minutes"). -->

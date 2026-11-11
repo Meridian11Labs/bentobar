@@ -52,17 +52,27 @@ object BreaksItem : ItemType("breaks", R.string.item_breaks_title, Sym.RELAX, R.
 
     private fun shown(): Watch = staged ?: watch
 
+    /** The layout [restFor] was worked out for, and its answer: the layout changes far less often than once a second. */
+    private var restOf: List<ItemConfig>? = null
+    private var restFor = 0L
+
     /** A break's length: the shortest of this type's items outside Off, so the one that asks least is never kept waiting. */
-    private fun restMs(): Long =
-        (Store.config.value.items.filter { it.type == type && it.section != Section.OFF }.minOfOrNull { rest.of(it) } ?: rest.default) * MINUTE
+    private fun restMs(): Long {
+        val items = Store.config.value.items
+        if (items !== restOf) {
+            restFor = (items.filter { it.type == type && it.section != Section.OFF }.minOfOrNull { rest.of(it) } ?: rest.default) * MINUTE
+            restOf = items
+        }
+        return restFor
+    }
 
     override fun sample(now: Long) {
         watch = BreaksRules.step(watch, now, interactive(), restMs())
     }
 
     private val words = BreaksRules.Words(
-        minutes = { Env.str(R.string.breaks_minutes, it) },
-        hoursMinutes = { h, m -> Env.str(R.string.breaks_hours_minutes, h, m) },
+        minutes = { Env.str(R.string.common_bar_minutes, it) },
+        hoursMinutes = { h, m -> Env.str(R.string.common_bar_hours_minutes, h, m) },
         due = { Env.str(R.string.breaks_due) },
     )
 
@@ -113,7 +123,7 @@ object BreaksItem : ItemType("breaks", R.string.item_breaks_title, Sym.RELAX, R.
 
     override val options: @Composable (ItemConfig, (ItemConfig) -> Unit) -> Unit = { item, set ->
         val res = androidx.compose.ui.platform.LocalResources.current
-        val minutes = { m: Int -> res.getString(R.string.breaks_minutes, m) }
+        val minutes = { m: Int -> res.getString(R.string.common_bar_minutes, m) }
         SliderRow(stringResource(R.string.breaks_every), every.of(item), every.range, minutes) { set(every.set(item, it)) }
         SliderRow(stringResource(R.string.breaks_rest), rest.of(item), rest.range, minutes) { set(rest.set(item, it)) }
     }

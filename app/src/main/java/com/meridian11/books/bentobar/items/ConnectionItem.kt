@@ -54,9 +54,21 @@ object ConnectionItem : ItemType("connection", R.string.item_connection_title, S
     @Volatile private var staged: Net? = null
     private var listening = false
 
+    /** The default network [heard] describes; a loss of any other network changes nothing. */
+    @Volatile private var current: Network? = null
+
     private val callback = object : ConnectivityManager.NetworkCallback() {
-        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) = heard(net(networkCapabilities))
-        override fun onLost(network: Network) = heard(null)
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            current = network
+            heard(net(networkCapabilities))
+        }
+        // Android says it only for the last default network it named; a late one for an earlier network must not read
+        // as offline while the new one carries traffic.
+        override fun onLost(network: Network) {
+            if (current != null && network != current) return
+            current = null
+            heard(null)
+        }
     }
 
     /** From Android's callback, on the main thread: it must never throw. */
@@ -85,6 +97,7 @@ object ConnectionItem : ItemType("connection", R.string.item_connection_title, S
     }.getOrNull()
 
     override fun onLive() {
+        current = runCatching { cm()?.activeNetwork }.getOrNull()
         heard = read()
         val cm = cm()
         // Android answers the registration with the default network as it is, if there is one, and then with each change.

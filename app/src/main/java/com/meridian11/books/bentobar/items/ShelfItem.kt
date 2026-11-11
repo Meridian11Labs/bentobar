@@ -13,7 +13,6 @@ import com.meridian11.books.bentobar.data.Kept
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.ShelfRules.Entry
-import com.meridian11.books.bentobar.ui.Undo
 import com.meridian11.books.bentobar.util.Sym
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -143,8 +142,6 @@ object ShelfItem : ItemType("shelf", R.string.item_shelf_title, Sym.INBOX, R.str
         }
     }
 
-    /** The Shelf items of the layout, in the bar or a line in the library, and any the Bar page's Undo can still bring back. */
-    internal fun ids(): Set<String> = Store.config.value.items.filter { it.type == type }.mapTo(HashSet()) { it.id }.also { it += Undo.held(type) }
 
     override fun settle(why: Settle) {
         // What neither forgetOwn nor anything else got to (the process ended while Undo still held an item) goes now.
