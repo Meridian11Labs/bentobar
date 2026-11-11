@@ -26,7 +26,10 @@ object ClipboardActionsRules {
      * a token); Proofread and Translate from [SHORTEST] characters, Summarise and Shorter too from [LONG].
      */
     fun offered(text: String): List<Action> {
-        val t = text.trim()
+        // Only the start is read, so a long copy costs its row no more than a short one: a menu asks on every frame.
+        val start = text.indexOfFirst { !it.isWhitespace() }
+        if (start < 0) return emptyList()
+        val t = text.substring(start, minOf(text.length, start + LONGEST)).trimEnd()
         if (!atLeast(t, SHORTEST) || t.none { it.isWhitespace() }) return emptyList()
         return if (atLeast(t, LONG)) Action.entries.toList() else listOf(Action.PROOFREAD, Action.TRANSLATE)
     }
