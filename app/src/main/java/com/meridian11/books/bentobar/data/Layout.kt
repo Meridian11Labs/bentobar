@@ -18,7 +18,8 @@ sealed interface LayoutRead {
 }
 
 /**
- * The one reader of a layout, for what is stored and what is pasted: decode, migrate, drop a repeated item id. Pure, and
+ * The one reader of a layout, for what is stored and what is pasted: decode, migrate, drop a repeated item id and the items
+ * of a retired type ([withoutRetired]). Pure, and
  * every shipped schema has a fixture in `src/test/resources/layouts` that goes through it (`LayoutFixturesTest`), so a
  * new version has one place to go and one place to be tested.
  *
@@ -35,7 +36,7 @@ fun readLayout(raw: String): LayoutRead {
     if (version != null && version > LAYOUT_VERSION) return LayoutRead.Newer(version)
     if (root["items"] !is JsonArray) return LayoutRead.NotALayout
     val decoded = runCatching { layoutJson.decodeFromJsonElement(BarConfig.serializer(), root) }.getOrNull() ?: return LayoutRead.NotALayout
-    val read = decoded.migrateToV2().migrateToV3().migrateToV4().let { it.copy(items = it.items.distinctBy { item -> item.id }) }
+    val read = decoded.migrateToV2().migrateToV3().migrateToV4().withoutRetired().let { it.copy(items = it.items.distinctBy { item -> item.id }) }
     return LayoutRead.Ok(read, changed = read != decoded)
 }
 

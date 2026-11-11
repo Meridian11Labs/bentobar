@@ -111,7 +111,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     `items/NowPlayingRules.kt`.
   - `items/` after 1.7.1: Camera and mic (`InUse*`), Mirror, Prompter, Shelf, Notification icons (`Notices*`), Live
     activity, Focus, Brightness, Keyboard light (`KeyLight*`), Headphones and output (`Output*`), Connection, Screen
-    time, Day progress (`Progress*`), Sunset (`Sun*`), Break reminder (`Breaks*`), Crypto and Value from a URL
+    time, Day progress (`Progress*`), Sunset (`Sun*`), Break reminder (`Breaks*`) and Value from a URL
     (`WebValue*`). None has run on a device yet (`docs/RELEASING.md` has each one's list). What they added to
     `ItemType`: `needs`, the access a type wants (`Access`: CAMERA, NOTICES, DO_NOT_DISTURB, WRITE_SETTINGS;
     `SetupState.access` is what is given); `settle(why)`, the one hook for what outlives the bar
@@ -350,7 +350,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   with the release key (from `~/.config/bentobar`): it installs over the release, same version code, and keeps its
   layout and its accessibility switch.
   Also `now +3h|+90m|off` (moves the clock everything newer reads, `util/Now`), `net [reset]` (requests
-  sent per host, the user's own addresses counted together as `own=`, and whether each service may be asked right now), `online weather|fx|flights|stocks|crypto|own on|off`,
+  sent per host, the user's own addresses counted together as `own=`, and whether each service may be asked right now), `online weather|fx|flights|stocks|own on|off`,
   and `TYPE …` or `item TYPE …`, which go to that item type's own `debug(args)`. What a hook prints
   is logged: no hook takes or prints a key, and a type marked `discreet` prints no title (`state media`
   and `state flight` print the text's length).
@@ -367,7 +367,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   followed; bare `flight` prints the question and the rows);
   `sound fixed on|off`; `notices stage three|many|progress|none|noaccess`; `live stage several`;
   `focus stage ready|running|endless|noaccess`; `sun stage evening|night|polar|nozone`; `progress stage
-  morning|evening|yearend`; `breaks stage early|due`; `crypto stage calm|big|offline|old`. Each type's bare name prints what it knows (`media`, `devices`, `heat`, `flight`).
+  morning|evening|yearend`; `breaks stage early|due`. Each type's bare name prints what it knows (`media`, `devices`, `heat`, `flight`).
   For color tests a debug build has a window that lies under the bar and turns its icons dark or light
   on command, with no event of any kind: `adb shell am start -n com.meridian11.books.bentobar/.util.BarFlipActivity
   --ez dark true` (now), `--ez dark false --ei after 1500` (in 1.5 s), `--ez dark true --ei unlock 3000`
@@ -461,9 +461,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   In desktop windowing, Settings opens in its own window and BentoBar's stays resumed, so onResume
   alone misses changes; and with strong skipping (Kotlin 2.x) a composable reading Android state
   inside isn't redrawn when its parameters are unchanged.
-- **Going online is seven items' business, and each install's own decision.** Weather, Air quality, Exchange
-  rates, Flight, Stocks and Crypto ask a service, and Value from a URL asks the address its user typed; nothing else does, and nothing the accessibility service or any other
-  item reads can get there (`net/` is the only way out, and only those seven types name a service in
+- **Going online is six items' business, and each install's own decision.** Weather, Air quality, Exchange
+  rates, Flight and Stocks ask a service, and Value from a URL asks the address its user typed; nothing else does, and nothing the accessibility service or any other
+  item reads can get there (`net/` is the only way out, and only those six types name a service in
   `ItemType.online`).
   A service is asked only after its item was set up on this install: `data/Online.kt` records that
   outside the layout, so a pasted layout or a restored backup turns nothing on. Off (Setup › Online
@@ -481,7 +481,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   `HereKeeper`, pure and unit-tested; `WeatherHere` is the keeper on Android's location service).
   `ManifestTest` pins the permissions, the backup rules, cleartext off and both listeners' entries;
   `HttpTest` and `HttpTransportTest` pin the hosts and what a request may carry; `OneWayOutTest` names
-  the six `*Load.kt` files that may call `Http.get`, by exact name, and `WebValueLoad` as the one caller of `Http.getOwn` (its no-log and import scan covers `items/Weather*`, `Air*`, `Fx*`, `Flight*`, `AirLabs*`, `Stocks*`, `Finnhub*`); a key is read only by `Http.key`'s wiring in `items/Env.kt`.
+  the five `*Load.kt` files that may call `Http.get`, by exact name, and `WebValueLoad` as the one caller of `Http.getOwn` (its no-log and import scan covers `items/Weather*`, `Air*`, `Fx*`, `Flight*`, `AirLabs*`, `Stocks*`, `Finnhub*`); a key is read only by `Http.key`'s wiring in `items/Env.kt`.
 - **US stocks** (`StocksItem`, type "stocks", rules in `StocksRules`, requests and what is kept in `StocksLoad`, replies in
   `Finnhub`): US stocks only (Finnhub's free plan), with the user's own key; one quote request per stock,
   every 2 minutes while the market is open (`Market`: weekday hours in New York; a holiday is seen in quotes

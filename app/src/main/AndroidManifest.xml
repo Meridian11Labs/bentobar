@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Seven items go online, and only after the user set them up on this device: Weather and Air quality ask
-         Open-Meteo, Exchange rates asks Frankfurter, Crypto asks Kraken, Flight asks AirLabs and US stocks asks
+    <!-- Six items go online, and only after the user set them up on this device: Weather and Air quality ask
+         Open-Meteo, Exchange rates asks Frankfurter, Flight asks AirLabs and US stocks asks
          Finnhub, the last two with the user's own key, and Value from a URL asks the one address the user typed for
          it. net/Http.kt names the hosts, takes that address, and is the only code that opens a connection; nothing
          the accessibility service or any other item reads goes there. -->

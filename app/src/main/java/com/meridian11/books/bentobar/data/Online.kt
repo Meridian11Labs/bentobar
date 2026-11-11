@@ -9,8 +9,8 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
- * Whether BentoBar may ask an online service, and the user's own key for one that needs it. Seven
- * items go online, Weather, Air quality, Exchange rates, Flight, Stocks, Crypto and Value from a URL, and each only
+ * Whether BentoBar may ask an online service, and the user's own key for one that needs it. Six
+ * items go online, Weather, Air quality, Exchange rates, Flight, Stocks and Value from a URL, and each only
  * after the user set it up on this install: that is what [turnOn] and [saveKey] record, and [turnOff] takes back.
  *
  * All of it belongs to this install and never travels. It is kept in one small file in Android's
@@ -25,7 +25,6 @@ object Online {
         AIRLABS("airLabs", setOf(Host.AIRLABS), needsKey = true),
         FINNHUB("finnhub", setOf(Host.FINNHUB), needsKey = true),
         FRANKFURTER("frankfurter", setOf(Host.FRANKFURTER), needsKey = false),
-        KRAKEN("kraken", setOf(Host.KRAKEN), needsKey = false),
         /** "Your own addresses": what Value from a URL asks is an address the user typed (`net.OwnAddress`), not a [Host]. */
         OWN("own", emptySet(), needsKey = false),
     }
@@ -64,6 +63,10 @@ object Online {
         } catch (e: Exception) {
             null
         } ?: Saved()
+        // A service only a retired item asked (Crypto's Kraken) is no service any more: its switch is read as nothing and
+        // the file is written again without it. The directory of what it sent, if there is one, is deleted.
+        val retired = Retired.services.filter { it in saved.on || it in saved.setUp || it in saved.keys }
+        for (id in Retired.services) runCatching { File(noBackupDir, "fetched/$id").deleteRecursively() }
         fun services(ids: List<String>) = Service.entries.filterTo(HashSet()) { it.id in ids }
         for (s in Service.entries) saved.keys[s.id]?.trim()?.takeIf { it.isNotEmpty() }?.let { keys[s] = it }
         val keyed = keys.keys.toSet()
@@ -74,6 +77,7 @@ object Online {
             setUp = services(saved.setUp).filterTo(HashSet()) { !it.needsKey } + keyed + on,
             keyed = keyed,
         )
+        if (retired.isNotEmpty()) save(lost = false)
     }
 
     fun on(service: Service): Boolean = service in current.value.on

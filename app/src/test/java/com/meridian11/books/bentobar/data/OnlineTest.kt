@@ -172,11 +172,27 @@ class OnlineTest {
     }
 
     @Test fun theServicesAreTheseAndNoOthers() {
-        assertEquals(listOf("openMeteo", "airLabs", "finnhub", "frankfurter", "kraken", "own"), Online.Service.entries.map { it.id })
+        assertEquals(listOf("openMeteo", "airLabs", "finnhub", "frankfurter", "own"), Online.Service.entries.map { it.id })
         assertEquals(setOf(Online.Service.AIRLABS, Online.Service.FINNHUB), Online.Service.entries.filter { it.needsKey }.toSet())
-        assertEquals(setOf(com.meridian11.books.bentobar.net.Host.KRAKEN), Online.Service.KRAKEN.hosts)
+        assertEquals(setOf(com.meridian11.books.bentobar.net.Host.FRANKFURTER), Online.Service.FRANKFURTER.hosts)
         // Your own addresses stands for no named host: what it asks is an address the user typed.
         assertEquals(emptySet<com.meridian11.books.bentobar.net.Host>(), Online.Service.OWN.hosts)
+    }
+
+    @Test fun aFileWithTheRetiredKrakenSwitchLoadsWithoutItAndIsWrittenAgain() {
+        // What a 2.0 test build with Crypto on wrote: Kraken on and set up, beside a service that stays.
+        File(dir, "online.json").writeText("""{"on":["kraken","frankfurter"],"setUp":["kraken","frankfurter"],"keys":{}}""")
+        File(dir, "fetched/kraken").mkdirs()
+        File(dir, "fetched/kraken/prices.txt").writeText("0\n{}")
+        restart()
+        assertEquals(setOf(Online.Service.FRANKFURTER), Online.state.value.on)
+        assertEquals(setOf(Online.Service.FRANKFURTER), Online.state.value.setUp)
+        val text = File(dir, "online.json").readText()
+        assertFalse(text, "kraken" in text)
+        assertTrue(text, "frankfurter" in text)
+        assertFalse(File(dir, "fetched/kraken").exists())
+        restart()
+        assertTrue(Online.on(Online.Service.FRANKFURTER))
     }
 
     @Test fun yourOwnAddressesIsOffUntilItIsTurnedOnOnThisInstall() {
@@ -196,9 +212,9 @@ class OnlineTest {
     }
 
     @Test fun aServiceIsAskedOnlyWhileItIsOnSomethingIsOnScreenAndItsItemIsOutsideOff() {
-        val asks: (String) -> Online.Service? = { mapOf("webvalue" to Online.Service.OWN, "crypto" to Online.Service.KRAKEN)[it] }
-        val both = listOf(ItemConfig("w", "webvalue"), ItemConfig("k", "crypto"))
-        for (s in listOf(Online.Service.OWN, Online.Service.KRAKEN)) {
+        val asks: (String) -> Online.Service? = { mapOf("webvalue" to Online.Service.OWN, "fx" to Online.Service.FRANKFURTER)[it] }
+        val both = listOf(ItemConfig("w", "webvalue"), ItemConfig("x", "fx"))
+        for (s in listOf(Online.Service.OWN, Online.Service.FRANKFURTER)) {
             assertFalse("$s off", Online.mayAsk(s, true, both, asks))
             Online.turnOn(s)
             assertTrue("$s on", Online.mayAsk(s, true, both, asks))
@@ -207,9 +223,9 @@ class OnlineTest {
             // Hidden is outside Off: it may still have something to say.
             assertTrue("$s with its item hidden", Online.mayAsk(s, true, both.map { it.copy(section = Section.HIDDEN) }, asks))
         }
-        // One service's item opens no other: an address of the user's own is not a reason to ask Kraken, nor the other way round.
-        assertFalse(Online.mayAsk(Online.Service.OWN, true, listOf(ItemConfig("k", "crypto")), asks))
-        assertFalse(Online.mayAsk(Online.Service.KRAKEN, true, listOf(ItemConfig("w", "webvalue")), asks))
+        // One service's item opens no other: an address of the user's own is not a reason to ask Frankfurter, nor the other way round.
+        assertFalse(Online.mayAsk(Online.Service.OWN, true, listOf(ItemConfig("x", "fx")), asks))
+        assertFalse(Online.mayAsk(Online.Service.FRANKFURTER, true, listOf(ItemConfig("w", "webvalue")), asks))
     }
 
     @Test fun eachHostBelongsToOneService() {

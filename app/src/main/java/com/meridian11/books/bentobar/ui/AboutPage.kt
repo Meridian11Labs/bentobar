@@ -105,7 +105,7 @@ private fun OpenSource() {
             Body(stringResource(R.string.about_open_source_text))
             Spacer(Modifier.height(Space.xs))
             listOf(R.string.about_credit_symbols, R.string.about_credit_compose, R.string.about_credit_kotlin, R.string.about_credit_openmeteo,
-                R.string.about_credit_airlabs, R.string.about_credit_finnhub, R.string.about_credit_frankfurter, R.string.about_credit_kraken).forEach {
+                R.string.about_credit_airlabs, R.string.about_credit_finnhub, R.string.about_credit_frankfurter).forEach {
                 Text(stringResource(it), Modifier.padding(top = Space.xs), style = Bento.type.help, color = Bento.colors.ink3)
             }
             // Open-Meteo's licence asks for the credit and a link to it.

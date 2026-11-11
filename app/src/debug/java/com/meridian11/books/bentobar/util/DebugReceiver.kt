@@ -112,11 +112,11 @@ class DebugReceiver : BroadcastReceiver() {
                             "${s.id}: on=${Online.on(s)} setUp=${Online.setUp(s)} mayAsk=${if (s.hosts.isEmpty()) Http.ownAllowed() else Http.allowed(s.hosts.first())}"
                         }
                 }
-                "online" -> { // online weather|flights|stocks|fx|crypto|own on|off (on only works once the item was set up here, as in Setup)
+                "online" -> { // online weather|flights|stocks|fx|own on|off (on only works once the item was set up here, as in Setup)
                     val s = when (args[1]) {
                         "weather" -> Online.Service.OPEN_METEO; "flights" -> Online.Service.AIRLABS; "stocks" -> Online.Service.FINNHUB; "fx" -> Online.Service.FRANKFURTER
-                        "crypto" -> Online.Service.KRAKEN; "own" -> Online.Service.OWN
-                        else -> error("weather, flights, stocks, fx, crypto or own")
+                        "own" -> Online.Service.OWN
+                        else -> error("weather, flights, stocks, fx or own")
                     }
                     if (args.getOrNull(2) == "on") Online.turnOn(s) else Online.turnOff(s)
                     "${s.id} on=${Online.on(s)}"

@@ -176,10 +176,6 @@ learned the hard way" says why. Run it again on every new draft.
   zone is". The week starts on the day Android's regional preferences say. The lid closed, or the bar hidden, for a
   rest's length starts the break count again. `sun stage evening|night|polar|nozone`, `progress stage
   morning|evening|yearend`, `breaks stage early|due`.
-- **Crypto.** Kraken answers and the prices show. Every coin with every currency the options offer has a pair at
-  Kraken (`https://api.kraken.com/0/public/AssetPairs`): one unknown pair voids the whole reply, and the pound with
-  the smaller coins is the doubt. Setup has the row "Crypto (Kraken)". `./bento debug net` shows `api.kraken.com=`
-  rising about every two minutes, only while the bar is on screen. `crypto stage calm|big|offline|old`.
 - **Value from a URL.** An HTTPS address of your own and a JSON path show the value; the log says `GET own -> ok` and
   never the address. `http://` and a name and password in the address are refused. A server with a self-signed
   certificate fails in a release build. Its switch off stops the requests at once. A redirect and a reply over 64 KB
