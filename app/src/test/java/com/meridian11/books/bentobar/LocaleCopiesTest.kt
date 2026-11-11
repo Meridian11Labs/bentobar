@@ -61,7 +61,8 @@ class LocaleCopiesTest {
 
     /** What British English changes: the rest of a text is the default's, word for word. */
     private fun american(british: String): String = listOf(
-        "colour" to "color", "Colour" to "Color", "favourite" to "favorite", "behaviour" to "behavior", "centre" to "center", "Centre" to "Center",
+        "colour" to "color", "Colour" to "Color", "favourite" to "favorite", "behaviour" to "behavior", "Centred" to "Centered", "centred" to "centered",
+        "centre" to "center", "Centre" to "Center",
         "organise" to "organize", "kilometre" to "kilometer", "greyed" to "grayed", "grey" to "gray", "cancelled" to "canceled", "Cancelled" to "Canceled",
     ).fold(british) { text, (gb, us) -> text.replace(gb, us) }
 

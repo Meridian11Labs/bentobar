@@ -416,10 +416,16 @@
     <!-- Where the + of a type that speaks up now and then puts it, then when it shows ("Adds to When active · shows when hot"). -->
     <string name="library_adds_when_active">Adds to When active · %1$s</string>
     <string name="library_adds_behind">Adds behind ‹ · %1$s</string>
+    <!-- With several areas on screen, the area the + adds to: "Adds to Left · shows when hot", "Added to Left". -->
+    <string name="library_adds_to">Adds to %1$s · %2$s</string>
+    <string name="add_added_to">Added to %1$s</string>
+    <string name="add_added_to_rule">Added to %1$s · %2$s</string>
     <!-- A remembered setup: its type, then its own words ("Clock · London"); read out, "Clock, London". -->
     <string name="library_setup">%1$s · %2$s</string>
     <string name="library_setup_spoken">%1$s, %2$s</string>
     <string name="library_add_setup">Add %1$s, %2$s</string>
+    <string name="library_add_to">Add %1$s to %2$s</string>
+    <string name="library_add_setup_to">Add %1$s, %2$s to %3$s</string>
     <string name="library_forget">Forget</string>
     <string name="library_forget_setup">Forget %1$s, %2$s</string>
     <string name="library_forgot">Forgot %1$s</string>
@@ -470,6 +476,8 @@
     <string name="section_hidden_reveal_both">Click ‹ or hover over BentoBar to see them. Items set to pop out show on their own.</string>
     <string name="section_hidden_reveal_chevron">Click ‹ to see them. Items set to pop out show on their own.</string>
     <string name="row_overflow">doesn\'t fit right now (in the ‹ menu)</string>
+    <!-- With several areas: %1$s is the arrow of the item's own area, ‹ or ›. -->
+    <string name="row_overflow_behind">doesn\'t fit right now, it\'s behind %1$s</string>
     <string name="row_when_active">shows when active</string>
     <string name="row_icon_only">icon only</string>
     <string name="row_text_only">text only</string>
