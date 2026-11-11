@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
@@ -310,10 +311,11 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         val line = words ?: said ?: if (more.isEmpty()) hint else hint + " " + pluralStringResource(R.plurals.bar_preview_more, more.size, more.size)
         Text(line, style = if (words != null) Bento.type.help.copy(fontWeight = FontWeight.SemiBold) else Bento.type.help,
             color = if (words != null) Bento.colors.ink else Bento.colors.ink2, maxLines = lines(2),
-            modifier = Modifier.padding(start = 4.dp, top = if (several || zonesUp) 2.dp else 8.dp).semantics { liveRegion = LiveRegionMode.Polite }
+            // As far under the areas' names as under a bar without them: a line of its own, not a second line of theirs.
+            modifier = Modifier.padding(start = 4.dp, top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite }
                 .said(arrowInWords(line)).testTag("preview-line"))
         // The room the areas' names take while a drag shows them: kept, so that nothing under the preview moves then.
-        if (!several && !zonesUp) Spacer(Modifier.height(BRACKETS - 6.dp))
+        if (!several && !zonesUp) Spacer(Modifier.height(BRACKETS))
     }
 }
 
@@ -470,6 +472,25 @@ private fun SystemPill(fg: Color) {
 }
 
 /**
+ * Where the brackets stand in a bar [room] wide. Each is its strip's span, [from] to [to], and never narrower than its
+ * word with a short line on each side ([need]): a wider one stands around its strip's middle. Two that would meet
+ * then give way by the same amount and keep [apart], and none leaves the bar. Pure.
+ */
+internal fun bracketPlaces(from: IntArray, to: IntArray, need: IntArray, apart: Int, room: Int): List<IntRange> {
+    val n = from.size
+    val wide = IntArray(n) { maxOf(to[it] - from[it], need[it], 0) }
+    val x = IntArray(n) { from[it] - (wide[it] - (to[it] - from[it]).coerceAtLeast(0)) / 2 }
+    for (i in 1 until n) {
+        val over = x[i - 1] + wide[i - 1] + apart - x[i]
+        if (over > 0) { x[i - 1] -= over / 2; x[i] += over - over / 2 }
+    }
+    // The bar's ends, and three in a row: whoever is pushed pushes on.
+    for (i in 0 until n) x[i] = maxOf(x[i], if (i == 0) 0 else x[i - 1] + wide[i - 1] + apart)
+    for (i in n - 1 downTo 0) x[i] = maxOf(0, minOf(x[i], if (i == n - 1) room - wide[i] else x[i + 1] - apart - wide[i]))
+    return List(n) { x[it]..x[it] + wide[it] }
+}
+
+/**
  * The areas' names under the bar, each on a bracket as wide as its strip and a little more: which part of the bar is
  * which area. [spans] are the strips' places in the room that starts [origin] into the bar; [chosen] is the selected
  * item's area, whose bracket takes the accent. They are sides of the screen, so they are not mirrored.
@@ -485,11 +506,12 @@ private fun Brackets(spans: Map<Position, IntRange>, origin: Int, chosen: Positi
             // Read out as "Left area": the name alone, under the bar, would be a word with nothing around it.
             val spoken = stringResource(R.string.areas_bracket_spoken, stringResource(areaRes(area)))
             Row(Modifier.testTag("bracket:$area").clearAndSetSemantics { contentDescription = spoken }, verticalAlignment = Alignment.CenterVertically) {
+                // A line is never shorter than this: it is what a bracket's own least width counts on each side of its word.
                 Box(Modifier.width(1.dp).height(7.dp).background(line))
-                Box(Modifier.weight(1f).height(1.dp).background(line))
+                Box(Modifier.weight(1f).widthIn(min = 6.dp).height(1.dp).background(line))
                 Text(stringResource(areaRes(area)), Modifier.padding(horizontal = 6.dp), style = Bento.type.help.copy(fontWeight = if (area == chosen) FontWeight.SemiBold else FontWeight.Medium),
                     color = tint, maxLines = 1, overflow = TextOverflow.Clip)
-                Box(Modifier.weight(1f).height(1.dp).background(line))
+                Box(Modifier.weight(1f).widthIn(min = 6.dp).height(1.dp).background(line))
                 Box(Modifier.width(1.dp).height(7.dp).background(line))
             }
         }
@@ -504,18 +526,14 @@ private fun Brackets(spans: Map<Position, IntRange>, origin: Int, chosen: Positi
             to[i - 1] = mid - apart / 2
             from[i] = mid + apart - apart / 2
         }
-        // A name is as tall as its text size makes it; at a larger one the line under the bar grows with it.
-        // and a name wider than its strip keeps its letters: its bracket reaches past the strip on both sides.
-        val placed = measurables.mapIndexed { i, m ->
-            val wide = (to[i] - from[i]).coerceAtLeast(0)
-            m.measure(Constraints.fixedWidth(if (fontScale > 1f) maxOf(wide, m.minIntrinsicWidth(Constraints.Infinity)) else wide))
-        }
+        // A name wider than its strip keeps its letters and a short line beside them: its bracket reaches past the
+        // strip on both sides ([bracketPlaces]). A name is as tall as its text size makes it; at a larger one the line
+        // under the bar grows with it.
+        val places = bracketPlaces(from, to, IntArray(order.size) { measurables[it].minIntrinsicWidth(Constraints.Infinity) }, apart, cs.maxWidth)
+        val placed = measurables.mapIndexed { i, m -> m.measure(Constraints.fixedWidth(places[i].last - places[i].first)) }
         val tall = maxOf(16.dp.roundToPx(), placed.maxOfOrNull { it.height } ?: 0)
         layout(cs.maxWidth, maxOf(cs.minHeight, 4.dp.roundToPx() + tall)) {
-            placed.forEachIndexed { i, p ->
-                val x = from[i] - (p.width - (to[i] - from[i]).coerceAtLeast(0)) / 2
-                p.place(if (p.width > to[i] - from[i]) x.coerceIn(0, maxOf(0, cs.maxWidth - p.width)) else x, 4.dp.roundToPx() + (tall - p.height) / 2)
-            }
+            placed.forEachIndexed { i, p -> p.place(places[i].first, 4.dp.roundToPx() + (tall - p.height) / 2) }
         }
     }
 }

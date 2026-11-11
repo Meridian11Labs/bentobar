@@ -212,7 +212,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     list's head (and Area as the last, quiet row of an item's options). The lanes on screen are the areas with rows and
     the ones "Add an area" opened that are still empty (`ui/Lanes.kt`, pure: `lanesOnScreen`; the opened ones are the
     page's own state in `BarEdit`, gone on leaving the tab). With more than one, and only then: the lanes side by side
-    with a head each, a bracket per area in use under the preview, Alt with ← or → moving a row to the lane beside it
+    with a head each, a bracket per area in use under the preview (never narrower than its word: `bracketPlaces`, pure), Alt with ← or → moving a row to the lane beside it
     (`landedIn`: first in its part moving right, last moving left), Area first in the options as a three-way choice
     with its keycaps, and "Add to" in the library. That key binding is in `AreaKeys` and nowhere else. A lane whose
     last row leaves closes, said in a slip with Undo above the list (`foldOf`); an area the bar has no room for says so

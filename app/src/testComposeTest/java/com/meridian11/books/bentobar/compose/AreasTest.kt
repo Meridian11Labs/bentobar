@@ -31,6 +31,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Store
@@ -181,6 +182,20 @@ class AreasTest {
         rule.waitForIdle()
         add("storage")
         assertEquals(Position.RIGHT, Store.config.value.items.single { it.type == "storage" }.area)
+    }
+
+    @Test fun aBracketIsNeverNarrowerThanItsWordAndTheCaptionStandsClearOfTheBrackets() {
+        page(null, item("a", "clock", Position.LEFT), ItemConfig("b", "caffeine", display = Display.ICON, area = Position.CENTER), item("c", "battery"))
+        fun box(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        val strip = box("strip:CENTER")
+        val bracket = box("bracket:CENTER")
+        // One icon's strip is narrower than "Middle": the bracket is the word's, with a short line on each side, around the strip's middle.
+        assertTrue("wider than the strip and its reach: ${bracket.width} for ${strip.width}", bracket.width > strip.width + 12f + 8f)
+        assertEquals(strip.center.x, bracket.center.x, 1f)
+        // A wide strip's bracket stays the strip's.
+        assertEquals(box("strip:LEFT").width + 12f, box("bracket:LEFT").width, 1f)
+        // The caption is a line of its own under them, not a second line of theirs.
+        for (area in Position.entries) assertTrue("$area", box("preview-line").top >= box("bracket:$area").bottom + 8f)
     }
 
     @Test fun theLibraryScrollsUnderAHairlineBelowAddToAndWithOneLaneThereIsNeither() {
