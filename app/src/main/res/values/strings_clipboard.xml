@@ -25,6 +25,30 @@
     <string name="clipboard_bar_preview">Latest snippet</string>
     <string name="clipboard_bar_count">Count</string>
 
+    <!-- Clipboard actions: the language model on this device, asked only at a press, never pasting anything anywhere. -->
+    <string name="clipboard_ai_actions">Actions for this snippet</string>
+    <string name="clipboard_ai_summarize">Summarize</string>
+    <string name="clipboard_ai_proofread">Proofread</string>
+    <string name="clipboard_ai_shorter">Shorter</string>
+    <string name="clipboard_ai_translate">Translate into %1$s</string>
+    <string name="clipboard_ai_checking">Checking the model on this device…</string>
+    <string name="clipboard_ai_none">There\'s no language model on this device.</string>
+    <string name="clipboard_ai_downloadable">The model isn\'t on this device yet.</string>
+    <string name="clipboard_ai_get">Get the model</string>
+    <string name="clipboard_ai_downloading">Getting the model…</string>
+    <string name="clipboard_ai_not_in_front">The model answers only in BentoBar\'s window.</string>
+    <string name="clipboard_ai_open">Open in BentoBar</string>
+    <string name="clipboard_ai_busy">The model is busy. Try again in a moment.</string>
+    <string name="clipboard_ai_failed">The model couldn\'t answer.</string>
+    <string name="clipboard_ai_working">Writing…</string>
+    <string name="clipboard_ai_empty">The model gave no answer.</string>
+    <string name="clipboard_ai_cut">Only the start of this text goes to the model.</string>
+    <string name="clipboard_ai_copy">Copy</string>
+    <string name="clipboard_ai_note">Made on this device. Check it before you use it.</string>
+    <string name="clipboard_ai_section">Actions on this device</string>
+    <string name="clipboard_ai_section_note">Summarize, proofread, shorten or translate a snippet with the language model on this device.</string>
+    <string name="clipboard_ai_nothing">No snippet here is long enough for an action.</string>
+
     <plurals name="clipboard_count">
         <item quantity="one">%1$d snippet</item>
         <item quantity="other">%1$d snippets</item>
