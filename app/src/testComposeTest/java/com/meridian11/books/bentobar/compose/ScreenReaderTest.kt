@@ -69,9 +69,11 @@ class ScreenReaderTest {
     }
 
     @Test fun anOnOffEntrySaysItsStateAndItsMarkIsNotReadOut() {
-        rule.setContent { MenuEntry("x", "Show when active", detail = "✓", checked = true) {} }
+        rule.setContent { MenuEntry(null, "Show when active", checked = true) {} }
         rule.onNodeWithText("Show when active", useUnmergedTree = false).assertIsOn()
-        rule.onNodeWithText("✓").assertDoesNotExist()
+        // The tick is the entry's own, a symbol at its end, and says nothing.
+        rule.onNodeWithText(com.meridian11.books.bentobar.util.Sym.CHECK).assertDoesNotExist()
+        rule.onNodeWithText(com.meridian11.books.bentobar.util.Sym.CHECK, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun aChosenChipIsSelectedAndItsCheckMarkIsNotReadOut() {

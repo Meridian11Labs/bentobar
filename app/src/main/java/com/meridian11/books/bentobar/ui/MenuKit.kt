@@ -60,6 +60,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.layout.layout
@@ -175,12 +176,63 @@ fun MenuDivider() = HorizontalDivider(
     color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isSystemInDarkTheme()) 0.16f else 0.12f),
 )
 
+/** The accent as a menu draws it. On glass halfway to the text's colour: the accent alone fell to 2:1 over a dark window behind (visual.md §5). */
 @Composable
-fun SectionLabel(text: String) = Text(text.uppercase(), style = MaterialTheme.typography.labelSmall,
-    // On glass halfway to the text's colour: the accent alone fell to 2:1 over a dark window behind (visual.md §5).
-    color = if (LocalMenuGlass.current?.blur == true) androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.primary,
-        MaterialTheme.colorScheme.onSurface, 0.5f) else MaterialTheme.colorScheme.primary,
+private fun menuAccent(): Color = if (LocalMenuGlass.current?.blur == true) androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.primary,
+    MaterialTheme.colorScheme.onSurface, 0.5f) else MaterialTheme.colorScheme.primary
+
+@Composable
+fun SectionLabel(text: String) = Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, color = menuAccent(),
     modifier = Modifier.padding(top = 4.dp, bottom = 6.dp).semantics { heading() })
+
+/** The name of one choice in a menu, over its [MenuSegment]: small, as written, in the quieter ink. */
+@Composable
+fun ChoiceLabel(text: String) = Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp))
+
+/**
+ * A choice of a few values in a menu, in the menu's own colours: parts on one sunk track, the chosen one raised and
+ * heavier (never by color alone). Each part is as wide as its words, with the room left over shared out evenly, so a
+ * long choice beside two short ones is not cut short.
+ */
+@Composable
+fun MenuSegment(labels: List<String>, selected: Int, onChoose: (Int) -> Unit) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    val raised = if (isSystemInDarkTheme()) ink.copy(alpha = 0.20f) else Color.White.copy(alpha = if (LocalMenuGlass.current?.blur == true) 0.86f else 1f)
+    val shape = RoundedCornerShape(7.dp)
+    androidx.compose.ui.layout.Layout({
+        labels.forEachIndexed { i, label ->
+            val source = remember { MutableInteractionSource() }
+            val hovered by source.collectIsHoveredAsState()
+            val focused by source.collectIsFocusedAsState()
+            val up = i == selected
+            Box(Modifier.heightIn(min = 34.dp).focusRing(focused, shape).clip(shape)
+                .background(if (up) raised else if (hovered || focused) ink.copy(alpha = 0.08f) else Color.Transparent)
+                .hoverable(source)
+                .selectable(selected = up, interactionSource = source, indication = null, role = Role.RadioButton) { onChoose(i) }
+                .pointerHoverIcon(PointerIcon.Hand)
+                .padding(horizontal = 10.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
+                Text(label, style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (up) FontWeight.SemiBold else FontWeight.Medium),
+                    color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }, Modifier.fillMaxWidth().background(ink.copy(alpha = if (isSystemInDarkTheme()) 0.10f else 0.07f), RoundedCornerShape(10.dp)).padding(3.dp).selectableGroup()) { measurables, cs ->
+        val n = measurables.size
+        val gap = 2.dp.roundToPx()
+        val wants = measurables.map { it.maxIntrinsicWidth(androidx.compose.ui.unit.Constraints.Infinity) }
+        val room = if (cs.hasBoundedWidth) (cs.maxWidth - gap * (n - 1)).coerceAtLeast(0) else wants.sum()
+        val widths = (if (wants.sum() <= room) wants.map { it + (room - wants.sum()) / n.coerceAtLeast(1) }
+            else wants.map { (it.toLong() * room / wants.sum()).toInt() }).toMutableList()
+        // What rounding left over goes to the last part, so the parts end where the track does.
+        if (n > 0) widths[n - 1] += room - widths.sum()
+        val height = measurables.mapIndexed { i, m -> m.minIntrinsicHeight(widths[i]) }.maxOrNull() ?: 0
+        val placed = measurables.mapIndexed { i, m -> m.measure(androidx.compose.ui.unit.Constraints.fixed(widths[i].coerceAtLeast(0), height)) }
+        layout(room + gap * (n - 1).coerceAtLeast(0), height) {
+            var x = 0
+            placed.forEach { p -> p.placeRelative(x, 0); x += p.width + gap }
+        }
+    }
+}
 
 /** A small line chart of recent values, filled underneath. Two series share one scale. */
 @Composable
@@ -232,10 +284,11 @@ fun Sparkline(
  * (a place's region); the row is then at least 48 dp high. [image]: a picture, 20 dp, in the
  * symbol's place (an app's icon). [trailing]: one control of its own at the row's end (a × to remove
  * a city, a player's play button), which takes its own clicks. [checked]: the entry is an on/off rule, and says so to a screen
- * reader ([detail], the mark that shows it to the eye, is then not read out as well). Null: a plain entry.
+ * reader; on, it has a tick at its end, which is for the eye and not read out as well. Null: a plain entry.
+ * Without an [icon] (and no [image]) the line is bare: its words start where the line does.
  */
 @Composable
-fun MenuEntry(icon: String, label: String, detail: String? = null, enabled: Boolean = true, modifier: Modifier = Modifier,
+fun MenuEntry(icon: String?, label: String, detail: String? = null, enabled: Boolean = true, modifier: Modifier = Modifier,
               sub: String? = null, image: ImageBitmap? = null, trailing: (@Composable () -> Unit)? = null, checked: Boolean? = null, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val hovered by source.collectIsHoveredAsState()
@@ -256,8 +309,8 @@ fun MenuEntry(icon: String, label: String, detail: String? = null, enabled: Bool
     ) {
         val c = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
         if (image != null) Image(image, null, Modifier.popIn(0f, 0.8f).size(20.dp))
-        else Box(Modifier.popIn(0f, 0.8f)) { SymIcon(icon, size = 18.sp, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else c) }
-        Spacer(Modifier.width(10.dp))
+        else if (icon != null) Box(Modifier.popIn(0f, 0.8f)) { SymIcon(icon, size = 18.sp, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else c) }
+        if (image != null || icon != null) Spacer(Modifier.width(10.dp))
         if (sub == null) Text(label, style = MaterialTheme.typography.bodyMedium, color = c, modifier = Modifier.weight(1f).fadeIn(20f),
             maxLines = 1, overflow = TextOverflow.Ellipsis)
         else Column(Modifier.weight(1f).fadeIn(20f)) {
@@ -268,7 +321,8 @@ fun MenuEntry(icon: String, label: String, detail: String? = null, enabled: Bool
         // At most half the row: a long detail would otherwise squeeze the label away; a short one takes only its own width.
         if (detail != null) Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.layout { m, c -> val p = m.measure(c.copy(maxWidth = c.maxWidth / 2)); layout(p.width, p.height) { p.place(0, 0) } }
-                .fadeIn(36f).then(if (checked != null) Modifier.clearAndSetSemantics { } else Modifier))
+                .fadeIn(36f))
+        if (checked == true) SymIcon(Sym.CHECK, Modifier.padding(start = 8.dp).fadeIn(36f), size = 18.sp, color = menuAccent())
         if (trailing != null) Box(Modifier.fadeIn(36f)) { trailing() }
     }
 }

@@ -10,9 +10,12 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.performClick
 import com.meridian11.books.bentobar.R
@@ -268,6 +271,36 @@ class MenuCompositionTest {
         assertEquals(setUp.copy(section = Section.OFF), stored("x"))
         // And the menu of an item that is not in the bar draws nothing at all.
         assertEquals(listOf(""), drawn().lines())
+    }
+
+    @Test fun theRightClickMenusLinesAreBareAndShowAsIsALabelAsWrittenOverOneChoiceOfThree() {
+        contextHost()
+        val devices = ItemConfig("x", "devices", Section.SHOWN)
+        val showAs = str(R.string.display_show_as)
+        val lines = contextMenu(devices, HiddenMode.SHOW_ALL)
+        assertTrue("$lines", showAs in lines)
+        assertFalse("a heading in capitals: $lines", showAs.uppercase() in lines)
+        // Bare: a line's words start where the line does, with no symbol before them.
+        val room = with(rule.density) { 12.dp.toPx() }
+        for (label in listOf(str(R.string.common_open), str(R.string.visibility_when_active), str(R.string.context_item_settings), str(R.string.detail_remove))) {
+            val line = entry(label).fetchSemanticsNode().boundsInRoot
+            val words = rule.onNode(hasText(label) and !(hasClickAction() or isToggleable()), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertTrue("\"$label\" starts ${words.left - line.left} px into its line", words.left - line.left <= room)
+        }
+        // Show as: three parts of one choice on one line, the item's own chosen, and a click chooses.
+        val parts = listOf(R.string.display_icon_and_text to Display.ICON_AND_TEXT, R.string.display_text to Display.TEXT, R.string.display_icon to Display.ICON)
+        fun part(id: Int) = rule.onNode(hasText(str(id)) and isSelectable())
+        assertEquals("on one line", 1, parts.map { part(it.first).fetchSemanticsNode().boundsInRoot.top }.distinct().size)
+        for ((id, display) in parts) {
+            part(id).performClick()
+            rule.waitForIdle()
+            assertEquals(display, stored("x")!!.display)
+            for ((other, _) in parts) if (other == id) part(other).assertIsSelected() else part(other).assertIsNotSelected()
+        }
+        // The tick at a line's end is for the eye: a reader is told on or off, and no mark.
+        val ticked = contextMenu(devices.copy(section = Section.HIDDEN, whenActive = true), HiddenMode.SHOW_ALL)
+        entry(str(R.string.visibility_when_active)).assertIsOn()
+        assertFalse("$ticked", ticked.any { "✓" in it })
     }
 
     /** What the menu on screen says and what a screen reader is told of it, in the order it is drawn. */

@@ -57,10 +57,11 @@ import com.meridian11.books.bentobar.ui.MenuRoom
 import com.meridian11.books.bentobar.ui.ShownGlass
 import com.meridian11.books.bentobar.ui.menuGlass
 import com.meridian11.books.bentobar.ui.menuShadow
-import com.meridian11.books.bentobar.ui.ChipRow
+import com.meridian11.books.bentobar.ui.ChoiceLabel
 import com.meridian11.books.bentobar.ui.MenuCard
 import com.meridian11.books.bentobar.ui.MenuDivider
 import com.meridian11.books.bentobar.ui.MenuEntry
+import com.meridian11.books.bentobar.ui.MenuSegment
 import com.meridian11.books.bentobar.ui.SectionLabel
 import com.meridian11.books.bentobar.util.Sym
 
@@ -178,34 +179,34 @@ fun ItemContextMenu(itemId: String, host: MenuHost, openMenu: () -> Unit) {
         Standing.WHEN_ACTIVE -> stringResource(R.string.visibility_when_active)
         Standing.BEHIND -> behind
     }) {
-        if (type.menu != null) MenuEntry(Sym.OPEN_IN_NEW, stringResource(R.string.common_open)) { openMenu() }
+        // Bare lines under a hairline: the head has the item's symbol, and a line's words say what it does.
+        MenuDivider()
+        if (type.menu != null) MenuEntry(null, stringResource(R.string.common_open)) { openMenu() }
         if (cfg.hiddenMode == HiddenMode.SHOW_ALL) {
             // One tick. A type without a rule is always in the bar here, so it has no such entry.
             val waits = standing == Standing.WHEN_ACTIVE
-            if (type.canBeActive) MenuEntry(if (waits) Sym.CHECK_CIRCLE else Sym.UPDATE, stringResource(R.string.visibility_when_active),
-                detail = if (waits) "✓" else null, checked = waits) {
+            if (type.canBeActive) MenuEntry(null, stringResource(R.string.visibility_when_active), checked = waits) {
                 Store.update { if (waits) it.show(item.id) else it.setWhenActive(item.id, true) }
             }
         } else if (standing == Standing.BEHIND) {
-            MenuEntry(Sym.VISIBILITY, stringResource(R.string.visibility_always)) { Store.update { it.show(item.id) } }
-            if (type.canBeActive) MenuEntry(if (item.whenActive) Sym.CHECK_CIRCLE else Sym.UPDATE, stringResource(R.string.context_pops_out),
-                detail = if (item.whenActive) "✓" else null, checked = item.whenActive) {
+            MenuEntry(null, stringResource(R.string.visibility_always)) { Store.update { it.show(item.id) } }
+            if (type.canBeActive) MenuEntry(null, stringResource(R.string.context_pops_out), checked = item.whenActive) {
                 Store.update { it.setWhenActive(item.id, !item.whenActive) }
             }
-        } else MenuEntry(Sym.VISIBILITY_OFF, behind, modifier = Modifier.semantics { contentDescription = behindSpoken }) { Store.update { it.hide(item.id) } }
+        } else MenuEntry(null, behind, modifier = Modifier.semantics { contentDescription = behindSpoken }) { Store.update { it.hide(item.id) } }
         // Not for a type that has only one way to show: the settings don't offer it either.
         if (!type.iconOnly) {
-            SectionLabel(stringResource(R.string.display_show_as))
+            ChoiceLabel(stringResource(R.string.display_show_as))
             val displays = listOf(Display.ICON_AND_TEXT to stringResource(R.string.display_icon_and_text), Display.TEXT to stringResource(R.string.display_text),
                 Display.ICON to stringResource(R.string.display_icon))
-            ChipRow(displays.map { it.second }, selected = displays.indexOfFirst { it.first == item.display }) { i ->
+            MenuSegment(displays.map { it.second }, selected = displays.indexOfFirst { it.first == item.display }) { i ->
                 Store.updateItem(item.id) { it.copy(display = displays[i].first) }
                 Ticker.refresh()
             }
         }
         MenuDivider()
-        MenuEntry(Sym.TUNE, stringResource(R.string.context_item_settings)) { host.openItemSettings(item.id) }
-        MenuEntry(Sym.REMOVE_CIRCLE, stringResource(R.string.detail_remove)) { host.close(); Store.update { it.removed(item.id) } }
+        MenuEntry(null, stringResource(R.string.context_item_settings)) { host.openItemSettings(item.id) }
+        MenuEntry(null, stringResource(R.string.detail_remove)) { host.close(); Store.update { it.removed(item.id) } }
     }
 }
 
