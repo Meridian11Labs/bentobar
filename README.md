@@ -78,7 +78,6 @@ hides when an app goes full screen or the screen locks.
 | **Device batteries** | the lowest of your mouse, keyboard, stylus or controller, when it's low | every device that reports a battery |
 | **External displays** | connected monitor resolution & refresh rate (`4K 60Hz`), when plugged in | every display's resolution, refresh rate and HDR status, plus **Keep awake while connected** |
 | **Heat** | a word when Android slows a hot device | heat level, battery temperature |
-| **Clipboard & scratchpad** | latest snippet preview or count | pinned snippets and session clipboard history; click any row to copy it |
 | **Weather** *(online)* | conditions and temperature of a city you pick or of where you are; rain or snow that is coming; optionally a word for the sky ("Partly cloudy", "Windy") | the next hours and days, sunrise and sunset. From [Open-Meteo](https://open-meteo.com) |
 | **Air quality & UV** *(online)* | US or European AQI and/or UV index for your city or location; pops out when AQI or UV is high | AQI band, PM2.5, PM10, Ozone ($\text{O}_3$), current and max daily UV. From [Open-Meteo](https://open-meteo.com) |
 | **Flight** *(online)* | a line with the plane where the flight is, a countdown to departure with the gate, then to landing, and delays | times at both airports, terminal, gate, baggage belt; a choice where a number flies more than once a day. From AirLabs, with a free key of your own |
@@ -90,7 +89,7 @@ hides when an app goes full screen or the screen locks.
 | **Mirror** | a camera glyph | you, from the camera: a look before a call. The camera runs only while the popup is open |
 | **Prompter** | a notes glyph | your notes moving up under the camera, to read while you speak; play, pause and a speed. The popup stays open while you use another window |
 | **Notification icons** | other apps' notifications as icons, one per app | the list, to open, dismiss or clear |
-| **Shelf** | how many things it holds; drop text or a link on it | what it holds, to copy, drag out or open; Add what's copied |
+| **Shelf** | how many things it holds; drop text or a link on it | what it holds, to copy, drag out or open |
 | **Focus** | the time left of a Do Not Disturb session you start from the item | the length, a session with no end, End now |
 | **Brightness** | the screen's brightness, with a slider in the bar | the slider, automatic brightness, display settings |
 | **Keyboard light** | the keyboard's backlight, with a slider in the bar | Give back to the system |
@@ -211,10 +210,6 @@ anywhere: not your layout, your calendar, your clipboard, your notifications, th
 what's playing or anything it measures. It has no accounts of its own, no ads and no analytics, and it
 sends its developer nothing.
 
-**Clipboard** reads the text you copy while the item is in use, and keeps your last few copies in
-memory only: they are gone when BentoBar stops, and are never stored or sent. The snippets you pin are
-saved with the item, in your layout.
-
 **Now playing** reads the title, artist and artwork your media players publish, which Android shares
 only with apps that have notification access. That access is optional, and BentoBar tells Android to
 send it no notifications through that entry, and receives none. Without it the item still shows that something plays and
@@ -234,7 +229,7 @@ Its button mutes the microphone for every app, and only when you press it; Bento
 remove the item or turn BentoBar off, and leaves alone a mute Android or another app made. It can't
 switch a camera off.
 
-**Shelf** keeps the text and links you drop on it or add from the clipboard, and **Prompter** keeps
+**Shelf** keeps the text and links you drop on it, and **Prompter** keeps
 your notes: on this device only, not in your layout, a copied layout or a backup, and never sent.
 Forget, in Add items, deletes them.
 

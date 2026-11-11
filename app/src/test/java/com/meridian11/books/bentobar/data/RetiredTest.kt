@@ -1,6 +1,7 @@
 package com.meridian11.books.bentobar.data
 
 import com.meridian11.books.bentobar.items.Items
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -11,8 +12,37 @@ import org.junit.Test
 class RetiredTest {
     private fun read(text: String): LayoutRead.Ok = readLayout(text) as LayoutRead.Ok
 
+    @After fun gone() = Store.open(MapPrefs()) { }
+
     @Test fun noRetiredTypeIsRegistered() {
         for (type in Retired.types) assertNull(type, Items.of(type))
+    }
+
+    @Test fun aLayoutWithAClipboardItemAndItsSnippetsLoadsWithoutItAndIsSavedAgain() {
+        // As 2.0 wrote it: a Clipboard item with pinned snippets, one off with snippets too, and two other items.
+        val pins = """["me@example.com","git status -sb"]"""
+        val text = layoutJson.encodeToString(BarConfig.serializer(), BarConfig(items = listOf(
+            ItemConfig("a1", "clock"),
+            ItemConfig("c1", "clipboard", options = mapOf("pins" to pins, "bar" to "count", "pasteOnClick" to "true")),
+            ItemConfig("b2", "shelf", Section.HIDDEN, whenActive = true),
+            ItemConfig("c2", "clipboard", Section.OFF, options = mapOf("pins" to pins)),
+        )))
+        val read = read(text)
+        assertEquals(listOf("a1", "b2"), read.config.items.map { it.id })
+        assertTrue("so the stored layout is written again without it", read.changed)
+        val saved = layoutJson.encodeToString(BarConfig.serializer(), read.config)
+        for (gone in listOf("clipboard", "pins", "me@example.com", "pasteOnClick")) assertFalse(gone, gone in saved)
+        assertEquals(LayoutRead.Ok(read.config, changed = false), readLayout(saved))
+    }
+
+    @Test fun aStoredLayoutWithAClipboardItemIsWrittenAgainWithoutIt() {
+        val prefs = MapPrefs(mapOf("bar" to """{"version":4,"items":[{"id":"c1","type":"clipboard","options":{"pins":"[\"a snippet\"]"}},{"id":"a1","type":"clock"}]}"""))
+        Store.open(prefs) { }
+        assertEquals(listOf("a1"), Store.config.value.items.map { it.id })
+        val stored = prefs.string("bar").orEmpty()
+        assertFalse(stored, "clipboard" in stored || "a snippet" in stored)
+        // Nothing was set aside for Backup: the layout was read, only without the retired item.
+        assertNull(Store.setAside.value)
     }
 
     @Test fun aLayoutWithACryptoItemLoadsWithoutItAndIsSavedAgain() {

@@ -107,12 +107,12 @@ class LayoutFixturesTest {
         assertTrue(c.presenting)
     }
 
-    @Test fun schema3WithTheLookSwitchesKeepsThemAndAnOldOptionStaysIgnoredInTheLayout() {
+    @Test fun schema3WithTheLookSwitchesKeepsThemAndLeavesTheRetiredClipboardItemOut() {
         val c = read("schema3-look-1.6-to-1.7.1.json")
         assertTrue(c.hoverSwitchesPopups); assertTrue(c.noAnimations); assertTrue(c.systemTint)
         assertFalse(c.enabled)
-        assertEquals("true", c.items.single { it.type == "clipboard" }.options["pasteOnClick"]) // read by nothing, harmless
-        assertEquals(6, c.items.size)
+        // The Clipboard item (1.6 to 2.0) is retired: it goes with its options, and the five others stay in their order.
+        assertEquals(listOf("fx", "air", "stocks", "displays", "shortcut"), c.items.map { it.type })
     }
 
     @Test fun schema4KeepsEachItemsAreaAndComesBackAsItWasWritten() {

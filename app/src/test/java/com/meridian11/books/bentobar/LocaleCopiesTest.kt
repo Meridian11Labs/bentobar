@@ -121,7 +121,7 @@ class LocaleCopiesTest {
             for (n in listOf("item_${type}_title", "item_${type}_desc")) assertTrue("$n is missing from $file", n in known)
         }
         // The types that brought their own file before the registry was asked: they still have it.
-        for (type in listOf("media", "devices", "heat", "weather", "flight", "stocks", "clipboard", "displays", "air", "fx"))
+        for (type in listOf("media", "devices", "heat", "weather", "flight", "stocks", "displays", "air", "fx"))
             assertTrue("$type is not registered, or has lost its file", type in types && own["strings_$type.xml"] != null)
     }
 }

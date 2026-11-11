@@ -11,9 +11,9 @@
   setup becomes a library line when removed, one without is gone. Look, Setup and About on the same controls; the
   accessibility disclosure is a page under Setup with the same words and two buttons; the bar's right-click menu says
   "Remove from the bar".
-- **The 1.8 foundation.** Exchange rates moved to Frankfurter's `/v2/rates` and loads again; Clipboard no longer
-  pastes into other apps' fields; Hide, Show and Off change an item's section and never its place; a layout from a
-  newer version is refused with a message; Compose tests have their own build type; dependency verification is on.
+- **The 1.8 foundation.** Exchange rates moved to Frankfurter's `/v2/rates` and loads again; Hide, Show and Off change
+  an item's section and never its place; a layout from a newer version is refused with a message; Compose tests have
+  their own build type; dependency verification is on.
 - **Sixteen new items.** Camera and mic, Mirror, Prompter, Shelf, Notification icons, Live activity, Focus,
   Brightness, Keyboard light, Headphones and output, Connection, Screen time, Day progress, Sunset, Break reminder
   and Value from a URL. Each has its device list in `docs/RELEASING.md`.
@@ -32,8 +32,7 @@
 - **About › Privacy says all of it.** Notes for Notification icons, Mirror, Camera and mic, Screen time, Shelf and
   Prompter, and for Value from a URL; a backup leaves out a Prompter's notes, what a Shelf holds, the
   addresses of Value from a URL and a Focus session.
-- **Clipboard actions are in the code and switched off.** They need a model on the device, and none is built in, so
-  nothing of them shows.
+- **The Clipboard item is gone.** A layout that has one is read without it, and its pinned snippets go with it.
 
 ## 1.7.1 (2026-11-03)
 

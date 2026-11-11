@@ -45,7 +45,6 @@ object Items {
         CaffeineItem,
         MediaItem,
         SoundItem,
-        ClipboardItem,
         ToolsItem,
         ShortcutItem,
         FolderItem,

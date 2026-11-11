@@ -10,8 +10,11 @@ package com.meridian11.books.bentobar.data
  * layout version: what is left is a layout of the same schema, and an older version reads it as it reads any other.
  */
 object Retired {
-    /** Crypto: only in 2.0's test builds. */
-    val types: Set<String> = setOf("crypto")
+    /**
+     * Clipboard (1.6 to 2.0: its pinned snippets were its options, in the layout, and its recent copies in memory only)
+     * and Crypto (only in 2.0's test builds; its prices were in memory only).
+     */
+    val types: Set<String> = setOf("clipboard", "crypto")
 
     /** The ids in `Online`'s file of the services only a retired type asked: Crypto's Kraken. */
     val services: Set<String> = setOf("kraken")

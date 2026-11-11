@@ -137,7 +137,7 @@ learned the hard way" says why. Run it again on every new draft.
   opening; refused, the popup says so and Setup has the Camera row.
 - **Shelf.** Text and a link dragged from another app onto the item land, in each area: the item lights up, the count
   rises, pictures and files are refused. Whether the system's window tiling takes a drag at the top edge first. A row
-  drags out into another app. "Add what's copied" adds the clipboard, and nothing the system marks sensitive. Open
+  drags out into another app. Text the system marks sensitive is refused. Open
   link opens the browser. Removed from the bar the item waits as a line with what it holds; Forget deletes the kept
   file. Nothing of what it holds is in the log.
 - **Prompter.** While its popup is open, keys still go to the other app; Space pauses and plays only when the popup

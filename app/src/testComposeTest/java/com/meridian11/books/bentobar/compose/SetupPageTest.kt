@@ -273,12 +273,12 @@ class SetupPageTest {
         rule.onNode(hasText(str(R.string.about_privacy_policy)) and button).assertExists()
         rule.onNode(hasText(str(R.string.weather_open_site)) and button).assertExists()
         // Every item's paragraph is behind its name: nothing is open until a click, and a screen reader can open it.
-        rule.onNode(hasText(str(R.string.about_privacy_clipboard))).assertDoesNotExist()
-        val row = rule.onNode(hasTestTag("privacy:clipboard"))
+        rule.onNode(hasText(str(R.string.about_privacy_media))).assertDoesNotExist()
+        val row = rule.onNode(hasTestTag("privacy:media"))
         assertTrue(SemanticsActions.Expand in row.fetchSemanticsNode().config)
         row.performClick()
-        rule.onNode(hasText(str(R.string.about_privacy_clipboard))).assertExists()
-        assertTrue(SemanticsActions.Collapse in rule.onNode(hasTestTag("privacy:clipboard")).fetchSemanticsNode().config)
+        rule.onNode(hasText(str(R.string.about_privacy_media))).assertExists()
+        assertTrue(SemanticsActions.Collapse in rule.onNode(hasTestTag("privacy:media")).fetchSemanticsNode().config)
         for (key in listOf("weather", "air", "flight", "stocks", "fx", "media", "notices", "mirror", "inuse", "screentime", "shelf", "prompter", "others", "backup")) rule.onNode(hasTestTag("privacy:$key")).assertExists()
         picture("about")
         dark = true

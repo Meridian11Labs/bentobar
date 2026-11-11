@@ -126,9 +126,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     logged or sent. `items/ScreenTimeLoad.kt` is the only code that reads usage events (see `items/Usage.kt`).
     `items/KeyLights.kt` holds the keyboard's light through `LightsManager` (no permission; Android doesn't tell the
     level, so the slider is dimmed until the first slide). `tools/zones.py PATH/zone.tab [VERSION]` writes
-    `SunZones.kt`, the city Sunset works from in each time zone. Clipboard actions (`ClipboardActions`,
-    `OnDeviceModel`) are built and dormant: `ClipboardActions.model` is null and no model library is in the build, so
-    nothing of them shows.
+    `SunZones.kt`, the city Sunset works from in each time zone.
   - `net/`: the only code that opens a connection (pure Kotlin). `Host` is an enum of the hosts BentoBar may ask; a `Request` names one of them, a path and a query, so no call takes an
     address but one: `Http.getOwn`, for Value from a URL, takes the address the user typed (`OwnAddress`: HTTPS, no name or
     password in it, no redirect followed; it is counted and printed as "own", never as itself, and has a switch of its own). `Http.get` refuses unless the service is switched on, an item that uses it is outside
@@ -160,6 +158,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     SharedPreferences, a process-wide StateFlow shared by the service and settings; `Store.open` takes a `Prefs`, so a test
     runs it on a map). `Layout.kt` holds `readLayout`, the one reader of a stored or pasted layout: decode, migrate, repeated
     ids dropped; a layout from a newer version (`LAYOUT_VERSION`) is refused, never clamped, and kept for Backup to offer.
+    `data/Retired.kt` is the one list of the item types BentoBar took out (Clipboard, Crypto): `readLayout` drops their
+    items with their options, where an unknown type's item stays (it may be from a newer version), and `Online.init`
+    drops the switch of a service only they asked (`RetiredTest`; no new layout version, since the schema is the same).
     A schema change adds a file to `test/resources/layouts` (write-once, `LayoutFixturesTest`). Version 4 gave every item
     an area (`ItemConfig.area`: Left, Middle, Right; `Position.CENTER` is the Middle) where the whole strip had one place:
     `migrateToV4` puts each item where the strip was. `BarConfig.position` is read by that and, in a layout with no
