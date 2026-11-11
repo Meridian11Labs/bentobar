@@ -450,10 +450,11 @@ private val SWITCH_MID = 452.dp
 /**
  * The Bar page: the preview, the bar's one list, and a panel that is the library or the selected item's options. From
  * 1100 dp the list and the panel stand side by side; below, the list is the panel's first part. [turn] counts the
- * times the bar's own menu asked for an item's options: each turns the panel to them.
+ * times the bar's own menu asked for an item's options: each turns the panel to them. Before BentoBar is [running] the
+ * bar can be arranged all the same: only the preview says that it is not in the status bar yet.
  */
 @Composable
-internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int = 0) {
+internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int = 0, running: Boolean = true) {
     val cfg by Store.config.collectAsState()
     val states by Ticker.states.collectAsState()
     val layout = LocalWindowLayout.current
@@ -504,7 +505,7 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
     Box(Modifier.fillMaxSize().onGloballyPositioned { reorder.container = it }.drags(reorder)) {
         Column(Modifier.fillMaxSize().onKeyEvent { edit.key(it, view.onCheckIsTextEditor(), reorder) }
             .padding(start = layout.marginDp.dp, end = layout.marginDp.dp, top = Space.m, bottom = Space.xl)) {
-            BarPreview(states, item?.id, edit.said, lanes.noRoom, reorder, lanes.several) { id -> if (id != null) edit.select(id) }
+            BarPreview(states, item?.id, edit.said, lanes.noRoom, reorder, lanes.several, off = !running) { id -> if (id != null) edit.select(id) }
             // What a change came to, for a screen reader; the page draws nothing for it.
             Box(Modifier.size(1.dp).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = edit.announced })
             Spacer(Modifier.height(Space.m))

@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -73,6 +74,8 @@ class BarPagePicturesTest {
     private lateinit var view: View
     private var dark by mutableStateOf(false)
     private var selected by mutableStateOf<String?>(null)
+    /** BentoBar's service is on, as in every picture but the one of the bar arranged before it is. */
+    private var running = true
 
     @Before fun env() { Env.init(app); before = Store.config.value; Undo.last.value = null }
     @After fun forget() { Store.update { before }; Undo.last.value = null; BarOverflow.ids.value = emptySet() }
@@ -116,8 +119,9 @@ class BarPagePicturesTest {
         rule.setContent {
             view = LocalView.current
             SettingsTheme(dark) {
-                Shell(Page.BAR, {}, running = true, enabled = true, status = BarStatus.SHOWN, onEnabled = {}, onTurnOn = {}, insets = WindowInsets(top = 36.dp)) {
-                    BarPage(selected, onSelect = { selected = it })
+                Shell(Page.BAR, {}, running, enabled = true, status = if (running) BarStatus.SHOWN else BarStatus.STOPPED, onEnabled = {}, onTurnOn = {},
+                    insets = WindowInsets(top = 36.dp)) {
+                    BarPage(selected, onSelect = { selected = it }, running = running)
                 }
             }
         }
@@ -135,6 +139,31 @@ class BarPagePicturesTest {
             assertColor("the page's ground beside the list", palette().surface, bitmap, list.left.toInt() - 6, list.center.y.toInt())
             assertColor("the list's card", palette().panel, bitmap, list.left.toInt() + 6, list.bottom.toInt() - 24)
         }
+    }
+
+    @Test fun beforeBentoBarIsOnThePreviewIsSolidTealAndSaysTheBarCanBeArrangedNow() {
+        running = false
+        window()
+        val hint = app.getString(R.string.bar_preview_hint_off)
+        both("bar-serviceoff") { bitmap ->
+            rule.onNodeWithTag("preview-line").assertTextEquals(hint)
+            val bar = bounds("preview")
+            // Solid: the same teal near both ends, in light and in dark.
+            for (x in listOf(bar.left.toInt() + 8, bar.right.toInt() - 8))
+                assertColor("the preview's ground at $x", palette().stripOff, bitmap, x, bar.top.toInt() + 26)
+        }
+        // The list is there to arrange, and the header offers Turn on.
+        rule.onNodeWithTag("bar-list").assertExists()
+        rule.onNode(hasText(app.getString(R.string.setup_turn_on))).assertExists()
+    }
+
+    @Test fun onceBentoBarIsOnThePreviewSaysHowToEditAnItem() {
+        window()
+        rule.onNodeWithTag("preview-line").assertTextEquals(app.getString(R.string.bar_preview_hint))
+        val bitmap = picture("firstrun-3-live")
+        val bar = bounds("preview")
+        assertEquals("the bar's own look, not the teal", false,
+            Integer.toHexString(bitmap.getPixel(bar.left.toInt() + 8, bar.top.toInt() + 26)) == Integer.toHexString(palette().stripOff.toArgb()))
     }
 
     @Test fun theSelectedRowStandsOnTheSoftGround() {

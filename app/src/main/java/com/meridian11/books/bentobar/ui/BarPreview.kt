@@ -91,7 +91,8 @@ import com.meridian11.books.bentobar.items.Items
  * A mock status bar with the real strips in it, one for each area the layout uses, standing where the bar has them;
  * clicking an item selects it. With several areas in use each strip has its area's name on a bracket under it, the
  * selected item's in the accent; an area the bar has [noRoom] for right now has neither, and the Middle's place then
- * says who has it. Under it one quiet line: what the preview is, or [said], what a key just could not do.
+ * says who has it. Under it one quiet line: what the preview is, or [said], what a key just could not do. While
+ * BentoBar is [off] the bar is one solid teal and the line says that it appears once BentoBar is on.
  *
  * While something is carried ([reorder]) the line says what a drop would do, in the strong color; an insertion bar
  * stands where the item would, and a carried row's own chip is dimmed. Nothing else moves: the strips are the Store's
@@ -102,7 +103,7 @@ import com.meridian11.books.bentobar.items.Items
  */
 @Composable
 internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said: String? = null, noRoom: Set<Position> = emptySet(),
-                        reorder: Reorder? = null, lanesSeveral: Boolean = false, onSelect: (String?) -> Unit) {
+                        reorder: Reorder? = null, lanesSeveral: Boolean = false, off: Boolean = false, onSelect: (String?) -> Unit) {
     val cfg by Store.config.collectAsState()
     val res = LocalResources.current
     val density = LocalDensity.current
@@ -134,8 +135,12 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         ColorMode.DARK -> Contrast.resolve(Contrast.DARK_TEXT, null)
         ColorMode.AUTO -> live ?: Contrast.resolve(Color.White, null)
     }
-    val look = StripLook(bar.fg, bar.barDark, cfg.textSize, cfg.spacingDp.dp, cfg.pill, bar.background)
+    // While BentoBar is off there is no bar of its own to show: the preview is the window's own teal, in both themes.
+    val teal = Bento.colors.stripOff
+    val look = if (off) StripLook(Bento.colors.stripOffInk, true, cfg.textSize, cfg.spacingDp.dp, cfg.pill, teal)
+        else StripLook(bar.fg, bar.barDark, cfg.textSize, cfg.spacingDp.dp, cfg.pill, bar.background)
     val barBrush = when {
+        off -> androidx.compose.ui.graphics.SolidColor(teal)
         bar.opaque -> androidx.compose.ui.graphics.SolidColor(bar.background)
         bar.barDark -> Brush.horizontalGradient(listOf(Color(0xFF5B6F8A), Color(0xFF3F6F73), Color(0xFF4F7E78)))
         else -> Brush.horizontalGradient(listOf(Color(0xFFDDE6F3), Color(0xFFD5E8E6), Color(0xFFE3EEE9)))
@@ -145,7 +150,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
     SideEffect {
         reorder?.look = look
         // The chip a carried row becomes stands on one plain color of the bar.
-        reorder?.ground = if (bar.opaque) bar.background else if (bar.barDark) Color(0xFF3F6F73) else Color(0xFFD5E8E6)
+        reorder?.ground = if (off) teal else if (bar.opaque) bar.background else if (bar.barDark) Color(0xFF3F6F73) else Color(0xFFD5E8E6)
     }
     val carried = reorder?.carried
     val target = (reorder?.drop as? Drop.At)?.spot?.zone?.area?.takeIf { carried != null }
@@ -261,7 +266,8 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         }
         if (zonesUp) Brackets(reorder.areas.mapValues { (_, r) -> r.start.roundToInt()..r.endInclusive.roundToInt() }, 0, target)
         else if (several) Brackets(spans.filterKeys { it in areas }, origin, cfg.items.firstOrNull { it.id == selected }?.area)
-        val hint = stringResource(if (plans.values.any { it.hidden.isNotEmpty() }) R.string.bar_preview_hint_hidden else R.string.bar_preview_hint)
+        val hint = stringResource(if (off) R.string.bar_preview_hint_off else if (plans.values.any { it.hidden.isNotEmpty() }) R.string.bar_preview_hint_hidden
+            else R.string.bar_preview_hint)
         val words = if (reorder != null && carried != null) dropWords(res, cfg, carried, reorder.drop, lanesSeveral, reorder.touch) else null
         Text(words ?: said ?: if (more.isEmpty()) hint else hint + " " + pluralStringResource(R.plurals.bar_preview_more, more.size, more.size),
             style = if (words != null) Bento.type.help.copy(fontWeight = FontWeight.SemiBold) else Bento.type.help,

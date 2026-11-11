@@ -220,7 +220,7 @@ class MainActivity : ComponentActivity() {
                 onDecline = { disclosure = false; Store.setConsent(Store.Consent.DECLINED) },
                 onDismiss = { disclosure = false },
             ) else when (page) {
-                Page.BAR -> BarPage(selected, onSelect = { selected = it }, turn = turn)
+                Page.BAR -> BarPage(selected, onSelect = { selected = it }, turn = turn, running = running)
                 Page.LOOK -> LookPage()
                 Page.SETUP -> SetupPage(setup, consent == Store.Consent.DECLINED, wontAsk, onTurnOn = ::turnOn)
                 Page.ABOUT -> AboutPage()
