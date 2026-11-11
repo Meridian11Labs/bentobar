@@ -63,7 +63,7 @@ class AreaChoosersTest {
         // The old Position says Right throughout: nothing here may read it.
         val layout = BarConfig(items = items.toList(), position = Position.RIGHT)
         Store.update { layout }
-        rule.setContent { BarPage(selected, onSelect = {}, onAdded = {}) }
+        rule.setContent { BarPage(selected, onSelect = {}) }
         rule.waitForIdle()
         return layout
     }

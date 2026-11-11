@@ -138,7 +138,7 @@ class ScreenReaderTest {
         try {
             Store.update { BarConfig(items = items.toList(), position = Position.RIGHT, hiddenMode = mode) }
             rule.setContent {
-                CompositionLocalProvider(LocalWindowLayout provides windowLayout(700)) { BarPage(null, onSelect = {}, onAdded = {}) }
+                CompositionLocalProvider(LocalWindowLayout provides windowLayout(700)) { BarPage(null, onSelect = {}) }
             }
             rule.waitForIdle()
             check()

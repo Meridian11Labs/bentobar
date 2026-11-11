@@ -72,9 +72,9 @@ class WindowLayoutTest {
             assertEquals("$s", StatusTone.WAITING, statusTone(running = true, enabled = true, status = s))
     }
 
-    @Test fun theTabsAreBarLookSetupAboutAndAddLast() {
-        assertEquals(listOf(Page.BAR, Page.LOOK, Page.SETUP, Page.ABOUT, Page.ADD), tabs)
-        // The saved page is its ordinal: the enum's order stays as it was.
-        assertEquals(listOf(Page.BAR, Page.ADD, Page.LOOK, Page.SETUP, Page.ABOUT), Page.entries.toList())
+    @Test fun theTabsAreBarLookSetupAndAbout() {
+        // Adding is the Bar page's library: there is no page for it, and so no tab.
+        assertEquals(listOf(Page.BAR, Page.LOOK, Page.SETUP, Page.ABOUT), tabs)
+        assertEquals("every page has its tab", Page.entries.toSet(), tabs.toSet())
     }
 }

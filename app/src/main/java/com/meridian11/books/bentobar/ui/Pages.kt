@@ -12,8 +12,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,7 +68,6 @@ import com.meridian11.books.bentobar.data.oneArea
 import com.meridian11.books.bentobar.data.putAllIn
 import com.meridian11.books.bentobar.data.spacingDp
 import com.meridian11.books.bentobar.items.Env
-import com.meridian11.books.bentobar.items.ItemGroup
 import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.items.MediaAccess
 import com.meridian11.books.bentobar.items.Notify
@@ -92,53 +89,6 @@ private fun Page(content: @Composable () -> Unit) {
 private fun PageLabel(text: String) {
     Spacer(Modifier.height(14.dp))
     SectionLabel(text)
-}
-
-// ---- Add -----------------------------------------------------------------------------------
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun AddPage(onAdded: (String) -> Unit) {
-    val cfg by Store.config.collectAsState()
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp)) {
-        ItemGroup.entries.forEach { group ->
-            SectionLabel(stringResource(group.title))
-            group.caption?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp)) }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Items.inGroup(group).forEach { type ->
-                    val count = cfg.items.count { it.type == type.type }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                        modifier = Modifier.width(280.dp)) {
-                        Column(Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer),
-                                    contentAlignment = Alignment.Center) {
-                                    SymIcon(type.icon, size = 22.sp, filled = true, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(type.title, style = MaterialTheme.typography.titleMedium)
-                                    if (count > 0) Text(pluralStringResource(R.plurals.add_in_your_bar, count, count), style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            Text(type.blurb, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                minLines = 2)
-                            Spacer(Modifier.height(10.dp))
-                            // One +: in the bar, or for an item that speaks up now and then waiting with its rule on
-                            // (ItemType.fresh). Visibility in its options puts such an item in the bar for good.
-                            FilledTonalButton(onClick = { onAdded(Store.addFresh(type)) }) {
-                                SymIcon(Sym.ADD, size = 18.sp); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.add_add))
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-        }
-    }
 }
 
 // ---- Look ----------------------------------------------------------------------------------

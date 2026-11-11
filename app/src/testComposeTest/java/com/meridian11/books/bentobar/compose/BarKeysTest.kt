@@ -72,7 +72,7 @@ class BarKeysTest {
         selected = select
         rule.setContent {
             inputMode = LocalInputModeManager.current
-            SettingsTheme(dark = false) { BarPage(selected, onSelect = { selected = it }, onAdded = {}) }
+            SettingsTheme(dark = false) { BarPage(selected, onSelect = { selected = it }) }
         }
         // In touch mode nothing that takes a click takes the focus.
         rule.runOnIdle { assertTrue(inputMode.requestInputMode(InputMode.Keyboard)) }

@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +40,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
@@ -54,6 +56,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -77,6 +81,8 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.bar.SliderMath
 import com.meridian11.books.bentobar.R
@@ -291,10 +297,11 @@ fun SwitchMark(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean
 
 /**
  * Filled: the one such button on a screen. Tonal: every other command. Text: a quiet one in a line (Undo). Plain: a command
- * as plain words, where nothing is lost by it (Remove from the bar). Danger: one that can't be taken back.
+ * as plain words, where nothing is lost by it (Remove from the bar). Quiet: one that stands back beside the line's own
+ * button (Forget). Danger: one that can't be taken back.
  */
 /** [WARN] is the one button of an amber notice, in the notice's own ink. */
-enum class ButtonKind { FILLED, TONAL, TEXT, PLAIN, DANGER, WARN }
+enum class ButtonKind { FILLED, TONAL, TEXT, PLAIN, QUIET, DANGER, WARN }
 
 @Composable
 fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: ButtonKind = ButtonKind.TONAL, icon: String? = null, enabled: Boolean = true) {
@@ -310,6 +317,7 @@ fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
         ButtonKind.FILLED -> c.onPrimary
         ButtonKind.TONAL, ButtonKind.PLAIN -> c.ink
         ButtonKind.TEXT -> c.accent
+        ButtonKind.QUIET -> c.ink2
         ButtonKind.DANGER -> c.danger
         ButtonKind.WARN -> c.warnInk
     }
@@ -436,7 +444,48 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
     }
 }
 
-/** A key's name as a cap, in a line of help or at a field's end. */
+/**
+ * A filter's field: sunk, a search glyph, [label] as its placeholder and spoken name, and at its end the keys that go
+ * with it: Ctrl F, which brings the keyboard here, and Esc, which empties it, once it has the keyboard or holds
+ * something. Esc is the field's own while there is something to empty.
+ */
+@Composable
+fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier: Modifier = Modifier, focus: FocusRequester = remember { FocusRequester() }) {
+    val c = Bento.colors
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    // The field's own value: text put in from outside (a letter typed elsewhere in the window) leaves the caret at its end.
+    var value by remember { mutableStateOf(TextFieldValue(text, TextRange(text.length))) }
+    if (value.text != text) value = TextFieldValue(text, TextRange(text.length))
+    BasicTextField(value, { value = it; if (it.text != text) onText(it.text) },
+        modifier.fillMaxWidth().height(Target.control)
+            .states(interaction, ground = false)
+            .background(c.sunk, RoundedCornerShape(Radius.medium))
+            .focusRequester(focus)
+            .onPreviewKeyEvent { it.type == KeyEventType.KeyDown && it.key == Key.Escape && text.isNotEmpty() && run { onText(""); true } }
+            .semantics { contentDescription = label },
+        textStyle = Bento.type.body.copy(color = c.ink), singleLine = true, cursorBrush = SolidColor(c.accent), interactionSource = interaction,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        decorationBox = { inner ->
+            Row(Modifier.padding(start = Space.m, end = Space.s), verticalAlignment = Alignment.CenterVertically) {
+                SymIcon(Sym.SEARCH, size = 16.sp, color = c.ink3)
+                Spacer(Modifier.width(Space.s))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (text.isEmpty()) Text(label, style = Bento.type.body, color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    inner()
+                }
+                Spacer(Modifier.width(Space.s))
+                if (focused || text.isNotEmpty()) Keycap(stringResource(R.string.key_esc))
+                else {
+                    Keycap(stringResource(R.string.key_ctrl))
+                    Spacer(Modifier.width(3.dp))
+                    Keycap(stringResource(R.string.key_f))
+                }
+            }
+        })
+}
+
+/** A key's name as a cap, in a line of help or at a field's end (where the field's ground is the cap's own). */
 @Composable
 fun Keycap(text: String, modifier: Modifier = Modifier) {
     val c = Bento.colors

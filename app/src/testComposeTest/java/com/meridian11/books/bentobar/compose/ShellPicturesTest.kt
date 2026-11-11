@@ -105,7 +105,7 @@ class ShellPicturesTest {
             view = LocalView.current
             SettingsTheme(dark) {
                 Shell(page, { page = it }, running, enabled = true, status = BarStatus.SHOWN, onEnabled = {}, onTurnOn = {}, insets = WindowInsets(top = CAPTION.dp)) {
-                    BarPage(selected = null, onSelect = {}, onAdded = {})
+                    BarPage(selected = null, onSelect = {})
                 }
             }
         }

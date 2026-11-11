@@ -380,7 +380,6 @@
 
     <!-- main -->
     <string name="nav_bar">Bar</string>
-    <string name="nav_add">Add</string>
     <string name="nav_look">Look</string>
     <string name="nav_setup">Setup</string>
     <string name="nav_about">About</string>
@@ -400,7 +399,33 @@
 
     <!-- barpage -->
     <string name="bar_undo">Undo</string>
+    <!-- What was removed, as the library names it: "Clock · Tokyo", or the type's name alone. -->
     <string name="bar_removed">Removed %1$s</string>
+    <!-- The library: the panel's "Add items". -->
+    <string name="library_filter">Filter items</string>
+    <!-- While filtering: rows shown, of all rows (types and remembered setups). -->
+    <string name="add_filter_count">%1$d of %2$d shown.</string>
+    <string name="library_in_bar">In your bar</string>
+    <!-- A type's + button, read out: "Add Clock". -->
+    <string name="library_add">Add %1$s</string>
+    <!-- A screen reader's action on a remembered setup's line. -->
+    <string name="add_add">Add</string>
+    <!-- On a type's row right after its +, and on the bar's new row; with what the item waits for ("Added · shows when hot"). -->
+    <string name="add_added">Added</string>
+    <string name="add_added_rule">Added · %1$s</string>
+    <!-- Where the + of a type that speaks up now and then puts it, then when it shows ("Adds to When active · shows when hot"). -->
+    <string name="library_adds_when_active">Adds to When active · %1$s</string>
+    <string name="library_adds_behind">Adds behind ‹ · %1$s</string>
+    <!-- A remembered setup: its type, then its own words ("Clock · London"); read out, "Clock, London". -->
+    <string name="library_setup">%1$s · %2$s</string>
+    <string name="library_setup_spoken">%1$s, %2$s</string>
+    <string name="library_add_setup">Add %1$s, %2$s</string>
+    <string name="library_forget">Forget</string>
+    <string name="library_forget_setup">Forget %1$s, %2$s</string>
+    <string name="library_forgot">Forgot %1$s</string>
+    <!-- A setup's words when it has none of its own: a type that waits on its rule, kept in the bar for good; and one that differs only in options with no short name. -->
+    <string name="library_always">always in the bar</string>
+    <string name="library_as_set_up">as you set it up</string>
     <!-- The bar's list and the panel beside it. -->
     <string name="bar_empty">Nothing in the bar yet. Add an item to start.</string>
     <string name="panel_select_item">Select an item</string>
@@ -427,6 +452,9 @@
     <string name="order_th">%1$dth</string>
     <string name="key_alt">Alt</string>
     <string name="key_del">Del</string>
+    <string name="key_ctrl">Ctrl</string>
+    <string name="key_esc">Esc</string>
+    <string name="key_f">F</string>
     <string name="row_show_always">Show always</string>
     <string name="row_show_when_active">Show only when active</string>
     <string name="row_put_behind">Put behind the hidden-items arrow</string>
@@ -476,8 +504,6 @@
     <string name="add_group_tools">Tools</string>
     <string name="add_group_online">Online</string>
     <string name="add_group_online_caption">These ask an online service once you set them up. Nothing else in BentoBar goes online.</string>
-    <string name="add_add">Add</string>
-    <string name="add_added_rule">Added %1$s · %2$s</string>
     <string name="look_placement">Placement</string>
     <string name="look_position">Where BentoBar sits</string>
     <string name="look_spacing">Space between items</string>
@@ -640,15 +666,10 @@
     </plurals>
 
     <!-- plurals: pages -->
-    <plurals name="add_in_your_bar">
-        <item quantity="one">In your bar</item>
-        <item quantity="other">%1$d in your bar</item>
-    </plurals>
     <plurals name="look_collapse_after">
         <item quantity="one">After %1$d s</item>
         <item quantity="other">After %1$d s</item>
     </plurals>
-    <string name="add_added">Added %1$s</string>
     <string name="setup_use_off_runtime">Permission revoked at next restart</string>
     <string name="setup_use_off_exact">Stopped using exact alarms</string>
     <string name="setup_denied_settings">Android won\'t ask again. You can allow it in App info.</string>

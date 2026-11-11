@@ -33,17 +33,15 @@ import com.meridian11.books.bentobar.bar.BarStatus
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.Chips
 import com.meridian11.books.bentobar.items.Env
-import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.items.Notify
 import com.meridian11.books.bentobar.items.Ticker
 
 /**
  * The settings window's pages: what its tab says ([label]) and what the page is called for a screen reader ([title]).
- * A new page goes here, in [tabs] and in [MainActivity]'s `when`. The order here is what a saved window remembers.
+ * A new page goes here, in [tabs] and in [MainActivity]'s `when`. A saved window remembers its page by name.
  */
 enum class Page(@androidx.annotation.StringRes val label: Int, @androidx.annotation.StringRes val title: Int) {
     BAR(R.string.nav_bar, R.string.page_bar),
-    ADD(R.string.nav_add, R.string.page_add),
     LOOK(R.string.nav_look, R.string.page_look),
     SETUP(R.string.nav_setup, R.string.page_setup),
     ABOUT(R.string.nav_about, R.string.page_about),
@@ -74,7 +72,8 @@ class MainActivity : ComponentActivity() {
             // use, not behind a page someone has to find. Once answered, only Turn on brings it back.
             disclosure = ConsentRules.asksOnFirstOpening(Store.consent.value, { serviceOn(this) }, { turnedOn(this) }, { Env.advancedProtection() })
         } else {
-            page = Page.entries.getOrElse(savedInstanceState.getInt(STATE_PAGE)) { Page.BAR }; selected = savedInstanceState.getString(STATE_SELECTED)
+            page = savedInstanceState.getString(STATE_PAGE).let { name -> Page.entries.firstOrNull { it.name == name } } ?: Page.BAR
+            selected = savedInstanceState.getString(STATE_SELECTED)
             disclosure = savedInstanceState.getBoolean(STATE_DISCLOSURE)
         }
         setContent { SettingsTheme { App() } }
@@ -101,7 +100,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putInt(STATE_PAGE, page.ordinal)
+        outState.putString(STATE_PAGE, page.name)
         outState.putString(STATE_SELECTED, selected)
         outState.putBoolean(STATE_DISCLOSURE, disclosure)
     }
@@ -190,19 +189,8 @@ class MainActivity : ComponentActivity() {
         Shell(page, { page = it }, running, cfg.enabled, status, onEnabled = { on -> Store.update { it.copy(enabled = on) } }, onTurnOn = ::turnOn) {
             // Before the pages: a message is seen only by someone already listening.
             val snackbar = rememberNotices()
-            // Adding keeps you where you are: a message confirms it, with Undo, instead of jumping pages.
-            val onAdded: (String) -> Unit = { id ->
-                val added = Store.config.value.items.firstOrNull { it.id == id }
-                val type = added?.let { Items.of(it.type) }
-                val title = type?.title.orEmpty()
-                // Added to When active, the bar looks as before: the message says when the item will show.
-                val rule = added?.takeIf { it.whenActive && it.section == com.meridian11.books.bentobar.data.Section.HIDDEN }?.let { type?.trigger?.short(it) }
-                Notice.post(if (rule != null) getString(R.string.add_added_rule, title, rule) else getString(R.string.add_added, title),
-                    getString(R.string.bar_undo)) { Store.remove(id) }
-            }
             when (page) {
-                Page.BAR -> BarPage(selected, onSelect = { selected = it }, onAdded = onAdded, turn = turn)
-                Page.ADD -> AddPage(onAdded)
+                Page.BAR -> BarPage(selected, onSelect = { selected = it }, turn = turn)
                 Page.LOOK -> LookPage()
                 Page.SETUP -> SetupPage(this@MainActivity, setup, onTurnOn = ::turnOn)
                 Page.ABOUT -> AboutPage()

@@ -21,7 +21,7 @@ object Items {
 
     fun of(type: String): ItemType? = byType[type]
 
-    /** The types of [group], in catalog order: what Add lists under its heading. */
+    /** The types of [group], in catalog order: what the library lists under its heading. */
     fun inGroup(group: ItemGroup): List<ItemType> = all.filter { it.group == group }
 }
 

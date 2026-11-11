@@ -68,7 +68,7 @@ class ItemOptionsTest {
         val layout = BarConfig(items = items.toList(), position = Position.RIGHT, hiddenMode = mode)
         Store.update { layout }
         selected = select
-        rule.setContent { SettingsTheme(dark = false) { BarPage(selected, onSelect = { selected = it }, onAdded = {}) } }
+        rule.setContent { SettingsTheme(dark = false) { BarPage(selected, onSelect = { selected = it }) } }
         rule.waitForIdle()
         return layout
     }

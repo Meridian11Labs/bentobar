@@ -112,7 +112,7 @@ interface MenuHost {
 }
 
 /**
- * Where Add lists a type, and under which heading. A new type states its group and is listed: nothing else names types by
+ * Where the library lists a type, and under which heading. A new type states its group and is listed: nothing else names types by
  * hand. The only group that says so goes online, and every type that goes online is in it (`ItemCatalogTest`).
  */
 enum class ItemGroup(@StringRes val title: Int, @StringRes val caption: Int? = null) {
@@ -138,7 +138,7 @@ abstract class ItemType(
     val title: String get() = Env.app.getString(titleRes)
     val blurb: String get() = Env.app.getString(blurbRes)
 
-    /** Where Add lists it. */
+    /** Where the library lists it. */
     abstract val group: ItemGroup
 
     /** Its reading goes up and down around the user's line (speed, load): "has something to say" is held for a while ([TickRules.held]), so it doesn't blink. */
@@ -182,8 +182,8 @@ abstract class ItemType(
     open val notificationAccess: Boolean = false
 
     /**
-     * Speaks up now and then (Now playing, Device batteries, Heat): Add puts it in "When active"
-     * with its rule on, and the second button adds it always shown.
+     * Speaks up now and then (Now playing, Device batteries, Heat): the library's + puts it under the
+     * line with its rule on, and its row there says so; "Always" in its options keeps it in the bar.
      */
     open val addsWhenActive: Boolean = false
 

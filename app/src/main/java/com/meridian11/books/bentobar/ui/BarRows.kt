@@ -73,6 +73,7 @@ import com.meridian11.books.bentobar.data.Standing
 import com.meridian11.books.bentobar.data.Step
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.canGoBelow
+import com.meridian11.books.bentobar.data.carriesSetup
 import com.meridian11.books.bentobar.data.listAreas
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
@@ -168,6 +169,7 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     val shown = reorder.preview(cfg)
     val dragging = reorder.dragging
     val entries = remember(shown, kept, dragging != null) { listEntries(shown, slipOf(kept, shown), dragging != null) }
+    val added = Undo.added(kept, cfg)?.id
     val grabbing = remember { PointerIcon(android.view.PointerIcon.TYPE_GRABBING) }
     Column(modifier.clip(RoundedCornerShape(Radius.large)).background(c.panel)
         .pointerInput(edit) { detectTapGestures { edit.letGo() } }
@@ -184,7 +186,7 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
                             is Entry.PartLine -> PartLine(cfg.hiddenMode, Modifier.onGloballyPositioned { reorder.headings[Zone(e.area, Part.LOWER)] = it })
                             is Entry.Row ->
                                 if (e.item.id == dragging) DropOpening(e.item.id, reorder)
-                                else ItemRow(e.item, shown, states[e.item.id], e.item.id == selected, e.item.id in overflow, setup.calendar, edit, reorder)
+                                else ItemRow(e.item, shown, states[e.item.id], e.item.id == selected, e.item.id in overflow, e.item.id == added, setup.calendar, edit, reorder)
                             is Entry.Removed -> SlipRow(e.slip, edit)
                             Entry.Empty -> Text(stringResource(R.string.bar_empty), Modifier.padding(horizontal = Space.xl, vertical = Space.s),
                                 style = Bento.type.small, color = c.ink2)
@@ -256,7 +258,7 @@ private fun PartLine(mode: HiddenMode, modifier: Modifier) {
         Text(title, style = Bento.type.help.copy(fontWeight = FontWeight.SemiBold), color = c.ink, maxLines = 1)
         Text(help, style = Bento.type.help, color = c.ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Box(Modifier.background(c.line))
-    }, modifier.fillMaxWidth().padding(horizontal = Space.xl).clearAndSetSemantics { heading(); contentDescription = spoken }.testTag("part-line")) { m, cs ->
+    }, modifier.testTag("part-line").fillMaxWidth().padding(horizontal = Space.xl).clearAndSetSemantics { heading(); contentDescription = spoken }) { m, cs ->
         val gap = Space.s.roundToPx()
         val lineGap = Space.m.roundToPx()
         val name = m[0].measure(Constraints(maxWidth = cs.maxWidth))
@@ -297,8 +299,14 @@ private fun SlipRow(slip: Slip, edit: BarEdit) {
     }
 }
 
-/** What a removed item is called, as the library will name its line. */
-internal fun removedName(res: android.content.res.Resources, item: ItemConfig): String = itemName(res, item)
+/**
+ * What a removed item is called, as the library names it: a setup by its type and its line's words ("Clock · Tokyo"),
+ * an item that carried nothing by its type alone.
+ */
+internal fun removedName(res: android.content.res.Resources, item: ItemConfig): String {
+    val type = Items.of(item.type)?.takeIf { item.carriesSetup(it) } ?: return itemName(res, item)
+    return res.getString(R.string.library_setup, res.getString(type.titleRes), setupText(res, item, type))
+}
 
 @Composable
 private fun Grip(color: Color, modifier: Modifier = Modifier) {
@@ -310,7 +318,8 @@ private fun Grip(color: Color, modifier: Modifier = Modifier) {
  * the keys act on the focused row; a screen reader has each command as an action, by the same rules as the controls.
  */
 @Composable
-private fun ItemRow(item: ItemConfig, cfg: BarConfig, state: ItemState?, selected: Boolean, overflow: Boolean, calendar: Boolean, edit: BarEdit, reorder: Reorder) {
+private fun ItemRow(item: ItemConfig, cfg: BarConfig, state: ItemState?, selected: Boolean, overflow: Boolean, added: Boolean, calendar: Boolean,
+                    edit: BarEdit, reorder: Reorder) {
     val c = Bento.colors
     val id = item.id
     val interaction = remember { MutableInteractionSource() }
@@ -355,12 +364,14 @@ private fun ItemRow(item: ItemConfig, cfg: BarConfig, state: ItemState?, selecte
             .pointerHoverIcon(PointerIcon.Hand)
             .semantics { this.selected = selected; customActions = actions }
             .testTag("row:$id"),
+        added = added,
         grip = { if (pinned) Spacer(Modifier.width(28.dp)) else Grip(c.ink3, Modifier.onGloballyPositioned { reorder.handles[id] = it }.pointerHoverIcon(grab).testTag("grip")) })
 }
 
-/** What a row draws, for the list and for the copy that floats while it is dragged. */
+/** What a row draws, for the list and for the copy that floats while it is dragged; [added] marks the row the library just put there. */
 @Composable
-private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, calendar: Boolean, cfg: BarConfig, modifier: Modifier, grip: @Composable () -> Unit) {
+private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, calendar: Boolean, cfg: BarConfig, modifier: Modifier, added: Boolean = false,
+                    grip: @Composable () -> Unit) {
     val c = Bento.colors
     val res = LocalResources.current
     val type = Items.of(item.type)
@@ -389,6 +400,8 @@ private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, cale
             Spacer(Modifier.width(10.dp))
             Detail(detail, needs, Modifier.weight(1f))
         }
+        if (added) Text(stringResource(R.string.add_added), Modifier.padding(start = Space.s).testTag("added-mark"),
+            style = Bento.type.help.copy(fontWeight = FontWeight.SemiBold), color = c.accent, maxLines = 1)
     }
 }
 

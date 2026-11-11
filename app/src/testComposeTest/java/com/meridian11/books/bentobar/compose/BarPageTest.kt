@@ -66,7 +66,7 @@ class BarPageTest {
         selected = select
         rule.setContent {
             CompositionLocalProvider(LocalWindowLayout provides windowLayout(width)) {
-                SettingsTheme(dark = false) { BarPage(selected, onSelect = { selected = it }, onAdded = {}) }
+                SettingsTheme(dark = false) { BarPage(selected, onSelect = { selected = it }) }
             }
         }
         rule.waitForIdle()
@@ -169,10 +169,13 @@ class BarPageTest {
         options().assertExists()
         rule.onNodeWithTag("bar-list").assertDoesNotExist()
 
-        // Removing it goes back to the list, where the Undo is.
+        // Removing it turns to the library, as at every width; the Undo stands in the list, one part to the left.
         rule.onNode(hasText(app.getString(R.string.detail_remove)) and hasClickAction()).performClick()
         rule.waitForIdle()
-        switchPart(R.string.page_bar).assertIsSelected()
+        switchPart(R.string.page_add).assertIsSelected()
+        rule.onNodeWithTag("library").assertExists()
+        switchPart(R.string.page_bar).performClick()
+        rule.waitForIdle()
         rule.onNodeWithTag("slip").assertExists()
     }
 

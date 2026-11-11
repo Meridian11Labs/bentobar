@@ -225,7 +225,7 @@ object Store {
 object Defaults {
     /**
      * A calm first bar, left to right: the next meeting (only when one is near), the calendar, a
-     * timer and keep awake. Everything else is one click away in Add.
+     * timer and keep awake. Everything else is one click away in the library.
      */
     fun config() = BarConfig(
         items = listOf(

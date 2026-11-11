@@ -115,8 +115,8 @@ fun windowLayout(widthDp: Int): WindowLayout = when {
 /** The layout of the window a page is drawn in ([Shell] provides it). */
 val LocalWindowLayout = compositionLocalOf { windowLayout(1180) }
 
-/** The header's tabs, in their order. Add is a tab only until the library takes its place beside the bar's list. */
-val tabs: List<Page> = listOf(Page.BAR, Page.LOOK, Page.SETUP, Page.ABOUT, Page.ADD)
+/** The header's tabs, in their order. */
+val tabs: List<Page> = Page.entries
 
 /**
  * What the header's status line says: what the strip is actually doing, not just whether the service is on. While it
@@ -195,7 +195,7 @@ private fun Header(narrow: Boolean, page: Page, onPage: (Page) -> Unit, running:
         Row(Modifier.fillMaxWidth().height(Target.tab).padding(start = Space.l, end = Space.m), verticalAlignment = Alignment.CenterVertically) {
             Mark(stringResource(R.string.app_name))
             Spacer(Modifier.width(Space.xs))
-            // The row scrolls sideways in a window too narrow for five tabs; its own padding keeps the focus ring whole.
+            // The row scrolls sideways in a window too narrow for the tabs; its own padding keeps the focus ring whole.
             Tabs(page, onPage, step = !running, pad = Space.m, gap = 0.dp, Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(horizontal = Space.xs))
         }
         Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 20.dp, end = Space.l, bottom = Space.xs), verticalAlignment = Alignment.CenterVertically) {
