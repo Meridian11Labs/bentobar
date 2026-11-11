@@ -99,7 +99,7 @@ private fun SettingName(name: String, help: String?, modifier: Modifier = Modifi
  * In a narrow window the control goes under the name.
  */
 @Composable
-internal fun SettingRow(name: String, help: String? = null, modifier: Modifier = Modifier, helpWarn: Boolean = false, control: @Composable RowScope.() -> Unit) {
+internal fun SettingRow(name: String, modifier: Modifier = Modifier, help: String? = null, helpWarn: Boolean = false, control: @Composable RowScope.() -> Unit) {
     if (LocalWindowLayout.current.kind == WindowClass.NARROW) Column(modifier.fillMaxWidth().padding(vertical = Space.m)) {
         SettingName(name, help, warn = helpWarn)
         // Buttons that don't fit side by side go on the next line.
@@ -116,7 +116,7 @@ internal fun SettingRow(name: String, help: String? = null, modifier: Modifier =
  * [control] the rest, from the same line in every row. In a narrow window the control goes under the name.
  */
 @Composable
-internal fun WideSettingRow(name: String, help: String? = null, modifier: Modifier = Modifier, top: Boolean = true, control: @Composable () -> Unit) {
+internal fun WideSettingRow(name: String, modifier: Modifier = Modifier, help: String? = null, top: Boolean = true, control: @Composable () -> Unit) {
     if (LocalWindowLayout.current.kind == WindowClass.NARROW) Column(modifier.fillMaxWidth().padding(vertical = Space.m)) {
         SettingName(name, help)
         Box(Modifier.fillMaxWidth().padding(top = Space.xs)) { control() }
@@ -130,7 +130,7 @@ internal fun WideSettingRow(name: String, help: String? = null, modifier: Modifi
 /** A choice of one, every value under the other as a radio button, beside the setting's name. */
 @Composable
 internal fun <T> ChoiceSetting(name: String, choices: List<Pair<T, String>>, selected: T?, help: String? = null, onSelect: (T) -> Unit) {
-    WideSettingRow(name, help) {
+    WideSettingRow(name, help = help) {
         RadioList(choices, selected, onSelect, Modifier.fillMaxWidth().semantics { contentDescription = name })
     }
 }

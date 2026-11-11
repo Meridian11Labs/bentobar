@@ -332,7 +332,7 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     Column(modifier.clip(RoundedCornerShape(Radius.large)).background(c.panel)
         .pointerInput(edit) { detectTapGestures { edit.letGo() } }
         .onGloballyPositioned { reorder.viewport = it }
-        .verticalScroll(scroll).padding(vertical = Space.m).testTag("bar-list")) {
+        .scrollThumb(scroll, c.thumb).verticalScroll(scroll).padding(vertical = Space.m).testTag("bar-list")) {
         val tint = c.accent
         Box(Modifier.fillMaxWidth().onGloballyPositioned { reorder.content = it }
             // The part a drop would land in, from under its heading to its end.

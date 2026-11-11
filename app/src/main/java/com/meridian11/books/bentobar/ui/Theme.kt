@@ -69,6 +69,9 @@ class Palette(
     /** The preview while the service is off. */
     val stripOff: Color, val stripOffInk: Color,
 ) {
+    /** The thumb of something that scrolls. */
+    val thumb: Color get() = ink.copy(alpha = 0.28f)
+
     /**
      * The palette as the Material roles today's pages and Material's own parts (the message bar, a dialog) read, so
      * a page not yet redesigned stands in the same colors as the header above it.

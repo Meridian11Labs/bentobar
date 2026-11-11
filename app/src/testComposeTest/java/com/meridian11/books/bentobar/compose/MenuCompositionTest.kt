@@ -1,5 +1,6 @@
 package com.meridian11.books.bentobar.compose
 
+import androidx.compose.ui.test.onNodeWithTag
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -271,6 +272,18 @@ class MenuCompositionTest {
         assertEquals(setUp.copy(section = Section.OFF), stored("x"))
         // And the menu of an item that is not in the bar draws nothing at all.
         assertEquals(listOf(""), drawn().lines())
+    }
+
+    /** The head's symbol stands on the card itself, as the design draws it: no tinted box around it. */
+    @Test fun theRightClickMenusHeadHasItsSymbolOnTheCardsOwnGround() {
+        contextHost()
+        contextMenu(ItemConfig("x", "devices", Section.SHOWN), HiddenMode.SHOW_ALL)
+        val box = rule.onNodeWithTag("menu-symbol", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val v = view!!
+        val bitmap = rule.runOnIdle { android.graphics.Bitmap.createBitmap(v.width, v.height, android.graphics.Bitmap.Config.ARGB_8888).also { v.draw(android.graphics.Canvas(it)) } }
+        val inside = bitmap.getPixel((box.left + 3).toInt(), box.center.y.toInt())
+        val beside = bitmap.getPixel((box.left - 3).toInt(), box.center.y.toInt())
+        assertEquals("the ground at the symbol's edge is the card's", beside, inside)
     }
 
     @Test fun theRightClickMenusLinesAreBareAndShowAsIsALabelAsWrittenOverOneChoiceOfThree() {

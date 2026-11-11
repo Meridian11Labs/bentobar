@@ -44,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layoutId
@@ -108,6 +109,8 @@ fun MenuCard(
     iconRes: Int? = null,
     /** The subtitle's color, where it says something out of the ordinary (a time being planned). */
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    /** The head's symbol on the card itself, in the text's color, with no tinted box around it (the right-click menu). */
+    plain: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     // Each child is a block that drops into place as the popup opens: the header first, then the content's own children.
@@ -115,10 +118,11 @@ fun MenuCard(
         Row(Modifier.padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.popIn(0f, 0.85f).size(30.dp).clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(if (plain) Color.Transparent else MaterialTheme.colorScheme.primaryContainer).testTag("menu-symbol"),
                 contentAlignment = Alignment.Center,
             ) {
-                if (iconRes != null) androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(iconRes), null,
+                if (plain) SymIcon(icon, size = 20.sp)
+                else if (iconRes != null) androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(iconRes), null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
                 else SymIcon(icon, size = 17.sp, filled = true, color = MaterialTheme.colorScheme.onPrimaryContainer)
             }

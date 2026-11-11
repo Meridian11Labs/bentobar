@@ -106,6 +106,7 @@ class BarLibraryTest {
     private val bar = arrayOf(item("a", "memory"), item("b", "battery"))
 
     private fun str(id: Int, vararg args: Any) = app.getString(id, *args)
+    private fun count(shown: Int, all: Int) = app.resources.getQuantityString(R.plurals.add_filter_count, shown, shown, all)
     private fun title(type: String) = str(Items.of(type)!!.titleRes)
     private fun now(id: String) = Store.config.value.items.firstOrNull { it.id == id }
     private fun ids() = Store.config.value.items.map { it.id }
@@ -250,7 +251,7 @@ class BarLibraryTest {
         tag("line:k").assertExists()
         tag("type:memory").assertDoesNotExist()
         val shown = ItemGroup.entries.flatMap { Items.inGroup(it) }.count { str(it.titleRes).contains(title("clock").take(4), true) || str(it.blurbRes).contains(title("clock").take(4), true) } + 1
-        tag("filter-count").assertTextEquals(str(R.string.add_filter_count, shown, all))
+        tag("filter-count").assertTextEquals(count(shown, all))
 
         // Esc empties it, and everything is back.
         press(Key.Escape, on = "filter")
@@ -265,7 +266,7 @@ class BarLibraryTest {
         rule.waitForIdle()
         tag("type:storage").assertExists()
         tag("type:clock").assertDoesNotExist()
-        tag("filter-count").assertTextEquals(str(R.string.add_filter_count, 1, all))
+        tag("filter-count").assertTextEquals(count(1, all))
         press(Key.Escape, on = "filter")
 
         // A line's words: its type, with that line only.
@@ -275,8 +276,8 @@ class BarLibraryTest {
         tag("line:w").assertExists()
         tag("type:clock").assertDoesNotExist()
         tag("line:k").assertDoesNotExist()
-        tag("filter-count").assertTextEquals(str(R.string.add_filter_count, 2, all))
-        assertEquals("3 of 32 shown.", str(R.string.add_filter_count, 3, 32))
+        tag("filter-count").assertTextEquals(count(2, all))
+        assertEquals("3 of 32 shown.", count(3, 32))
     }
 
     @Test fun ctrlFTurnsThePanelToTheLibraryWithTheKeyboardInTheFilterAndKeepsTheSelection() {

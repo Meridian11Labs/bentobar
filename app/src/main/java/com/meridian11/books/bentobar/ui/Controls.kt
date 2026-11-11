@@ -1,12 +1,12 @@
 package com.meridian11.books.bentobar.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,40 +14,24 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -56,40 +40,63 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.meridian11.books.bentobar.bar.SliderMath
+import androidx.compose.ui.unit.sp
 import com.meridian11.books.bentobar.R
+import com.meridian11.books.bentobar.bar.SliderMath
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.unit.Constraints
 
 /** The bar's three areas as choices, in the order they stand in the status bar. */
 @Composable
@@ -642,9 +649,60 @@ fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier:
 @Composable
 fun Keycap(text: String, modifier: Modifier = Modifier) {
     val c = Bento.colors
-    Text(text, modifier.background(c.sunk, RoundedCornerShape(Radius.small)).padding(horizontal = 5.dp),
-        style = Bento.type.help.copy(fontWeight = FontWeight.Medium), color = c.ink3, maxLines = 1)
+    val cap = modifier.background(c.sunk, RoundedCornerShape(Radius.small)).padding(horizontal = 5.dp)
+    val arrows = arrowSymbols(text)
+    val style = Bento.type.help.copy(fontWeight = FontWeight.Medium)
+    if (arrows == null) { Text(text, cap, style = style, color = c.ink3, maxLines = 1); return }
+    // A cap of arrows is as high as a cap of words, says the same to a screen reader, and points the same way in every language.
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val line = remember(style, density) { with(density) { measurer.measure("", style).size.height.toDp() } }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Row(cap.height(line).semantics { this.text = AnnotatedString(text) }, horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+            arrows.forEach { SymIcon(it, size = ARROW_SIZE, color = c.ink3) }
+        }
+    }
 }
+
+/**
+ * A keycap's arrows as the window's own symbols, or null for a cap of words. A text font draws its arrows as small as
+ * its small letters, and not every font has them; the symbols are the ones the buttons beside them wear.
+ */
+internal fun arrowSymbols(text: String): List<String>? =
+    text.split(' ').filter { it.isNotEmpty() }.map { ARROWS[it] ?: return null }.takeIf { it.isNotEmpty() }
+
+private val ARROWS = mapOf("\u2190" to Sym.ARROW_BACK, "\u2192" to Sym.ARROW_FORWARD, "\u2191" to Sym.ARROW_UPWARD, "\u2193" to Sym.ARROW_DOWNWARD)
+private val ARROW_SIZE = 14.sp
+
+/**
+ * Where the thumb of something that scrolls stands in a [view] of that many px, with [more] px that don't fit and [at]
+ * px scrolled: from its top to its end. Null where everything fits. As long as the share that shows, never shorter than [least].
+ */
+internal fun thumbOf(view: Float, more: Int, at: Int, least: Float): ClosedFloatingPointRange<Float>? {
+    if (view <= 0f || more <= 0 || more == Int.MAX_VALUE) return null
+    val length = (view * view / (view + more)).coerceIn(minOf(least, view), view)
+    val top = (view - length) * at.coerceIn(0, more) / more
+    return top..(top + length)
+}
+
+/**
+ * A thin thumb at the end edge of something that scrolls, drawn while there is more than fits. It takes no pointer and
+ * a screen reader hears nothing of it. It goes before `verticalScroll`, so it stands still while the content moves.
+ */
+fun Modifier.scrollThumb(state: ScrollState, color: Color): Modifier = drawWithContent {
+    drawContent()
+    val inset = THUMB_INSET.toPx()
+    val thumb = thumbOf(size.height - 2 * inset, state.maxValue, state.value, THUMB_LEAST.toPx()) ?: return@drawWithContent
+    val width = THUMB_WIDTH.toPx()
+    val x = if (layoutDirection == LayoutDirection.Rtl) THUMB_GAP.toPx() else size.width - THUMB_GAP.toPx() - width
+    drawRoundRect(color, Offset(x, inset + thumb.start), Size(width, thumb.endInclusive - thumb.start), CornerRadius(width / 2))
+}
+
+private val THUMB_WIDTH = 4.dp
+private val THUMB_GAP = 3.dp
+private val THUMB_LEAST = 24.dp
+/** Clear of a card's round corners. */
+private val THUMB_INSET = Space.s
 
 private val SEGMENT_GAP = 2.dp
 private val SEGMENT_PART = 34.dp

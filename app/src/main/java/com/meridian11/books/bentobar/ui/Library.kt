@@ -40,6 +40,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -235,7 +236,7 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
                 find = BarKeys.FIND.caps(res), clear = BarKeys.ESC.caps(res))
             DropWell(reorder, Modifier.matchParentSize())
         }
-        if (query.isNotBlank()) Text(stringResource(R.string.add_filter_count, shown.rows(), shelves.rows()),
+        if (query.isNotBlank()) Text(pluralStringResource(R.plurals.add_filter_count, shown.rows(), shown.rows(), shelves.rows()),
             Modifier.padding(start = Space.xs, top = 10.dp, end = Space.xs).semantics { liveRegion = LiveRegionMode.Polite }.testTag("filter-count"),
             style = Bento.type.help, color = c.ink3)
         if (to != null) Row(Modifier.fillMaxWidth().padding(top = 10.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -246,7 +247,7 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
             Segment(areas.map { SegmentPart(it.second, spoken = "$label ${it.second}") }, areas.indexOfFirst { it.first == to }, { edit.addTo = areas[it].first },
                 Modifier.weight(1f).testTag("add-to"), sides = true)
         }
-        Column(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { reorder.libraryView = it }.verticalScroll(scroll).padding(end = 10.dp, bottom = Space.m)) {
+        Column(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { reorder.libraryView = it }.scrollThumb(scroll, c.thumb).verticalScroll(scroll).padding(end = 10.dp, bottom = Space.m)) {
             ItemGroup.entries.forEach { group ->
                 val here = shown.filter { it.type.group == group }
                 if (here.isEmpty()) return@forEach

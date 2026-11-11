@@ -205,7 +205,7 @@ private fun TurnOn(setup: SetupState, declined: Boolean, onTurnOn: () -> Unit, o
 @Composable
 private fun Permission(tag: String, name: String, help: String, allowed: Boolean, prominent: Boolean, manage: String,
                        onAllow: () -> Unit, onManage: () -> Unit, appInfo: (() -> Unit)? = null) {
-    SettingRow(name, help, Modifier.testTag("permission:$tag")) {
+    SettingRow(name, Modifier.testTag("permission:$tag"), help) {
         if (allowed) {
             Good(stringResource(R.string.setup_allowed))
             Spacer(Modifier.width(Space.xs))

@@ -404,7 +404,10 @@
     <!-- The library: the panel's "Add items". -->
     <string name="library_filter">Filter items</string>
     <!-- While filtering: rows shown, of all rows (types and remembered setups). -->
-    <string name="add_filter_count">%1$d of %2$d shown.</string>
+    <plurals name="add_filter_count">
+        <item quantity="one">%1$d of %2$d shown.</item>
+        <item quantity="other">%1$d of %2$d shown.</item>
+    </plurals>
     <string name="library_in_bar">In your bar</string>
     <!-- A type's + button, read out: "Add Clock". -->
     <string name="library_add">Add %1$s</string>

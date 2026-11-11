@@ -178,7 +178,7 @@ fun ItemContextMenu(itemId: String, host: MenuHost, openMenu: () -> Unit) {
         Standing.ALWAYS -> stringResource(R.string.context_always_in_bar)
         Standing.WHEN_ACTIVE -> stringResource(R.string.visibility_when_active)
         Standing.BEHIND -> behind
-    }) {
+    }, plain = true) {
         // Bare lines under a hairline: the head has the item's symbol, and a line's words say what it does.
         MenuDivider()
         if (type.menu != null) MenuEntry(null, stringResource(R.string.common_open)) { openMenu() }

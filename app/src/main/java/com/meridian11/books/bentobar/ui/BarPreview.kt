@@ -279,7 +279,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         val line = words ?: said ?: if (more.isEmpty()) hint else hint + " " + pluralStringResource(R.plurals.bar_preview_more, more.size, more.size)
         Text(line, style = if (words != null) Bento.type.help.copy(fontWeight = FontWeight.SemiBold) else Bento.type.help,
             color = if (words != null) Bento.colors.ink else Bento.colors.ink2, maxLines = lines(2),
-            modifier = Modifier.padding(start = 4.dp, top = if (several || zonesUp) 0.dp else 6.dp).semantics { liveRegion = LiveRegionMode.Polite }
+            modifier = Modifier.padding(start = 4.dp, top = if (several || zonesUp) 2.dp else 8.dp).semantics { liveRegion = LiveRegionMode.Polite }
                 .said(arrowInWords(line)).testTag("preview-line"))
         // The room the areas' names take while a drag shows them: kept, so that nothing under the preview moves then.
         if (!several && !zonesUp) Spacer(Modifier.height(BRACKETS - 6.dp))

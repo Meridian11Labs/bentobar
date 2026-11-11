@@ -147,8 +147,8 @@ internal object BarKeys {
     /** What the system's list of shortcuts shows: the page's keys while it is on screen, the areas' while they do something. */
     fun listed(): List<Binding> = if (handler == null) emptyList() else if (several) all + AreaKeys.all else all
 
-    /** The keycaps beside Order: "Alt", "↑↓". */
-    fun orderCaps(res: Resources): List<String> = UP.held(res) + (UP.sign(res) + DOWN.sign(res))
+    /** The keycaps beside Order: "Alt", "↑ ↓". */
+    fun orderCaps(res: Resources): List<String> = UP.held(res) + "${UP.sign(res)} ${DOWN.sign(res)}"
 }
 
 /**
@@ -566,7 +566,7 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
             BarPreview(states, item?.id, edit.said, lanes.noRoom, reorder, lanes.several, off = !running) { id -> if (id != null) edit.select(id) }
             // What a change came to, for a screen reader; the page draws nothing for it.
             Box(Modifier.size(1.dp).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = edit.announced })
-            Spacer(Modifier.height(Space.m))
+            Spacer(Modifier.height(Space.m + 2.dp))
             if (wide) Row(Modifier.weight(1f)) {
                 BarList(cfg, states, item?.id, edit, reorder, lanes, Modifier.weight(1f).fillMaxHeight())
                 Spacer(Modifier.width(Space.xl))

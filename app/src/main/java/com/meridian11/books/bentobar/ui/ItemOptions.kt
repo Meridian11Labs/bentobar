@@ -136,8 +136,9 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
     val c = Bento.colors
     val res = androidx.compose.ui.platform.LocalResources.current
     val type = Items.of(item.type)
+    val scroll = rememberScrollState()
     Column(modifier.fillMaxSize().testTag("options")) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = Space.s)) {
+        Column(Modifier.weight(1f).scrollThumb(scroll, c.thumb).verticalScroll(scroll).padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = Space.s)) {
             // While a row of the bar is carried, this first row is the well in its own place: a drop on the card removes the row.
             Box {
                 Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }.testTag("options-head"), verticalAlignment = Alignment.CenterVertically) {

@@ -1,26 +1,45 @@
 package com.meridian11.books.bentobar.compose
 
+import android.app.Application
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.test.core.app.ApplicationProvider
+import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.ui.BentoButton
 import com.meridian11.books.bentobar.ui.ButtonKind
+import com.meridian11.books.bentobar.ui.Keycap
 import com.meridian11.books.bentobar.ui.Segment
 import com.meridian11.books.bentobar.ui.SegmentPart
 import com.meridian11.books.bentobar.ui.SettingsTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,6 +53,9 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [37], qualifiers = "w1200dp-h800dp-mdpi")
 class TokenControlsTest {
     @get:Rule val rule = createComposeRule()
+
+    /** A keycap's arrows are the window's own symbols. */
+    @Before fun fonts() = Env.init(ApplicationProvider.getApplicationContext<Application>())
 
     private fun part(text: String, role: Role) = rule.onNode(hasText(text) and SemanticsMatcher.expectValue(SemanticsProperties.Role, role))
 
@@ -76,5 +98,23 @@ class TokenControlsTest {
         rule.waitForIdle()
         for (kind in ButtonKind.entries) part(kind.name, Role.Button).assertIsNotEnabled().performClick()
         assertEquals(ButtonKind.entries.size, clicks)
+    }
+
+    /** A cap of arrows is as high as a cap of words and says the same; its arrows keep their sides from right to left. */
+    @Test fun aKeycapsArrowsAreInACapOfTheSameHeightAndKeepTheirSides() {
+        var direction by mutableStateOf(LayoutDirection.Ltr)
+        rule.setContent {
+            CompositionLocalProvider(LocalLayoutDirection provides direction) {
+                SettingsTheme(dark = false) { Row { Keycap("Alt", Modifier.testTag("word")); Keycap("\u2190 \u2192", Modifier.testTag("arrows")) } }
+            }
+        }
+        fun lefts() = rule.onAllNodes(hasAnyAncestor(hasTestTag("arrows")), useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot.left }
+        assertEquals(rule.onNodeWithTag("word").fetchSemanticsNode().size.height, rule.onNodeWithTag("arrows").fetchSemanticsNode().size.height)
+        rule.onNodeWithTag("arrows").assertTextEquals("\u2190 \u2192")
+        assertEquals(2, lefts().size)
+        assertTrue("\u2190 stands left of \u2192", lefts()[0] < lefts()[1])
+        direction = LayoutDirection.Rtl
+        rule.waitForIdle()
+        assertTrue("and from right to left too", lefts()[0] < lefts()[1])
     }
 }
