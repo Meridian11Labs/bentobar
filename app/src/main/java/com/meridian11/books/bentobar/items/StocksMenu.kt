@@ -1,5 +1,7 @@
 package com.meridian11.books.bentobar.items
 
+import androidx.compose.runtime.getValue
+import com.meridian11.books.bentobar.ui.Bento
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -119,7 +120,7 @@ internal fun StocksOptions(item: ItemConfig, set: (ItemConfig) -> Unit) {
     // One card serves whichever item is selected: nothing typed or found for one item stays for the next.
     key(item.id) {
         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-            Text(stringResource(R.string.stocks_section), style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.stocks_section), style = Bento.type.strong, color = Bento.colors.ink)
             val stocks = remember(item) { StocksRules.stocks(item) }
             if (keyed) {
                 if (stocks.size < StocksRules.MOST_STOCKS) StockSearch(item, stocks, set)

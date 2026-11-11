@@ -56,6 +56,7 @@
     <string name="weather_sunrise">Sunrise</string>
     <string name="weather_sunset">Sunset</string>
     <!-- Open-Meteo's licence asks for this line. %1$s: "updated 2:40 PM", or the same after "no connection," or "no answer,". -->
+    <string name="weather_data_by">Weather data by Open-Meteo.com</string>
     <string name="weather_note">Weather data by Open-Meteo.com · %1$s</string>
     <string name="weather_change_city">Change city</string>
 

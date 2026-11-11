@@ -1,5 +1,7 @@
 package com.meridian11.books.bentobar.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -33,9 +35,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -45,25 +53,16 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
@@ -92,40 +91,140 @@ import com.meridian11.books.bentobar.util.SymIcon
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
 
-/** A labelled group of single-choice chips. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun <T> ChoiceRow(label: String, choices: List<Pair<T, String>>, selected: T, help: String? = null, onSelect: (T) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
-        if (help != null) Text(help, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-            choices.forEach { (value, text) ->
-                FilterChip(selected = value == selected, onClick = { onSelect(value) }, label = { Text(text) },
-                    leadingIcon = if (value == selected) { { SymIcon(com.meridian11.books.bentobar.util.Sym.CHECK) } } else null)
-            }
-        }
-    }
-}
-
 /** The bar's three areas as choices, in the order they stand in the status bar. */
 @Composable
 fun areaChoices(): List<Pair<Position, String>> = listOf(Position.LEFT to stringResource(R.string.areas_left),
     Position.CENTER to stringResource(R.string.areas_middle), Position.RIGHT to stringResource(R.string.areas_right))
 
+/** How a choice is set where room is short (an item's options in the panel). */
+object ChoiceRules {
+    /**
+     * A choice of two or three short values is a segment, as Show as and Visibility are; anything longer is a list of
+     * radio buttons, which never cuts a word short. [labels] are the choices as they are shown.
+     */
+    fun asSegment(labels: List<String>): Boolean = labels.size in 2..3 && labels.sumOf { it.length } <= SEGMENT_CHARS
+
+    /** What three parts hold beside the panel's label column, at the default text size, without cutting a word. */
+    const val SEGMENT_CHARS = 20
+}
+
+@Composable
+internal fun Hairline() {
+    Box(Modifier.fillMaxWidth().padding(vertical = Space.s).height(1.dp).background(Bento.colors.line))
+}
+
+/**
+ * One setting in the panel: its label in a column at the left (with its keys under it, if it has any), the control beside it.
+ */
+@Composable
+internal fun OptionRow(label: String, keys: List<String> = emptyList(), content: @Composable RowScope.() -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.width(OPTION_LABEL).padding(end = Space.s)) {
+            Text(label, style = Bento.type.small, color = Bento.colors.ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (keys.isNotEmpty()) Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(Space.xs)) { keys.forEach { Keycap(it) } }
+        }
+        content()
+    }
+}
+
+/** A line of help under a setting in the panel. */
+@Composable
+internal fun OptionHelp(text: String, warn: Boolean = false) {
+    Text(text, Modifier.fillMaxWidth().padding(bottom = Space.s), style = Bento.type.help, color = if (warn) Bento.colors.warnInk else Bento.colors.ink2)
+}
+
+/**
+ * A single choice as a list of radio buttons, one under the other: the chosen one has the filled ring and the heavier
+ * words (never told by color alone). With nothing [selected] none is chosen (Look, while the items are in several areas).
+ */
+@Composable
+fun <T> RadioList(choices: List<Pair<T, String>>, selected: T?, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
+    val c = Bento.colors
+    Column(modifier.selectableGroup()) {
+        choices.forEach { (value, text) ->
+            val chosen = value == selected
+            val interaction = remember { MutableInteractionSource() }
+            Row(Modifier.fillMaxWidth().heightIn(min = 36.dp)
+                .states(interaction, radius = Radius.small)
+                .selectable(chosen, interaction, indication = null, role = Role.RadioButton) { if (!chosen) onSelect(value) }
+                .padding(end = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                Canvas(Modifier.size(18.dp)) {
+                    // Chosen: a heavy ring around a small open middle. Not chosen: a thin one.
+                    val w = (if (chosen) 5.5.dp else 1.5.dp).toPx()
+                    drawCircle(if (chosen) c.accent else c.ink3, (size.minDimension - w) / 2, style = Stroke(w))
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(text, style = if (chosen) Bento.type.strong else Bento.type.body, color = c.ink)
+            }
+        }
+    }
+}
+
+/** A labelled single choice in an item's options: a segment for two or three short values, else a list of radio buttons ([ChoiceRules]). */
+@Composable
+fun <T> ChoiceRow(label: String, choices: List<Pair<T, String>>, selected: T, help: String? = null, onSelect: (T) -> Unit) {
+    val segment = ChoiceRules.asSegment(choices.map { it.second })
+    Column(Modifier.fillMaxWidth()) {
+        if (segment) OptionRow(label) {
+            Segment(choices.map { SegmentPart(it.second) }, choices.indexOfFirst { it.first == selected },
+                { onSelect(choices[it].first) }, Modifier.weight(1f).semantics { contentDescription = label }, equal = false)
+        } else {
+            // The list's name stands over it: the values then have the panel's whole width.
+            Text(label, Modifier.padding(top = Space.m, bottom = Space.xs), style = Bento.type.small, color = Bento.colors.ink2)
+            RadioList(choices, selected, onSelect, Modifier.fillMaxWidth().padding(bottom = Space.xs).semantics { contentDescription = label })
+        }
+        if (help != null) OptionHelp(help)
+    }
+}
+
 @Composable
 fun SwitchRow(label: String, checked: Boolean, help: String? = null, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    val c = Bento.colors
+    val interaction = remember { MutableInteractionSource() }
     // The whole row is the switch: clicking the label toggles it, and a screen reader hears its name.
-    Row(Modifier.fillMaxWidth().toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
+    Row(Modifier.fillMaxWidth().heightIn(min = Target.row)
+        .states(interaction, radius = Radius.small)
+        .toggleable(checked, interaction, indication = null, enabled = enabled, role = Role.Switch, onValueChange = onChange)
         .padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyLarge,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
-            if (help != null) Text(help, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, style = Bento.type.label, color = if (enabled) c.ink else c.ink3)
+            if (help != null) Text(help, style = Bento.type.help, color = c.ink2)
         }
-        Spacer(Modifier.width(16.dp))
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+        Spacer(Modifier.width(Space.l))
+        SwitchMark(checked, enabled = enabled)
     }
+}
+
+/**
+ * A text field on the window's tokens: sunk, no outline, [placeholder] while it is empty; [label] is its spoken name.
+ * [marked]: what it holds can't be used (the words that say why stand under it). [secret]: it shows dots.
+ */
+@Composable
+internal fun BentoField(value: TextFieldValue, onValue: (TextFieldValue) -> Unit, label: String, modifier: Modifier = Modifier,
+                        placeholder: String = "", marked: Boolean = false, secret: Boolean = false,
+                        keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default,
+                        trailing: (@Composable () -> Unit)? = null) {
+    val c = Bento.colors
+    val interaction = remember { MutableInteractionSource() }
+    BasicTextField(value, onValue,
+        modifier.heightIn(min = Target.control)
+            .states(interaction, ground = false)
+            .background(c.sunk, RoundedCornerShape(Radius.medium))
+            .then(if (marked) Modifier.border(1.dp, c.warnInk, RoundedCornerShape(Radius.medium)) else Modifier)
+            .semantics { contentDescription = label },
+        textStyle = Bento.type.body.copy(color = c.ink), singleLine = true, cursorBrush = SolidColor(c.accent), interactionSource = interaction,
+        visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = keyboardOptions, keyboardActions = keyboardActions,
+        decorationBox = { inner ->
+            Row(Modifier.padding(start = Space.m, end = if (trailing == null) Space.m else Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (value.text.isEmpty()) Text(placeholder.ifEmpty { label }, Modifier.clearAndSetSemantics { }, style = Bento.type.body, color = c.ink3,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    inner()
+                }
+                trailing?.invoke()
+            }
+        })
 }
 
 /**
@@ -138,25 +237,55 @@ fun SwitchRow(label: String, checked: Boolean, help: String? = null, enabled: Bo
 fun TextRow(label: String, value: String, help: String? = null, placeholder: String = "", numeric: Boolean = false,
             /** Shown instead of [help], with the field marked, while the text can't be used. */
             error: String? = null, maxLength: Int = Int.MAX_VALUE, onChange: (String) -> Unit) {
-    var text by remember { mutableStateOf(value) }
+    var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     var focused by remember { mutableStateOf(false) }
-    LaunchedEffect(value, focused) { if (!focused) text = value }
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        OutlinedTextField(
-            value = text,
-            onValueChange = { typed -> typed.take(maxLength).let { text = it; onChange(it) } },
-            label = { Text(label) },
-            placeholder = { Text(placeholder) },
-            singleLine = true,
-            isError = error != null,
-            keyboardOptions = if (numeric) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
-            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
-        )
-        (error ?: help)?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall,
-                color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+    LaunchedEffect(value, focused) { if (!focused && field.text != value) field = TextFieldValue(value, TextRange(value.length)) }
+    Column(Modifier.fillMaxWidth()) {
+        OptionRow(label) {
+            BentoField(field, { typed ->
+                val text = typed.text.take(maxLength)
+                val changed = text != field.text
+                field = if (text == typed.text) typed else typed.copy(text = text, selection = TextRange(text.length))
+                if (changed) onChange(text)
+            }, label, Modifier.weight(1f).onFocusChanged { focused = it.isFocused }, placeholder = placeholder, marked = error != null,
+                keyboardOptions = if (numeric) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default)
         }
+        (error ?: help)?.let { OptionHelp(it, warn = error != null) }
+    }
+}
+
+/**
+ * A slider on the window's tokens: a thin line and a round thumb, on whole stops. [onValue] follows the thumb,
+ * [onDone] comes when it is let go. Read out as [label] and [said] (its value and unit, "12 dp"), not as a share of the track.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+internal fun BentoSlider(value: Float, onValue: (Float) -> Unit, onDone: () -> Unit, range: IntRange, label: String, said: String, modifier: Modifier = Modifier) {
+    val c = Bento.colors
+    val interaction = remember { MutableInteractionSource() }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Slider(value = value, onValueChange = onValue, onValueChangeFinished = onDone,
+        valueRange = range.first.toFloat()..range.last.toFloat(), steps = SliderMath.stops(range), interactionSource = interaction,
+        thumb = { Box(Modifier.size(SLIDER_THUMB).states(interaction, radius = SLIDER_THUMB / 2, ground = false).background(c.accent, CircleShape)) },
+        track = { state ->
+            val span = state.valueRange.endInclusive - state.valueRange.start
+            val done = if (span > 0f) ((state.value - state.valueRange.start) / span).coerceIn(0f, 1f) else 0f
+            Box(Modifier.fillMaxWidth().height(4.dp).drawBehind {
+                val round = CornerRadius(size.height / 2)
+                val w = size.width * done
+                drawRoundRect(c.edge, size = size, cornerRadius = round)
+                drawRoundRect(c.accent, Offset(if (rtl) size.width - w else 0f, 0f), Size(w, size.height), round)
+            })
+        },
+        modifier = modifier.semantics { contentDescription = label; stateDescription = said })
+}
+
+/** A slider's value at the line's end, as wide as its widest so the line keeps its length while the thumb is carried. Spoken by the slider. */
+@Composable
+internal fun SliderValue(text: String, widest: String) {
+    Box(Modifier.clearAndSetSemantics { }, contentAlignment = Alignment.CenterEnd) {
+        Text(widest, style = Bento.type.small.tabular, color = Color.Transparent, maxLines = 1)
+        Text(text, style = Bento.type.small.tabular, color = Bento.colors.ink, maxLines = 1)
     }
 }
 
@@ -164,15 +293,10 @@ fun TextRow(label: String, value: String, help: String? = null, placeholder: Str
 fun SliderRow(label: String, value: Int, range: IntRange, format: (Int) -> String = { it.toString() }, onChange: (Int) -> Unit) {
     var v by remember { mutableFloatStateOf(value.toFloat()) }
     LaunchedEffect(value) { v = value.toFloat() }
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Row {
-            Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            Text(format(SliderMath.stop(v)), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        }
-        Slider(value = v, onValueChange = { v = it }, onValueChangeFinished = { onChange(SliderMath.stop(v)) },
-            valueRange = range.first.toFloat()..range.last.toFloat(), steps = SliderMath.stops(range),
-            // Read out as its value and unit ("12 dp"), not as a percentage of the track.
-            modifier = Modifier.semantics { contentDescription = label; stateDescription = format(SliderMath.stop(v)) })
+    OptionRow(label) {
+        BentoSlider(v, { v = it }, { onChange(SliderMath.stop(v)) }, range, label, format(SliderMath.stop(v)), Modifier.weight(1f))
+        Spacer(Modifier.width(Space.m))
+        SliderValue(format(SliderMath.stop(v)), listOf(format(range.first), format(range.last)).maxBy { it.length })
     }
 }
 
@@ -191,34 +315,42 @@ class KeyWords(
  * and a field that shows dots. With one ([keyed]): that it is saved, what [more] adds (Flight: the
  * lookups left), and the two ways to change that. A saved key is never shown again, here or anywhere.
  * [onSave] says whether the key was taken. [heading]: where the key is one part of the item's
- * settings (Stocks'), its name over it.
+ * settings (Stocks'), its name over it. [refused]: the service's words for a key it doesn't take, as a
+ * notice whose one button replaces it.
  */
 @Composable
 fun ServiceKey(keyed: Boolean, words: KeyWords, onSave: (String) -> Boolean, onRemove: () -> Unit, onGetKey: () -> Unit,
-               heading: String? = null, more: @Composable () -> Unit = {}) {
+               heading: String? = null, refused: String? = null, more: @Composable () -> Unit = {}) {
     var replacing by remember { mutableStateOf(false) }
-    val quiet = MaterialTheme.colorScheme.onSurfaceVariant
+    val c = Bento.colors
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        if (heading != null) Text(heading, style = MaterialTheme.typography.labelLarge)
+        if (heading != null) Text(heading, Modifier.padding(bottom = Space.xs), style = Bento.type.strong, color = c.ink)
         if (keyed && !replacing) {
-            Text(stringResource(words.saved), style = MaterialTheme.typography.bodyLarge)
-            more()
-            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { replacing = true }) { Text(stringResource(words.replace)) }
-                // At once, with no dialog and no Undo: an Undo would mean keeping the key after it was removed.
-                TextButton(onClick = onRemove) { Text(stringResource(words.remove), color = MaterialTheme.colorScheme.error) }
+            Row(Modifier.heightIn(min = 28.dp), verticalAlignment = Alignment.CenterVertically) {
+                SymIcon(Sym.KEY, size = 18.sp, color = c.ink2)
+                Spacer(Modifier.width(Space.s))
+                Text(stringResource(words.saved), style = Bento.type.strong, color = c.ink)
             }
-            Text(stringResource(words.removeHelp), style = MaterialTheme.typography.bodySmall, color = quiet)
+            more()
+            if (refused != null) NoticeLine(refused, Modifier.padding(top = Space.s)) {
+                BentoButton(stringResource(words.replace), { replacing = true }, kind = ButtonKind.WARN)
+            }
+            Row(Modifier.padding(top = Space.xs), horizontalArrangement = Arrangement.spacedBy(Space.s), verticalAlignment = Alignment.CenterVertically) {
+                if (refused == null) BentoButton(stringResource(words.replace), { replacing = true })
+                // At once, with no dialog and no Undo: an Undo would mean keeping the key after it was removed.
+                BentoButton(stringResource(words.remove), onRemove, kind = ButtonKind.TEXT)
+            }
+            Text(stringResource(words.removeHelp), Modifier.padding(top = Space.xs), style = Bento.type.help, color = c.ink2)
         } else {
             if (!keyed) {
-                Text(stringResource(words.consent), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(words.consent), style = Bento.type.small, color = c.ink)
                 val getKey = stringResource(words.getKey)
                 val opens = stringResource(R.string.common_opens_browser, getKey)
-                TextButton(onClick = onGetKey, modifier = Modifier.semantics { contentDescription = opens }) { Text(getKey) }
+                BentoButton(getKey, onGetKey, Modifier.offset(x = -Space.m).semantics { contentDescription = opens }, kind = ButtonKind.TEXT, icon = Sym.OPEN_IN_NEW)
             }
             KeyField(stringResource(words.label), stringResource(words.save), onSave = { if (onSave(it)) replacing = false },
                 onCancel = if (replacing) { { replacing = false } } else null)
-            Text(stringResource(words.help), style = MaterialTheme.typography.bodySmall, color = quiet, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+            Text(stringResource(words.help), Modifier.padding(top = Space.xs), style = Bento.type.help, color = c.ink2)
         }
     }
 }
@@ -230,33 +362,29 @@ fun ServiceKey(keyed: Boolean, words: KeyWords, onSave: (String) -> Boolean, onR
  */
 @Composable
 private fun KeyField(label: String, save: String, onSave: (String) -> Unit, onCancel: (() -> Unit)?) {
-    var typed by remember { mutableStateOf("") }
+    var typed by remember { mutableStateOf(TextFieldValue("")) }
     fun saveIt() {
-        if (typed.isBlank()) return
-        onSave(typed)
-        typed = ""
+        if (typed.text.isBlank()) return
+        onSave(typed.text)
+        typed = TextFieldValue("")
     }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            value = typed,
-            onValueChange = { typed = it.take(200) },
-            label = { Text(label) },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { saveIt() }),
-            modifier = Modifier.weight(1f).onPreviewKeyEvent { e ->
+    Column(Modifier.fillMaxWidth()) {
+        BentoField(typed, { typed = if (it.text.length > 200) it.copy(text = it.text.take(200), selection = TextRange(200)) else it }, label,
+            Modifier.fillMaxWidth().onPreviewKeyEvent { e ->
                 // A hardware keyboard's Enter saves too. Down acts and up is swallowed, so the keyboard's own action can't act a second time.
                 if (e.key == Key.Enter || e.key == Key.NumPadEnter) { if (e.type == KeyEventType.KeyDown) saveIt(); true } else false
-            },
-        )
-        FilledTonalButton(onClick = { saveIt() }, enabled = typed.isNotBlank()) { Text(save, maxLines = 1) }
-        if (onCancel != null) TextButton(onClick = onCancel) { Text(stringResource(R.string.common_cancel), maxLines = 1) }
+            }, secret = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { saveIt() }))
+        Row(Modifier.padding(top = Space.s), horizontalArrangement = Arrangement.spacedBy(Space.s), verticalAlignment = Alignment.CenterVertically) {
+            BentoButton(save, { saveIt() }, enabled = typed.text.isNotBlank())
+            if (onCancel != null) BentoButton(stringResource(R.string.common_cancel), onCancel, kind = ButtonKind.TEXT)
+        }
     }
 }
 
-// The settings window's own controls, on its tokens (Theme.kt). The rows above still serve the bar's popups and the
-// pages that have not been redesigned yet, in Material's shapes.
+// The settings window's controls, on its tokens (Theme.kt). The rows above are an item's own options in the panel, built
+// from the same pieces; the bar's popups have their own (MenuKit), in Material's shapes on the device's colors.
 
 /**
  * What a control that takes a click shows of itself: a faint veil under the pointer and a press, and the focus ring
@@ -494,6 +622,8 @@ fun Keycap(text: String, modifier: Modifier = Modifier) {
 }
 
 private val SEGMENT_GAP = 2.dp
+internal val OPTION_LABEL = 96.dp
+private val SLIDER_THUMB = 16.dp
 private const val SEGMENT_MS = 160
 private const val SWITCH_MS = 120
 private const val DIMMED = 0.45f

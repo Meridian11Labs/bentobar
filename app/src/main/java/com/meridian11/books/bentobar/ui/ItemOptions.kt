@@ -1,5 +1,7 @@
 package com.meridian11.books.bentobar.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.Color
@@ -14,11 +16,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,10 +33,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -72,8 +70,21 @@ import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.items.MediaAccess
 import com.meridian11.books.bentobar.items.Ticker
 import com.meridian11.books.bentobar.items.Trigger
+import com.meridian11.books.bentobar.items.Trouble
+import com.meridian11.books.bentobar.util.Now
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
+
+/**
+ * What [item]'s service has not answered, read again with the tick while it is drawn (a try that came back, Try again's
+ * wait running out). Only a type that asks a service is read at all.
+ */
+@Composable
+internal fun troubleOf(item: ItemConfig, type: ItemType?): Trouble? {
+    if (type?.online == null) return null
+    rememberTick()
+    return type.trouble(item, Now.wall())
+}
 
 /** The text resource that makes a place of a number: 1st, 2nd, 3rd, 4th, and 11th to 13th. */
 fun ordinalRes(n: Int): Int = when {
@@ -140,7 +151,7 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
                 if (reorder != null) DropWell(reorder, Modifier.matchParentSize())
             }
             Spacer(Modifier.height(Space.s))
-            if (type != null) Needs(type)
+            if (type != null) Needs(item, type)
             if (several) OptionRow(stringResource(R.string.areas_label), keys = AreaKeys.caps(res)) {
                 val areas = areaChoices()
                 Segment(areas.map { SegmentPart(it.second) }, areas.indexOfFirst { it.first == item.area }, { edit.area(item.id, areas[it].first) },
@@ -171,8 +182,9 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
                         Ticker.refresh()
                     }, Modifier.weight(1f).testTag("show-as"), equal = false)
                 }
+                // The type's own settings follow a hairline, on the panel's own controls: no heading in capitals over them.
                 type.options?.let { opts ->
-                    SectionLabel(stringResource(type.optionsTitle))
+                    if (!type.iconOnly) Hairline()
                     opts(item) { changed -> Store.updateItem(item.id) { changed }; Ticker.refresh() }
                 }
             }
@@ -194,28 +206,19 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
     }
 }
 
+/**
+ * What the item waits for before it can say anything current: one notice each, with the one button that grants it or
+ * asks again.
+ */
 @Composable
-private fun Hairline() {
-    Box(Modifier.fillMaxWidth().padding(vertical = Space.s).height(1.dp).background(Bento.colors.line))
-}
-
-/** One setting: its label in a column at the left (with its keys under it, if it has any), the control beside it. */
-@Composable
-private fun OptionRow(label: String, keys: List<String> = emptyList(), content: @Composable RowScope.() -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.width(96.dp).padding(end = Space.s)) {
-            Text(label, style = Bento.type.small, color = Bento.colors.ink2, maxLines = 1)
-            if (keys.isNotEmpty()) Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(Space.xs)) { keys.forEach { Keycap(it) } }
-        }
-        content()
-    }
-}
-
-/** What the item waits for before it can say anything: one notice each, with the one button that grants it. */
-@Composable
-private fun Needs(type: ItemType) {
+private fun Needs(item: ItemConfig, type: ItemType) {
     val context = LocalContext.current
     val setup by Setup.state.collectAsState()
+    troubleOf(item, type)?.let { trouble ->
+        NoticeLine(stringResource(trouble.text), Modifier.padding(bottom = Space.s).testTag("trouble")) {
+            BentoButton(stringResource(R.string.common_try_again), { type.tryAgain(item); Ticker.refresh() }, kind = ButtonKind.WARN, enabled = trouble.ready)
+        }
+    }
     if (android.Manifest.permission.READ_CALENDAR in type.permissions && !setup.calendar) {
         NoticeLine(stringResource(R.string.detail_needs_calendar), Modifier.padding(bottom = Space.s)) {
             BentoButton(stringResource(R.string.common_allow), {
@@ -253,7 +256,7 @@ private fun Visibility(item: ItemConfig, cfg: BarConfig, type: ItemType?, edit: 
             { if (it == 0) edit.always(item.id) else edit.below(item.id) }, Modifier.weight(1f).testTag("visibility"), equal = false)
     }
     val trigger = type?.trigger
-    Column(Modifier.fillMaxWidth().padding(start = 96.dp)) {
+    Column(Modifier.fillMaxWidth().padding(start = OPTION_LABEL)) {
         when {
             type == null -> Unit
             !chevron && !type.canBeActive ->

@@ -463,6 +463,8 @@
     <string name="library_drop_off">Drop here to remove it from the bar</string>
     <string name="panel_select_item">Select an item</string>
     <string name="row_needs_calendar">needs calendar access</string>
+    <!-- A row whose service gave no answer: when what it still shows was fetched ("last updated 9:12 AM"). -->
+    <string name="row_last_updated">last updated %1$s</string>
     <!-- A moved row, read out: its name, then where it stands now ("CPU load, 5th of 7 in the bar"). -->
     <string name="row_moved">%1$s, %2$s</string>
     <string name="detail_unknown_help">This item comes from a newer BentoBar. It is kept as it is; update BentoBar to use and change it. The library can\'t keep it, so Remove from the bar deletes it; Undo brings it back.</string>
@@ -530,7 +532,6 @@
     <string name="trigger_countdown_short">shows in the last 24 hours</string>
     <string name="trigger_caffeine">while Keep awake is on</string>
     <string name="trigger_caffeine_short">shows while on</string>
-    <string name="detail_options">Options</string>
     <string name="detail_duplicate">Duplicate</string>
 
     <!-- pages -->

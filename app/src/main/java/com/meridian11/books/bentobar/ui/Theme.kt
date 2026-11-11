@@ -165,6 +165,12 @@ object Target {
 private val LocalPalette = staticCompositionLocalOf { Palette.Light }
 private val LocalType = staticCompositionLocalOf { Type(null) }
 
+/**
+ * Whether what is drawn stands in the settings window. The few pieces an item's options share with its popup (a search
+ * field) take the window's tokens there, and keep Material's shapes on the device's colors in the popup.
+ */
+internal val LocalSettingsWindow = staticCompositionLocalOf { false }
+
 /** The settings window's tokens where a composable draws: `Bento.colors.accent`, `Bento.type.label`. */
 object Bento {
     val colors: Palette @Composable @ReadOnlyComposable get() = LocalPalette.current
@@ -180,7 +186,7 @@ fun SettingsTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable ()
     val palette = if (dark) Palette.Dark else Palette.Light
     val typography = remember { typography() }
     val type = remember(typography) { Type(typography.bodyMedium.fontFamily) }
-    CompositionLocalProvider(LocalPalette provides palette, LocalType provides type) {
+    CompositionLocalProvider(LocalPalette provides palette, LocalType provides type, LocalSettingsWindow provides true) {
         MaterialTheme(colorScheme = remember(palette) { palette.scheme() }, typography = typography, content = content)
     }
 }

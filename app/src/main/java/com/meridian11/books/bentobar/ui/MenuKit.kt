@@ -1,5 +1,7 @@
 package com.meridian11.books.bentobar.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -40,10 +42,8 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layoutId
@@ -341,28 +341,45 @@ fun SearchField(label: String, placeholder: String = "", initial: String = "", s
     fun enter() { if (canSubmit) onEnter(field.text) }
     // The field itself has the focus, not the × inside it: Enter on the × is the ×'s.
     var own by remember { mutableStateOf(false) }
+    val keys = Modifier.focusRequester(focus).onFocusChanged { own = it.isFocused }.onPreviewKeyEvent { e ->
+        // A hardware keyboard's Enter doesn't always arrive as the keyboard's action. Down acts and
+        // up is swallowed, so that action can't act a second time; nor does a key held down, whose
+        // repeats would search again and again and then pick the first result that came.
+        if (own && (e.key == Key.Enter || e.key == Key.NumPadEnter)) {
+            if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) enter()
+            true
+        } else false
+    }
+    val change = { next: TextFieldValue -> val changed = next.text != field.text; field = next; if (changed) onChange(next.text) }
+    val options = KeyboardOptions(keyboardType = keyboard, imeAction = if (submit != null) ImeAction.Search else ImeAction.Done)
+    val actions = KeyboardActions(onGo = { enter() }, onDone = { enter() }, onSearch = { enter() })
+    // In the settings window: the window's own sunk field and button. In a popup: Material's, on the device's colors.
+    if (LocalSettingsWindow.current) {
+        Column(Modifier.fillMaxWidth().padding(vertical = Space.s)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                BentoField(field, change, label, Modifier.weight(1f).then(keys), placeholder = placeholder, marked = error != null,
+                    keyboardOptions = options, keyboardActions = actions,
+                    trailing = if (submit == null && onClose != null) { { BentoIconButton(Sym.CLOSE, stringResource(R.string.common_close_search), onClose) } } else null)
+                if (submit != null) BentoButton(submit, { enter() }, kind = ButtonKind.FILLED, enabled = canSubmit)
+            }
+            if (error != null) Text(error, Modifier.padding(top = Space.xs), style = Bento.type.help, color = Bento.colors.warnInk)
+        }
+        return
+    }
     // Room under the field too: a result's focus ring otherwise touches the field's border.
     Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = field,
-                onValueChange = { next -> val changed = next.text != field.text; field = next; if (changed) onChange(next.text) },
+                onValueChange = change,
                 label = { Text(label) },
                 placeholder = if (placeholder.isEmpty()) null else { { Text(placeholder) } },
                 trailingIcon = if (submit == null && onClose != null) { { SmallIconButton(Sym.CLOSE, stringResource(R.string.common_close_search), onClick = onClose) } } else null,
                 singleLine = true,
                 isError = error != null,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = if (submit != null) ImeAction.Search else ImeAction.Done),
-                keyboardActions = KeyboardActions(onGo = { enter() }, onDone = { enter() }, onSearch = { enter() }),
-                modifier = Modifier.weight(1f).focusRequester(focus).onFocusChanged { own = it.isFocused }.onPreviewKeyEvent { e ->
-                    // A hardware keyboard's Enter doesn't always arrive as the keyboard's action. Down acts and
-                    // up is swallowed, so that action can't act a second time; nor does a key held down, whose
-                    // repeats would search again and again and then pick the first result that came.
-                    if (own && (e.key == Key.Enter || e.key == Key.NumPadEnter)) {
-                        if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) enter()
-                        true
-                    } else false
-                },
+                keyboardOptions = options,
+                keyboardActions = actions,
+                modifier = Modifier.weight(1f).then(keys),
             )
             if (submit != null) FilledTonalButton(onClick = { enter() }, enabled = canSubmit) { Text(submit, maxLines = 1) }
         }

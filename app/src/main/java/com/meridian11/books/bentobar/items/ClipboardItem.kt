@@ -1,5 +1,7 @@
 package com.meridian11.books.bentobar.items
 
+import androidx.compose.runtime.getValue
+import com.meridian11.books.bentobar.ui.Bento
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Column
@@ -13,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -189,7 +190,7 @@ object ClipboardItem : ItemType("clipboard", R.string.item_clipboard_title, Sym.
 
         key(item.id) {
             Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                Text(stringResource(R.string.clipboard_pinned_section), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.clipboard_pinned_section), style = Bento.type.strong, color = Bento.colors.ink)
                 val pins = remember(item) { ClipboardRules.pins(item) }
                 if (pins.size < ClipboardRules.MOST_PINS) {
                     SearchField(

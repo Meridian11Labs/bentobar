@@ -123,6 +123,13 @@ enum class ItemGroup(@StringRes val title: Int, @StringRes val caption: Int? = n
 }
 
 /**
+ * A service that gave no answer, as the settings window says it. [text]: the notice. [lastAt]: when what the item still
+ * shows was fetched, 0 if it shows nothing. [ready]: a press of Try again asks now; else it is dimmed (a try is on its
+ * way, or one has just failed).
+ */
+data class Trouble(@param:StringRes val text: Int, val lastAt: Long, val ready: Boolean)
+
+/**
  * One kind of bar item (network speed, timer, …). Types are stateless objects; per-instance
  * settings live in [ItemConfig.options], shared live data in [Env]. A new type is one file and one
  * line in [Items.all]; `ItemCatalogTest` fails for whatever else was forgotten.
@@ -263,11 +270,17 @@ abstract class ItemType(
      */
     open fun menuOpening(item: ItemConfig) {}
 
-    /** Type-specific settings, shown in BentoBar's settings. */
-    open val options: (@Composable (item: ItemConfig, set: (ItemConfig) -> Unit) -> Unit)? = null
+    /**
+     * What the settings window says of [item] when its service gave no answer, in the item's row and over its options;
+     * null while there is nothing to say. It asks nothing.
+     */
+    open fun trouble(item: ItemConfig, now: Long): Trouble? = null
 
-    /** The heading over [options] in settings: "Options", unless the first thing there has a name of its own (the flight item's key). */
-    @get:StringRes open val optionsTitle: Int get() = com.meridian11.books.bentobar.R.string.detail_options
+    /** A press of Try again in that notice. */
+    open fun tryAgain(item: ItemConfig) {}
+
+    /** Type-specific settings, shown in the item's options in BentoBar's settings, on the window's own controls (ui/Controls.kt). */
+    open val options: (@Composable (item: ItemConfig, set: (ItemConfig) -> Unit) -> Unit)? = null
 
     open fun defaultOptions(): Map<String, String> = emptyMap()
 }

@@ -1,5 +1,9 @@
 package com.meridian11.books.bentobar.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Size
+import com.meridian11.books.bentobar.data.undone
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,11 +35,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.runtime.snapshotFlow
@@ -47,7 +49,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -80,6 +81,10 @@ import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.text.format.DateFormat
+import androidx.compose.ui.platform.LocalContext
+import com.meridian11.books.bentobar.util.Dates
+import java.time.ZoneId
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.bar.BarOverflow
 import com.meridian11.books.bentobar.data.BAR_ORDER
@@ -98,7 +103,6 @@ import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
 import com.meridian11.books.bentobar.data.standing
 import com.meridian11.books.bentobar.data.stepped
-import com.meridian11.books.bentobar.data.undone
 import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.util.Sym
@@ -660,7 +664,11 @@ private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, behi
     val res = LocalResources.current
     val type = Items.of(item.type)
     val needs = type != null && android.Manifest.permission.READ_CALENDAR in type.permissions && !calendar
-    val detail = if (needs) stringResource(R.string.row_needs_calendar) else behind ?: listOfNotNull(
+    // A service that gave no answer: the row says when what it still shows was fetched, as a warning.
+    val stale = if (needs || behind != null) null else troubleOf(item, type)?.lastAt?.takeIf { it > 0 }?.let {
+        stringResource(R.string.row_last_updated, Dates.format(Dates.timeSkeleton(DateFormat.is24HourFormat(LocalContext.current)), it, ZoneId.systemDefault()))
+    }
+    val detail = if (needs) stringResource(R.string.row_needs_calendar) else behind ?: stale ?: listOfNotNull(
         if (overflow) stringResource(R.string.row_overflow) else null,
         state?.text?.takeIf { it.isNotBlank() && type != null },
         if (type != null && cfg.partOf(item) == Part.LOWER && item.whenActive) type.trigger?.short(item) ?: stringResource(R.string.row_when_active) else null,
@@ -670,7 +678,7 @@ private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, behi
             else -> null
         },
     ).joinToString(" · ")
-    val warn = needs || behind != null
+    val warn = needs || behind != null || stale != null
     Row(modifier.fillMaxWidth().then(if (stacked) Modifier.heightIn(min = Target.row) else Modifier.height(Target.row)).padding(start = 6.dp, end = Space.m), verticalAlignment = Alignment.CenterVertically) {
         grip()
         SymIcon(type?.icon ?: Sym.UPDATE, size = 18.sp, color = c.ink)

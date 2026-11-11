@@ -48,7 +48,6 @@ object FlightItem : ItemType("flight", R.string.item_flight_title, Sym.FLIGHT, R
     override val canBeActive = true
     // Which flight someone follows is their own business: the debug hook that prints what an item shows says how long this one's text is, not what it says.
     override val discreet = true
-    override val optionsTitle: Int get() = R.string.flight_key_section
 
     /** How many hours before departure the item comes out. */
     private val before = Threshold("beforeHours", 24, 3..48, step = 3) { Env.plural(R.plurals.common_hours, it, it) }
@@ -479,7 +478,7 @@ object FlightItem : ItemType("flight", R.string.item_flight_title, Sym.FLIGHT, R
 
     override val menu: @Composable (ItemConfig, MenuHost) -> Unit = { item, host -> FlightMenu(item, host) }
 
-    override val options: @Composable (ItemConfig, (ItemConfig) -> Unit) -> Unit = { _, _ -> FlightKey() }
+    override val options: @Composable (ItemConfig, (ItemConfig) -> Unit) -> Unit = { item, _ -> FlightKey(item) }
 
     // ---- for tests on a device (debug builds)
 
