@@ -23,6 +23,7 @@ object Items {
         HeatItem,
         DevicesItem,
         DisplaysItem,
+        OutputItem,
         // Time
         CalendarItem,
         EventItem,
