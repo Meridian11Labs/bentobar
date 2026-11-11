@@ -64,6 +64,7 @@ class LocaleCopiesTest {
         "colour" to "color", "Colour" to "Color", "favourite" to "favorite", "behaviour" to "behavior", "Centred" to "Centered", "centred" to "centered",
         "centre" to "center", "Centre" to "Center",
         "organise" to "organize", "kilometre" to "kilometer", "greyed" to "grayed", "grey" to "gray", "cancelled" to "canceled", "Cancelled" to "Canceled",
+        "Summarise" to "Summarize", "summarise" to "summarize",
     ).fold(british) { text, (gb, us) -> text.replace(gb, us) }
 
     private val textOf = Regex("""<string name="([^"]+)"[^>]*>(.*)</string>""")

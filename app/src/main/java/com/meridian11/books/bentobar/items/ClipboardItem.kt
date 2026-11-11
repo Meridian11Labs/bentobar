@@ -16,7 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -46,7 +48,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * Clipboard and scratchpad: pinned snippets kept with the item and recent plain-text copies captured
  * in memory while this menu or settings window is open. Clicking an entry copies it.
  *
- * What someone copies or pins is their own business ([discreet]): no snippet text is ever logged.
+ * What someone copies or pins is their own business ([discreet]): no snippet text is ever logged. With a model on this
+ * device, a row's text can also be summarised, proofread, shortened or translated at a press ([ClipboardActions]).
  */
 object ClipboardItem : ItemType("clipboard", R.string.item_clipboard_title, Sym.CONTENT_PASTE, R.string.item_clipboard_desc) {
     override val group = ItemGroup.TOOLS
@@ -99,6 +102,12 @@ object ClipboardItem : ItemType("clipboard", R.string.item_clipboard_title, Sym.
 
     private fun currentRecent(): List<String> = staged ?: recent.value
 
+    /** Forgets the recent copies (the menu's Clear recent). */
+    internal fun clearRecent() {
+        recent.value = emptyList()
+        Ticker.refresh(type)
+    }
+
     override fun state(item: ItemConfig): ItemState {
         val pins = ClipboardRules.pins(item)
         val bar = ClipboardRules.bar(
@@ -132,6 +141,26 @@ object ClipboardItem : ItemType("clipboard", R.string.item_clipboard_title, Sym.
         val pins = remember(item) { ClipboardRules.pins(item) }
         val unpinned = ClipboardRules.unpinnedRecent(staged ?: recents, pins)
         val total = pins.size + unpinned.size
+        // Clipboard actions: only with a model to ask, under the one row whose actions are open (memory only, gone with the popup).
+        val model = ClipboardActions.current()
+        var open by remember { mutableStateOf(ClipboardActions.stagedOpen()) }
+        val stagedAction = remember { ClipboardActions.stagedAction() }
+        val actions: (String) -> (@Composable () -> Unit)? = { snippet ->
+            if (model != null && ClipboardActionsRules.offered(snippet).isNotEmpty()) {
+                { ClipboardActions.ActionsButton { open = if (open == snippet) null else snippet } }
+            } else null
+        }
+        val panel: @Composable (String) -> Unit = { snippet ->
+            if (model != null && open == snippet) {
+                ClipboardActions.Panel(snippet, model, first = stagedAction.takeIf { snippet == ClipboardActions.stagedOpen() },
+                    openWindow = { action ->
+                        ClipboardActions.handOver(snippet, action)
+                        host.openItemSettings(item.id)
+                    }) { shown ->
+                    MenuEntry(Sym.CONTENT_COPY, stringResource(R.string.clipboard_ai_copy)) { pick(shown, host) }
+                }
+            }
+        }
         MenuCard(
             Sym.CONTENT_PASTE,
             stringResource(R.string.item_clipboard_title),
@@ -141,41 +170,49 @@ object ClipboardItem : ItemType("clipboard", R.string.item_clipboard_title, Sym.
                 SectionLabel(stringResource(R.string.clipboard_pinned_section))
                 pins.forEach { snippet ->
                     val line = ClipboardRules.preview(snippet, ClipboardRules.MENU_CHARS)
+                    val act = actions(snippet)
                     MenuEntry(
                         icon = Sym.PUSH_PIN,
                         label = line,
                         trailing = {
-                            SmallIconButton(Sym.CLOSE, stringResource(R.string.clipboard_unpin)) {
-                                Store.updateItem(item.id) { ClipboardRules.removePin(it, snippet) }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                act?.invoke()
+                                SmallIconButton(Sym.CLOSE, stringResource(R.string.clipboard_unpin)) {
+                                    Store.updateItem(item.id) { ClipboardRules.removePin(it, snippet) }
+                                }
                             }
                         },
                     ) { pick(snippet, host) }
+                    panel(snippet)
                 }
             }
             if (unpinned.isNotEmpty()) {
                 SectionLabel(stringResource(R.string.clipboard_recent_section))
                 unpinned.forEach { snippet ->
                     val line = ClipboardRules.preview(snippet, ClipboardRules.MENU_CHARS)
+                    val act = actions(snippet)
+                    val pinnable = pins.size < ClipboardRules.MOST_PINS && ClipboardRules.pinsWhole(snippet)
                     MenuEntry(
                         icon = Sym.CONTENT_COPY,
                         label = line,
-                        trailing = if (pins.size < ClipboardRules.MOST_PINS && ClipboardRules.pinsWhole(snippet)) {
+                        trailing = if (pinnable || act != null) {
                             {
-                                SmallIconButton(Sym.PUSH_PIN, stringResource(R.string.clipboard_pin)) {
-                                    Store.updateItem(item.id) { ClipboardRules.addPin(it, snippet) }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    act?.invoke()
+                                    if (pinnable) SmallIconButton(Sym.PUSH_PIN, stringResource(R.string.clipboard_pin)) {
+                                        Store.updateItem(item.id) { ClipboardRules.addPin(it, snippet) }
+                                    }
                                 }
                             }
                         } else null,
                     ) { pick(snippet, host) }
+                    panel(snippet)
                 }
             }
             MenuNote(stringResource(R.string.clipboard_note))
             MenuDivider()
             if (unpinned.isNotEmpty()) {
-                MenuEntry(Sym.DELETE, stringResource(R.string.clipboard_clear_recent)) {
-                    recent.value = emptyList()
-                    Ticker.refresh(type)
-                }
+                MenuEntry(Sym.DELETE, stringResource(R.string.clipboard_clear_recent)) { clearRecent() }
             }
             MenuEntry(Sym.EDIT, stringResource(R.string.clipboard_edit)) { host.openItemSettings(item.id) }
         }
@@ -215,13 +252,17 @@ object ClipboardItem : ItemType("clipboard", R.string.item_clipboard_title, Sym.
                     }
                 }
             }
+            // The same actions as the popup's, here where the model answers (it answers only the app in front).
+            val recents by recent.collectAsState()
+            val pins = remember(item) { ClipboardRules.pins(item) }
+            ClipboardActions.OptionsSection(pins + ClipboardRules.unpinnedRecent(staged ?: recents, pins))
         }
     }
 
-    override val stages = listOf("stage sample", "stage empty")
+    override val stages = listOf("stage sample", "stage empty", "stage ai-ready", "stage ai-answer", "stage ai-none", "stage ai-notinfront")
 
     override fun debug(args: List<String>): String? = when (args.firstOrNull()) {
-        null -> "staged=${staged != null} recent=${recent.value.size}"
+        null -> "staged=${staged != null} recent=${recent.value.size} ${ClipboardActions.describe()}"
         "stage" -> when (args.getOrNull(1)) {
             "sample" -> {
                 staged = listOf("meridian11labs@gmail.com", "git status -sb", "https://github.com/Meridian11Labs/bentobar")
@@ -233,14 +274,28 @@ object ClipboardItem : ItemType("clipboard", R.string.item_clipboard_title, Sym.
                 Ticker.refresh(type)
                 "staged empty clipboard"
             }
+            // A long copy with its actions open, and a model that is ready, has answered, is missing, or answers only the app in front.
+            "ai-ready" -> stageActions(OnDeviceModel.Ready.READY, null)
+            "ai-answer" -> stageActions(OnDeviceModel.Ready.READY, ClipboardActionsRules.Action.SUMMARISE)
+            "ai-none" -> stageActions(OnDeviceModel.Ready.NONE, null)
+            "ai-notinfront" -> stageActions(OnDeviceModel.Ready.NOT_IN_FRONT, null)
             else -> null
         }
         "off" -> {
             staged = null
+            ClipboardActions.unstage()
             Ticker.refresh(type)
             "staging off"
         }
         else -> null
+    }
+
+    /** Stages a long copy with its actions open, beside a short one, on a model that stands at [ready] and has answered [action]. */
+    private fun stageActions(ready: OnDeviceModel.Ready, action: ClipboardActionsRules.Action?): String {
+        ClipboardActions.stage(ready, ClipboardActions.SAMPLE, action, ClipboardActions.SAMPLE_ANSWER)
+        staged = listOf(ClipboardActions.SAMPLE, "git status -sb")
+        Ticker.refresh(type)
+        return "staged actions: ${ready.name.lowercase()}" + (action?.let { ", ${it.name.lowercase()} answered" } ?: "")
     }
 }
 
