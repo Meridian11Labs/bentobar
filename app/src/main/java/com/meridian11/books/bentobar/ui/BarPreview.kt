@@ -247,7 +247,10 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
                     val order = (if (area == Position.LEFT) plan.visible + plan.revealed else plan.revealed + plan.visible).map { it.id }
                     if (carried.id !in order) return@drawBehind
                     val chips = buildMap { order.forEach { id -> if (id != carried.id) reorder.chips[id]?.let { put(id, stretch(it)) } } }
-                    val x = insertionX(order, carried.id, chips, zone, area, gap)
+                    // In an area with nothing drawn the bar stands inside the zone's outline, not on it.
+                    val x = insertionX(order, carried.id, chips, zone, area, gap).let {
+                        if (chips.isEmpty()) it.coerceIn(zone.start + 10.dp.toPx(), maxOf(zone.start + 10.dp.toPx(), zone.endInclusive - 10.dp.toPx())) else it
+                    }
                     val tall = 24.dp.toPx()
                     drawRoundRect(look.fg, Offset(x - 1.dp.toPx(), (size.height - tall) / 2), Size(2.dp.toPx(), tall), CornerRadius(1.dp.toPx()))
                     reorder.container?.takeIf { it.isAttached }?.let { root ->

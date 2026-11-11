@@ -736,7 +736,12 @@ internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, Item
     val raised by animateFloatAsState(if (up) 1f else 0f, Motion.spec(tween(120)), label = "raised")
     val ground = if (reorder.ground == Color.Unspecified) c.raised else reorder.ground
     Layout({
-        RowBody(item, state, false, null, setup.calendar, cfg, Modifier, stacked = narrow || several, grip = { Grip(c.accent) })
+        RowBody(item, state, false, null, setup.calendar, cfg, Modifier, stacked = narrow || several || reorder.touch,
+            // A finger hides the handle it holds: a ring around it says where the row is held.
+            grip = { Grip(c.accent, if (reorder.touch) Modifier.drawBehind {
+                drawCircle(c.accent, 16.dp.toPx(), alpha = 0.2f)
+                drawCircle(c.accent, 16.dp.toPx(), style = Stroke(1.5.dp.toPx()))
+            } else Modifier) })
         Box(Modifier.padding(horizontal = 10.dp)) {
             if (look != null) Strip(listOf(StripEntry(item, state)), emptyList(), showChevron = false, chevronAlways = false, chevronReservePx = 0,
                 expanded = false, chevronOnLeft = false, look = look.copy(pill = Pill.NONE), maxWidthPx = 4000, heightDp = 36.dp, events = ChipOnly)

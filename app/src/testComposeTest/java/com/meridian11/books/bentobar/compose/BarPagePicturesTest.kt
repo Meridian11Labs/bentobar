@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
@@ -18,9 +20,12 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.R
@@ -357,5 +362,71 @@ class BarPagePicturesTest {
         val bitmap = picture("narrow-list")
         val list = bounds("bar-list")
         assertColor("the list's card", palette().panel, bitmap, list.left.toInt() + 6, list.bottom.toInt() - 24)
+    }
+
+    // ---- A drag, in mid-flight ----
+
+    private fun middle(tag: String) = bounds(tag).center
+    /** Press at [from] and carry to [to] without letting go. */
+    @OptIn(ExperimentalTestApi::class)
+    private fun carry(from: Offset, to: Offset) {
+        rule.onRoot().performMouseInput {
+            moveTo(from)
+            press()
+            for (i in 1..6) moveTo(from + (to - from) * (i / 6f))
+        }
+        rule.waitForIdle()
+    }
+    @OptIn(ExperimentalTestApi::class)
+    private fun letGo() { rule.onRoot().performMouseInput { release() }; rule.waitForIdle() }
+
+    @Test fun aRowCarriedInTheListLeavesAnOpeningAndTheLibraryOffersItsWell() {
+        window()
+        val weather = bounds("row:weather")
+        carry(middle("row:cpu"), Offset(weather.center.x + 60f, weather.bottom + 14f))
+        both("drag-bar") { bitmap ->
+            val well = bounds("well")
+            assertEquals("the well stands in the filter's place", bounds("filter"), well)
+            assertColor("the page's ground beside the list", palette().surface, bitmap, bounds("bar-list").left.toInt() - 6, well.center.y.toInt())
+        }
+        rule.onNodeWithTag("drag-row").assertIsDisplayed()
+        letGo()
+    }
+
+    @Test fun aTypeCarriedOutOfTheLibraryIsDimmedThereAndTheListMakesRoom() {
+        window()
+        val weather = bounds("row:weather")
+        val storage = bounds("type:storage")
+        carry(Offset(storage.left + 80f, storage.center.y), Offset(weather.center.x + 120f, weather.bottom + 10f))
+        both("drag-add")
+        rule.onNodeWithTag("well").assertDoesNotExist()
+        rule.onNodeWithTag("drag-row").assertIsDisplayed()
+        letGo()
+    }
+
+    @Test fun aRowCarriedOverThePreviewIsItsChipAndEveryAreaIsAZone() {
+        window()
+        carry(middle("row:timer"), bounds("preview").let { Offset(it.center.x, it.top + 26f) })
+        val left = bounds("zone:LEFT")
+        @OptIn(ExperimentalTestApi::class)
+        rule.onRoot().performMouseInput { moveTo(Offset(left.center.x + 40f, left.center.y)); moveTo(Offset(left.center.x + 6f, left.center.y + 4f)) }
+        rule.waitForIdle()
+        both("drag-areas")
+        rule.onNodeWithTag("drag-chip").assertIsDisplayed()
+        rule.onNodeWithTag("bracket:LEFT").assertIsDisplayed()
+        letGo()
+    }
+
+    @Test fun aFingerCarriesARowByItsHandleOntoTheLibrary() {
+        window()
+        val sound = bounds("row:sound")
+        val grip = Offset(sound.left + 32f, sound.center.y)
+        val to = bounds("type:cpu").let { Offset(it.left + 20f, it.center.y + 6f) }
+        rule.onRoot().performTouchInput { down(grip); for (i in 1..8) moveTo(grip + (to - grip) * (i / 8f)) }
+        rule.waitForIdle()
+        both("drag-touch")
+        rule.onNodeWithTag("well").assertIsDisplayed()
+        rule.onRoot().performTouchInput { up() }
+        rule.waitForIdle()
     }
 }

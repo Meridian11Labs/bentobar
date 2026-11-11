@@ -183,10 +183,16 @@ class Reorder {
     fun arrived() { pending = null }
 
     /**
-     * The copy's corner, in the root. As a row it hangs from the pointer where it was grabbed; as a chip ([chip] 1) it
-     * stands below the pointer, to its right, so that it hides neither the zone nor the insertion bar.
+     * The copy's corner, in the root. As a row it hangs from the pointer where it was grabbed and never leaves the
+     * window sideways; as a chip ([chip] 1) the pointer holds it by its lower left, and a finger holds it from below,
+     * so that the chip shows above the finger and covers neither the words under the preview nor the insertion bar.
      */
-    fun copyAt(chip: Float): Offset = settle ?: (pointer + lerp(-grab, Offset(10f, 12f) * density, chip))
+    fun copyAt(chip: Float): Offset {
+        settle?.let { return it }
+        val at = pointer + lerp(-grab, (if (touch) CHIP_BY_FINGER else CHIP_BY_POINTER) * density, chip)
+        val wide = container?.takeIf { it.isAttached }?.size?.width ?: return at
+        return Offset(at.x.coerceIn(0f, maxOf(0f, wide - copyWidth * (1 - chip))), at.y)
+    }
 
     private fun bounds(c: LayoutCoordinates?, clip: Boolean = false) =
         container?.takeIf { it.isAttached }?.let { root -> c?.takeIf { it.isAttached }?.let { root.localBoundingBoxOf(it, clipBounds = clip) } }
@@ -222,9 +228,11 @@ class Reorder {
         // A row of the list is drawn inside its line's insets; a line of the library is as wide as it is.
         val inset = if (p.from == From.BAR) ROW_INSET_DP * density else 0f
         val wide = (b.width - 2 * inset).coerceAtLeast(1f)
-        copyWidth = minOf(wide, COPY_MAX_DP * density)
+        // Under a finger the copy is the short, two-line row, and the finger keeps the place it took (the handle).
+        copyWidth = minOf(wide, (if (touch) COPY_TOUCH_DP else COPY_MAX_DP) * density)
         rowHeight = if (p.from == From.BAR) b.height else ROW_DP * density
-        grab = Offset(((down.x - b.left - inset) * copyWidth / wide).coerceIn(0f, copyWidth), (down.y - b.top).coerceIn(0f, rowHeight))
+        val along = down.x - b.left - inset
+        grab = Offset((if (touch) along else along * copyWidth / wide).coerceIn(0f, copyWidth), (down.y - b.top).coerceIn(0f, rowHeight))
         pointer = down
         pointerInWindow = root.localToWindow(down)
         source = p.at
@@ -382,6 +390,9 @@ class Reorder {
         const val ROW_DP = 48f
         /** A row of a wide list is carried at this width, not across half the window. */
         const val COPY_MAX_DP = 440f
+        const val COPY_TOUCH_DP = 300f
+        val CHIP_BY_POINTER = Offset(-22f, -24f)
+        val CHIP_BY_FINGER = Offset(-24f, -64f)
     }
 }
 
