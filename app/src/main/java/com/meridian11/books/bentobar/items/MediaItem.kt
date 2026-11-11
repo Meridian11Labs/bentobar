@@ -107,6 +107,21 @@ object MediaItem : ItemType("media", R.string.item_media_title, Sym.MUSIC_NOTE, 
             textLimit = if (bar.text == null) 0 else chars)
     }
 
+    override val liveSource = true
+
+    /**
+     * For the Live activity: what plays, while it plays, by its title (the player's name where it gives none), and only
+     * with this item's own access, which the Live activity never asks for ([LiveRules.media]). Woken, [NowPlaying] runs as
+     * it does for an item of its own, from [onLive] to [onIdle].
+     */
+    override fun liveNow(now: Long, items: List<ItemConfig>): LiveNow? {
+        val main = LiveRules.media(NowPlaying.state.value) ?: return null
+        val track = track(main)
+        val text = MediaText.text(track, MediaText.Show.TITLE, LiveRules.LIMIT, words) ?: return null
+        return LiveNow(LiveRank.MEDIA, Sym.MUSIC_NOTE, text, MediaText.bar(MediaText.Phase.PLAYING, track, MediaText.Show.TITLE, LiveRules.LIMIT, words).desc,
+            since = main.startedAt, open = { NowPlaying.open(main.key) })
+    }
+
     /** With "A click: Plays or pauses" the item acts on a click, as Keep awake does; right-click › Open still reaches the menu. */
     override fun onClick(item: ItemConfig): Boolean {
         if (!MediaText.toggles(item.options)) return false
