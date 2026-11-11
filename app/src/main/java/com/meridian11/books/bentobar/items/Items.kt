@@ -37,6 +37,7 @@ object Items {
         CountdownItem,
         FocusItem,
         ProgressItem,
+        SunItem,
         // Tools
         CaffeineItem,
         MediaItem,
