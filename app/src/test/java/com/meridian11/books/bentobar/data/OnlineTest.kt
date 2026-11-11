@@ -171,6 +171,12 @@ class OnlineTest {
         assertTrue(Online.on(OPEN_METEO))
     }
 
+    @Test fun theServicesAreTheseAndNoOthers() {
+        assertEquals(listOf("openMeteo", "airLabs", "finnhub", "frankfurter", "kraken"), Online.Service.entries.map { it.id })
+        assertEquals(setOf(Online.Service.AIRLABS, Online.Service.FINNHUB), Online.Service.entries.filter { it.needsKey }.toSet())
+        assertEquals(setOf(com.meridian11.books.bentobar.net.Host.KRAKEN), Online.Service.KRAKEN.hosts)
+    }
+
     @Test fun eachHostBelongsToOneService() {
         for (host in com.meridian11.books.bentobar.net.Host.entries) assertTrue(host in Online.serviceOf(host).hosts)
         assertEquals(com.meridian11.books.bentobar.net.Host.entries.size, Online.Service.entries.sumOf { it.hosts.size })

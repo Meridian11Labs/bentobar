@@ -55,6 +55,7 @@ object Items {
         FlightItem,
         StocksItem,
         FxItem,
+        CryptoItem,
     )
     private val byType = all.associateBy { it.type }
 

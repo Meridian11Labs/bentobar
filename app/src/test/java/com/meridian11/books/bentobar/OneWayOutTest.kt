@@ -6,8 +6,8 @@ import org.junit.Test
 import java.io.File
 
 /**
- * What only reading the code can show: there is one way out of the device, and three item types use
- * it. These rules hold for every file of the app, so a change that opens a second way, or lets
+ * What only reading the code can show: there is one way out of the device, and only the item types that go online
+ * use it. These rules hold for every file of the app, so a change that opens a second way, or lets
  * another item ask a service, fails here and not in a review.
  */
 class OneWayOutTest {
@@ -21,7 +21,8 @@ class OneWayOutTest {
         val name = place.removePrefix("items/")
         if (!place.startsWith("items/")) return false
         return name.startsWith("Flight") || name.startsWith("AirLabs") || name.startsWith("Stocks") || name.startsWith("Finnhub") ||
-            (!keyed && (name.startsWith("Weather") || name.startsWith("Air") || name.startsWith("Fx") || name == "Places.kt" || name == "OnlineBase.kt"))
+            (!keyed && (name.startsWith("Weather") || name.startsWith("Air") || name.startsWith("Fx") || name.startsWith("Crypto") ||
+                name == "Places.kt" || name == "OnlineBase.kt"))
     }
 
     @Test fun theSourcesAreThere() {
@@ -40,10 +41,11 @@ class OneWayOutTest {
         }
     }
 
-    /** The only files that ask a service: each loader of the five online items, by name, not by a prefix a new file could match. */
-    private val loaders = setOf("items/WeatherLoad.kt", "items/AirLoad.kt", "items/FxLoad.kt", "items/FlightLoad.kt", "items/StocksLoad.kt")
+    /** The only files that ask a named service: each loader of the six items that do, by name, not by a prefix a new file could match. */
+    private val loaders = setOf("items/WeatherLoad.kt", "items/AirLoad.kt", "items/FxLoad.kt", "items/FlightLoad.kt", "items/StocksLoad.kt",
+        "items/CryptoLoad.kt")
 
-    @Test fun onlyTheFiveLoadersCallHttpGet() {
+    @Test fun onlyTheSixLoadersCallHttpGet() {
         // No road from what the accessibility service, the media players or a sampler read to a request: a request is made by a
         // loader, from what its own item holds. A new loader is added to the list above on purpose. Http.get( and Http::get both count.
         val call = Regex("""\bHttp\s*(\.|::)\s*get\b""")
@@ -56,7 +58,8 @@ class OneWayOutTest {
             for (way in listOf("Http.transport", "HttpTransport(")) assertTrue("$place reaches for the transport: a request goes through Http.get", way !in code(f))
         }
         val declared = sources.filter { Regex("""override\s+val\s+online\b""").containsMatchIn(code(it)) }.map { it.place() }.sorted()
-        assertEquals("the item types that name an online service", listOf("items/AirItem.kt", "items/FlightItem.kt", "items/FxItem.kt", "items/StocksItem.kt", "items/WeatherItem.kt"), declared)
+        assertEquals("the item types that name an online service", listOf("items/AirItem.kt", "items/CryptoItem.kt", "items/FlightItem.kt", "items/FxItem.kt",
+            "items/StocksItem.kt", "items/WeatherItem.kt"), declared)
     }
 
     @Test fun theFilesThatGoOnlineNameNothingThatReadsTheScreenTheMediaOrTheClipboard() {

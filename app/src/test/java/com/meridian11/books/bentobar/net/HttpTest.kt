@@ -34,8 +34,11 @@ class HttpTest {
         Http.resetCounts()
     }
 
-    @Test fun fourHostsAndNoOther() {
-        assertEquals(setOf("api.open-meteo.com", "air-quality-api.open-meteo.com", "geocoding-api.open-meteo.com", "airlabs.co", "api.finnhub.io", "api.frankfurter.dev"), Host.entries.map { it.domain }.toSet())
+    @Test fun sevenHostsAndNoOther() {
+        assertEquals(setOf("api.open-meteo.com", "air-quality-api.open-meteo.com", "geocoding-api.open-meteo.com", "airlabs.co", "api.finnhub.io", "api.frankfurter.dev",
+            "api.kraken.com"), Host.entries.map { it.domain }.toSet())
+        // Kraken's public ticker takes no key: nothing of the user's goes with a request for prices.
+        assertEquals(null, Host.KRAKEN.keyName)
     }
 
     @Test fun everyAddressIsHttpsToOneOfThem() {
