@@ -9,9 +9,9 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
- * Whether BentoBar may ask an online service, and the user's own key for one that needs it. Five
- * items go online, Weather, Air quality, Exchange rates, Flight and Stocks, and each only after the user
- * set it up on this install: that is what [turnOn] and [saveKey] record, and [turnOff] takes back.
+ * Whether BentoBar may ask an online service, and the user's own key for one that needs it. Seven
+ * items go online, Weather, Air quality, Exchange rates, Flight, Stocks, Crypto and Value from a URL, and each only
+ * after the user set it up on this install: that is what [turnOn] and [saveKey] record, and [turnOff] takes back.
  *
  * All of it belongs to this install and never travels. It is kept in one small file in Android's
  * no-backup directory, beside the layout but no part of it: a pasted layout, a restored backup and a
@@ -19,12 +19,15 @@ import java.io.File
  * [key], for the one request that needs it; it is in no state, no log and no string.
  */
 object Online {
-    /** The services, each with the hosts it stands for (see [Host]). */
+    /** The services, each with the hosts it stands for (see [Host]); "Your own addresses" stands for none. */
     enum class Service(val id: String, val hosts: Set<Host>, val needsKey: Boolean) {
         OPEN_METEO("openMeteo", setOf(Host.OPEN_METEO, Host.OPEN_METEO_AIR, Host.OPEN_METEO_GEOCODING), needsKey = false),
         AIRLABS("airLabs", setOf(Host.AIRLABS), needsKey = true),
         FINNHUB("finnhub", setOf(Host.FINNHUB), needsKey = true),
         FRANKFURTER("frankfurter", setOf(Host.FRANKFURTER), needsKey = false),
+        KRAKEN("kraken", setOf(Host.KRAKEN), needsKey = false),
+        /** "Your own addresses": what Value from a URL asks is an address the user typed (`net.OwnAddress`), not a [Host]. */
+        OWN("own", emptySet(), needsKey = false),
     }
 
     /**
@@ -81,6 +84,14 @@ object Online {
     fun hasKey(service: Service): Boolean = service in current.value.keyed
 
     fun serviceOf(host: Host): Service = Service.entries.first { host in it.hosts }
+
+    /**
+     * Whether [service] may be asked right now: it is switched on for this install, something that shows items is on
+     * screen ([running]), and an item of a type that asks it ([asks], by the item's type) is outside Off. The one rule
+     * behind `Http.allowed` and `Http.ownAllowed`, which the app wires to it.
+     */
+    fun mayAsk(service: Service, running: Boolean, items: List<ItemConfig>, asks: (type: String) -> Service?): Boolean =
+        on(service) && running && items.any { it.section != Section.OFF && asks(it.type) == service }
 
     /**
      * On, by the user's own act: Search, Use my location or "Turn on" in the item, or Setup's switch for a

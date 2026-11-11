@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Value from a URL (an address of the user's own). Every name here starts with webvalue_, item_webvalue_ or trigger_webvalue. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
+    <string name="item_webvalue_title">Value from a URL</string>
+    <string name="item_webvalue_desc">One number or word from an address of your own, such as a sensor or a status page</string>
+
+    <string name="webvalue_consent">BentoBar asks the address you type here, over HTTPS, as often as you set while the bar is on screen, and shows one value from the reply. Nothing about you or the device goes with it. The address stays on this device, in no layout and no backup.</string>
+    <string name="webvalue_turn_on">Turn on Your own addresses</string>
+    <string name="webvalue_section">Your address</string>
+    <string name="webvalue_address_label">Address</string>
+    <string name="webvalue_address_help">An https:// address. It stays on this device, in no layout and no backup.</string>
+    <string name="webvalue_address_bad">Use an address that starts with https:// and holds no name, password or #.</string>
+    <string name="webvalue_path_label">Value at</string>
+    <string name="webvalue_path_help">Empty: the reply\'s first line. For JSON, names and [n] to a number, a text or true or false, such as data.temp or items[0].value.</string>
+    <string name="webvalue_label_label">Label</string>
+    <string name="webvalue_unit_label">Unit</string>
+    <string name="webvalue_every_label">Ask</string>
+    <string name="webvalue_every_1">Every minute</string>
+    <string name="webvalue_every_5">Every 5 minutes</string>
+    <string name="webvalue_every_15">Every 15 minutes</string>
+    <string name="webvalue_every_60">Every hour</string>
+    <string name="webvalue_every_1440">Once a day</string>
+    <string name="webvalue_no_address">No address yet</string>
+    <string name="webvalue_set_address">Set the address…</string>
+    <string name="webvalue_edit">Change the address or the value…</string>
+    <string name="webvalue_no_value">No value</string>
+    <string name="webvalue_no_text">The reply had no line of text.</string>
+    <string name="webvalue_no_path">The reply had no number, text or true or false there.</string>
+    <string name="webvalue_no_answer">No answer</string>
+    <string name="webvalue_from">From %1$s</string>
+    <string name="webvalue_ask_now">Ask now</string>
+    <string name="webvalue_desc_not_set_up">Value from a URL: not turned on</string>
+    <string name="webvalue_desc_off">Value from a URL: off</string>
+    <string name="webvalue_desc_no_address">Value from a URL: no address</string>
+    <string name="webvalue_desc_loading">Value from a URL: loading</string>
+    <string name="webvalue_desc_offline">Value from a URL: no connection</string>
+    <string name="webvalue_desc_no_answer">Value from a URL: no answer</string>
+    <string name="webvalue_desc_no_value">Value from a URL: no value</string>
+</resources>

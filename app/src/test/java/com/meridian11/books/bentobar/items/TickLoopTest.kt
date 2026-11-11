@@ -24,7 +24,8 @@ class TickLoopTest {
     private val logs = ArrayList<Pair<String, Throwable?>>()
 
     private inner class FakeType(id: String, private val active: Boolean = false, override val discreet: Boolean = false,
-                                 override val holds: Boolean = false, private val fails: Set<String> = emptySet()) : ItemType(id, 0, "sym", 0) {
+                                 override val holds: Boolean = false, private val fails: Set<String> = emptySet(),
+                                 private val wakesTypes: Set<String> = emptySet()) : ItemType(id, 0, "sym", 0) {
         var isActive = active
         override val group = ItemGroup.TOOLS
         override val samples = setOf<String>()
@@ -32,11 +33,14 @@ class TickLoopTest {
         override fun onLive() { calls += "live:$type"; maybeFail("live") }
         override fun onIdle() { calls += "idle:$type"; maybeFail("idle") }
         override fun sample(now: Long) { calls += "sample:$type"; maybeFail("sample") }
+        override fun settle(why: Settle) { calls += "settle:$type:$why"; maybeFail("settle") }
+        override fun wakes(item: ItemConfig): Set<String> { maybeFail("wakes"); return wakesTypes }
         private fun maybeFail(what: String) { if (what in fails) error("boom in $what") }
     }
 
-    private fun type(id: String, active: Boolean = false, discreet: Boolean = false, holds: Boolean = false, fails: Set<String> = emptySet()) =
-        FakeType(id, active, discreet, holds, fails).also { types[id] = it }
+    private fun type(id: String, active: Boolean = false, discreet: Boolean = false, holds: Boolean = false, fails: Set<String> = emptySet(),
+                     wakes: Set<String> = emptySet()) =
+        FakeType(id, active, discreet, holds, fails, wakes).also { types[id] = it }
 
     private fun item(id: String, type: String, section: Section = Section.SHOWN) = ItemConfig(id, type, section)
     private fun layout(vararg items: ItemConfig) { cfg = BarConfig(items = items.toList()) }
@@ -263,6 +267,115 @@ class TickLoopTest {
         loud.start("bar")
         assertEquals(1, clockChecks)
         assertEquals("one", loud.states.value["a"]?.text)
+    }
+
+    // ---- settle(LEFT_LAYOUT): what outlives the bar (a mute, a Do Not Disturb rule) ends with the type's last item, not with the bar ----
+
+    private fun settled(type: String) = calls.count { it == "settle:$type:${Settle.LEFT_LAYOUT}" }
+
+    @Test fun aTypeWhoseLastItemLeavesTheLayoutIsSettledOnceAndNotWhenTheBarHides() {
+        type("mic"); type("plain")
+        layout(item("m1", "mic"), item("m2", "mic"), item("p", "plain"))
+        loop.start("bar")
+        // The bar hides and comes back with the items still placed: nothing is settled.
+        loop.stop("bar")
+        loop.start("bar")
+        tick()
+        assertEquals(0, calls.count { it.startsWith("settle") })
+        // One of two goes: the type still has an item in the layout.
+        layout(item("m2", "mic"), item("p", "plain"))
+        tick()
+        assertEquals(0, settled("mic"))
+        // The last one goes to Off: settled once, and not again on the ticks that follow.
+        layout(item("m2", "mic", Section.OFF), item("p", "plain"))
+        tick(); tick()
+        assertEquals(1, settled("mic"))
+        assertEquals("only the type that left", 0, settled("plain"))
+        // Back (an Undo), and removed outright: settled again, once.
+        layout(item("m2", "mic"), item("p", "plain"))
+        tick()
+        layout(item("p", "plain"))
+        tick(); tick()
+        assertEquals(2, settled("mic"))
+        // Behind ‹ an item is still placed, though nothing samples it: its type is not settled.
+        layout(item("m3", "mic"), item("p", "plain"))
+        tick()
+        cfg = BarConfig(items = listOf(item("m3", "mic", Section.HIDDEN).copy(whenActive = false), item("p", "plain")),
+            hiddenMode = com.meridian11.books.bentobar.data.HiddenMode.CLICK)
+        tick()
+        assertTrue("not sampled", "m3" !in loop.sampled.map { it.id })
+        assertEquals(2, settled("mic"))
+    }
+
+    @Test fun aRemovalWhileNothingWasOnScreenIsSeenAtTheNextRun() {
+        type("mic")
+        layout(item("m", "mic"))
+        loop.start("bar")
+        loop.stop("bar")
+        // Removed while the bar was hidden: nothing runs then, and nothing is settled.
+        layout()
+        assertEquals(0, settled("mic"))
+        loop.start("bar")
+        assertEquals(1, settled("mic"))
+        tick()
+        assertEquals(1, settled("mic"))
+    }
+
+    @Test fun aTypeThatFailsToSettleCostsTheOthersNothing() {
+        type("bad", fails = setOf("settle")); type("good")
+        layout(item("a", "bad"), item("b", "good"))
+        loop.start("bar")
+        layout()
+        tick()
+        assertEquals(1, settled("good"))
+        assertTrue(logs.any { it.first.contains("settle of bad failed") })
+    }
+
+    // ---- wakes: a type kept live for another's item (Live activity's sources), with no item of its own ----
+
+    @Test fun aWokenTypeIsLiveAndSampledWhileTheItemThatWakesItIsAndIdleWhenItGoes() {
+        type("live", wakes = setOf("timer")); type("timer")
+        layout(item("l", "live"))
+        loop.start("bar")
+        assertEquals(1, calls.count { it == "live:timer" })
+        tick()
+        assertTrue("sampled on the tick", calls.contains("sample:timer"))
+        layout()
+        tick()
+        assertEquals(1, calls.count { it == "idle:timer" })
+        calls.clear(); tick()
+        assertFalse("nothing of it runs any more", calls.any { it.endsWith(":timer") })
+    }
+
+    @Test fun aTypeWokenAndLiveItselfIsStartedOnce() {
+        type("live", wakes = setOf("timer")); type("timer")
+        layout(item("l", "live"), item("t", "timer"))
+        loop.start("bar")
+        tick()
+        assertEquals(1, calls.count { it == "live:timer" })
+        // Its own item goes: still woken, so still live.
+        layout(item("l", "live"))
+        tick()
+        assertEquals(0, calls.count { it == "idle:timer" })
+        assertEquals(1, calls.count { it == "live:timer" })
+    }
+
+    @Test fun aWokenTypesStateIsNotRun() {
+        type("live", wakes = setOf("timer")); type("timer")
+        layout(item("l", "live"))
+        loop.start("bar")
+        tick()
+        assertFalse(calls.contains("state:timer"))
+        assertEquals(setOf("l"), loop.states.value.keys)
+    }
+
+    @Test fun whatAWokenTypeNamesThatIsNotRegisteredOrFailsCostsNothing() {
+        type("live", wakes = setOf("gone")); type("bad", fails = setOf("wakes")); type("good")
+        layout(item("l", "live"), item("b", "bad"), item("g", "good"))
+        loop.start("bar")
+        tick()
+        assertEquals("good", loop.states.value["g"]?.text)
+        assertTrue(logs.any { it.first.contains("wakes of bad failed") })
     }
 
     @Test fun aTypeNoLongerInTheRegistryIsSkippedAndStaysInTheLayout() {

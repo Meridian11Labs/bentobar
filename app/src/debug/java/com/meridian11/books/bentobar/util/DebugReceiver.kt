@@ -7,8 +7,11 @@ import android.util.Log
 import com.meridian11.books.bentobar.bar.BarService
 import com.meridian11.books.bentobar.data.Defaults
 import com.meridian11.books.bentobar.data.Online
+import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
+import com.meridian11.books.bentobar.data.putAllIn
+import com.meridian11.books.bentobar.data.putInArea
 import com.meridian11.books.bentobar.items.Caffeine
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.ItemType
@@ -49,13 +52,15 @@ class DebugReceiver : BroadcastReceiver() {
                     if (Store.import(json) is com.meridian11.books.bentobar.data.LayoutRead.Ok) "imported" else "not a BentoBar layout"
                 }
                 "reset" -> { Store.update { Defaults.config().copy(onboarded = it.onboarded) }; "reset" }
-                "add" -> Store.add(args[1], args.getOrNull(2)?.let { Section.valueOf(it.uppercase()) } ?: Section.SHOWN)
+                // add TYPE [section] [area]: with no area, the layout's home area.
+                "add" -> Store.add(args[1], args.getOrNull(2)?.let { Section.valueOf(it.uppercase()) } ?: Section.SHOWN, area = args.getOrNull(3)?.let { area(it) })
                 "remove" -> { Store.remove(args[1]); "ok" }
                 "set" -> {
                     val (k, v) = args[2].split('=', limit = 2)
                     val item = Store.config.value.items.firstOrNull { it.id == args[1] || it.type == args[1] } ?: error("no item")
                     when (k) {
                         "section" -> Store.updateItem(item.id) { it.copy(section = Section.valueOf(v.uppercase())) }
+                        "area" -> Store.update { it.putInArea(item.id, area(v)) }
                         "whenActive" -> Store.updateItem(item.id) { it.copy(whenActive = v.toBoolean()) }
                         "display" -> Store.updateItem(item.id) { it.copy(display = com.meridian11.books.bentobar.data.Display.valueOf(v.uppercase())) }
                         else -> Store.updateItem(item.id) { it.with(k, v.ifEmpty { null }) }
@@ -101,13 +106,17 @@ class DebugReceiver : BroadcastReceiver() {
                 }
                 "net" -> { // how many requests went out, per host, and whether each service may be asked right now
                     if (args.getOrNull(1) == "reset") Http.resetCounts()
-                    Host.entries.joinToString(" ") { "${it.domain}=${Http.sent(it)}" } + " | " +
-                        Online.Service.entries.joinToString(" ") { s -> "${s.id}: on=${Online.on(s)} setUp=${Online.setUp(s)} mayAsk=${Http.allowed(s.hosts.first())}" }
+                    // Addresses the user typed are counted together, as "own": never an address or a host.
+                    Host.entries.joinToString(" ") { "${it.domain}=${Http.sent(it)}" } + " own=${Http.sentOwn()} | " +
+                        Online.Service.entries.joinToString(" ") { s ->
+                            "${s.id}: on=${Online.on(s)} setUp=${Online.setUp(s)} mayAsk=${if (s.hosts.isEmpty()) Http.ownAllowed() else Http.allowed(s.hosts.first())}"
+                        }
                 }
-                "online" -> { // online weather|flights|stocks|fx on|off (on only works once the item was set up here, as in Setup)
+                "online" -> { // online weather|flights|stocks|fx|crypto|own on|off (on only works once the item was set up here, as in Setup)
                     val s = when (args[1]) {
                         "weather" -> Online.Service.OPEN_METEO; "flights" -> Online.Service.AIRLABS; "stocks" -> Online.Service.FINNHUB; "fx" -> Online.Service.FRANKFURTER
-                        else -> error("weather, flights, stocks or fx")
+                        "crypto" -> Online.Service.KRAKEN; "own" -> Online.Service.OWN
+                        else -> error("weather, flights, stocks, fx, crypto or own")
                     }
                     if (args.getOrNull(2) == "on") Online.turnOn(s) else Online.turnOff(s)
                     "${s.id} on=${Online.on(s)}"
@@ -118,7 +127,7 @@ class DebugReceiver : BroadcastReceiver() {
                 "look" -> {
                     Store.update { c ->
                         when (args[1]) {
-                            "position" -> c.copy(position = com.meridian11.books.bentobar.data.Position.valueOf(args[2].uppercase()))
+                            "position" -> c.putAllIn(area(args[2])) // every item into one area, which is what a Position was
                             "pill" -> c.copy(pill = com.meridian11.books.bentobar.data.Pill.valueOf(args[2].uppercase()))
                             "color" -> c.copy(color = com.meridian11.books.bentobar.data.ColorMode.valueOf(args[2].uppercase()))
                             "size" -> c.copy(textSize = com.meridian11.books.bentobar.data.TextSize.valueOf(args[2].uppercase()))
@@ -153,6 +162,14 @@ class DebugReceiver : BroadcastReceiver() {
     /** What the type's hook says to [words], or, for a state it refused, what it can stage: a hook answers null, and the usage is said here. */
     private fun ask(type: ItemType, words: List<String>): String? = type.debug(words)
         ?: type.stages.takeIf { it.isNotEmpty() }?.let { "not staged: no such state, or no such item outside Off. It takes: ${it.joinToString(" | ")}" }
+
+    /** An area by the word the user reads; "center" is the stored name, which older scripts send. */
+    private fun area(word: String): Position = when (word.lowercase()) {
+        "left" -> Position.LEFT
+        "middle", "center" -> Position.CENTER
+        "right" -> Position.RIGHT
+        else -> error("left, middle or right")
+    }
 
     /** "+3h", "+90m", "-45s" as milliseconds. */
     private fun span(text: String): Long {

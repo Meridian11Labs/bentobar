@@ -165,6 +165,12 @@ object FlightLoad {
         true
     }
 
+    /**
+     * Whether a flight is noted for [item]: what makes a Flight item a setup, which is asked inside every change to
+     * the layout. So it looks whether the note is there and reads nothing; false where nothing can be kept at all.
+     */
+    fun follows(item: String): Boolean = runCatching { Kept.own(OWN).has(item) }.getOrDefault(false)
+
     /** [item] follows nothing any more: its note and the answer are deleted. */
     fun stop(item: String) = synchronized(lock) {
         Kept.own(OWN).remove(item)
@@ -190,7 +196,13 @@ object FlightLoad {
         runCatching { json.encodeToString(Tracked.serializer(), t) }.getOrNull()?.let { Kept.fetched(service).write(item, it, now) }
     }
 
-    /** For this long a deleted item can come back (Undo is offered for ten seconds), and what was kept for the last Flight item is left alone. */
+    /**
+     * For this long after the last Flight item went from the layout what was kept for one is left alone: a layout
+     * that was pasted or put back may be followed by another within the moment. It is not Undo's time. The Bar page's
+     * Undo is offered until the next change there, however long that takes, and it needs no wait: an item that follows
+     * a flight is not deleted by Remove (it stays in the layout, as a line in the library), and one that Undo can still
+     * bring back counts as there ([FlightItem.ids]).
+     */
     const val UNDO_MS = 30_000L
 
     /**
@@ -206,7 +218,14 @@ object FlightLoad {
         true
     }
 
-    /** What belonged to an item that is no longer in the layout goes with it. (An empty [items] means the last one is just being deleted, which may still be undone: [clearWithout] comes later.) */
+    /**
+     * A Flight item is gone for good, or the app starts: what is kept for an item that is not among [items] goes, and
+     * with no item left, all of it. [items]: the Flight items of the layout, a line in the library and one Undo can
+     * still bring back among them.
+     */
+    fun sweep(items: Set<String>) = synchronized(lock) { if (!clearWithout(items)) tidy(items) }
+
+    /** What belonged to an item that is no longer in the layout goes with it. (With an empty [items] the last one went a moment ago: [clearWithout] comes [UNDO_MS] later.) */
     private fun tidy(items: Set<String>) {
         if (items.isEmpty()) return
         Kept.own(OWN).keepOnly(items)

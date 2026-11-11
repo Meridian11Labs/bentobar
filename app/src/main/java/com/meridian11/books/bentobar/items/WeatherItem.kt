@@ -97,6 +97,12 @@ object WeatherItem : ItemType("weather", R.string.item_weather_title, Sym.PARTLY
         if (staged(item) != null) stagedSince = Now.elapsed() else source.again(item)
     }
 
+    override fun trouble(item: ItemConfig, now: Long): Trouble? = WeatherRules.silence(status(item, now))?.let { (failure, lastAt) ->
+        Trouble(if (failure == Failure.SLOW_DOWN) R.string.weather_no_answer_hour else R.string.weather_no_answer_15, lastAt, againEntry(item) == Again.READY)
+    }
+
+    override fun tryAgain(item: ItemConfig) = again(item)
+
     override fun state(item: ItemConfig): ItemState {
         val now = Now.wall()
         // Loads the place's reading if it is due: only for an item with a city, outside Off, while the switch is on.

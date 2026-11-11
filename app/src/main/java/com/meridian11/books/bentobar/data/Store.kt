@@ -78,6 +78,7 @@ object Store {
         val raw = file.string(KEY)
         val read = raw?.let(::readLayout)
         state.value = (read as? LayoutRead.Ok)?.config ?: Defaults.config()
+        swept = false
         when {
             raw == null -> save(state.value)
             read is LayoutRead.Ok -> {
@@ -95,10 +96,22 @@ object Store {
         setAsideState.value = file.string(KEY_UNREADABLE)?.let(::whyKept)
     }
 
+    /**
+     * Whether the layout in [state] is known to hold no Off item that carries no setup: false from [open] until the first
+     * change, which looks at every Off item; after that a change is asked only about the Off items it touched.
+     */
+    private var swept = false
+
+    /**
+     * Every change goes through here. What it leaves has no Off item that carries no setup ([withoutBareOff]): the first
+     * change after an update from 1.8 drops those, and none can come to be afterwards.
+     */
     fun update(change: (BarConfig) -> BarConfig) {
         synchronized(this) {
-            val n = change(state.value)
-            if (n == state.value) return
+            val was = state.value
+            val n = change(was).withoutBareOff(was.takeIf { swept })
+            swept = true
+            if (n == was) return
             state.value = n
             // Inside the lock, so a later change can never be saved before this one.
             save(n)
@@ -109,20 +122,31 @@ object Store {
         update { c -> c.copy(items = c.items.map { if (it.id == id) change(it) else it }) }
 
     /**
-     * A new item goes at the left of the bar, where a new item is easy to spot, but after the Next
-     * meeting item, which stays at the far left: its width changes most, and at the bar's outer
-     * edge that moves nothing else. Hidden and Off items go at the end of their section. [whenActive]:
-     * with its "Show when" rule on (for the types that are added to When active).
+     * A new item goes into [area], or with none named into the layout's [home area][homeArea], at the place [added] says.
+     * [whenActive]: with its "Show when" rule on (for the types that are added to When active).
      */
-    fun add(type: String, section: Section = Section.SHOWN, options: Map<String, String> = emptyMap(), whenActive: Boolean = false): String {
+    fun add(type: String, section: Section = Section.SHOWN, options: Map<String, String> = emptyMap(), whenActive: Boolean = false, area: Position? = null): String {
         val id = newId()
-        update { c ->
-            val item = ItemConfig(id, type, section, whenActive = whenActive, options = options)
-            val at = if (section != Section.SHOWN) -1
-                else c.items.indexOfFirst { it.section == Section.SHOWN && it.type != PINNED_LEFT }
-            c.copy(items = if (at < 0) c.items + item else c.items.toMutableList().apply { add(at, item) })
-        }
+        update { c -> c.copy(items = c.items.added(ItemConfig(id, type, section, whenActive = whenActive, options = options, area = area ?: c.homeArea()))) }
         return id
+    }
+
+    /** What the library's + adds: a [fresh] item of [type], in [area] or with none named in the layout's [home area][homeArea]. */
+    fun addFresh(type: com.meridian11.books.bentobar.items.ItemType, area: Position? = null): String {
+        val id = newId()
+        update { c -> c.copy(items = c.items.added(type.fresh(id, area ?: c.homeArea()))) }
+        return id
+    }
+
+    /**
+     * The list with [new] in it. A Shown item goes at the left of its area, where a new item is easy to spot, but after
+     * the Next meeting item, which stays at the far left: its width changes most, and at the area's outer edge that moves
+     * nothing else. With no Shown item of its area to go before, and for Hidden and Off items, at the end.
+     */
+    internal fun List<ItemConfig>.added(new: ItemConfig): List<ItemConfig> {
+        val at = if (new.section != Section.SHOWN) -1
+            else indexOfFirst { it.section == Section.SHOWN && it.area == new.area && it.type != PINNED_LEFT }
+        return if (at < 0) this + new else toMutableList().apply { add(at, new) }
     }
 
     /** A copy of [item] with all its settings, right after it; its new id. Duplicate in the item's settings. */
@@ -138,10 +162,10 @@ object Store {
         return if (at < 0) items else items.toMutableList().apply { add(at + 1, items[at].copy(id = id)) }
     }
 
-    /** The item type kept at the bar's far left (see [add]). */
+    /** The item type kept at the far left of its area (see [added]). */
     const val PINNED_LEFT = "event"
 
-    fun remove(id: String) = update { c -> c.copy(items = c.items.filterNot { it.id == id }) }
+    fun remove(id: String) = update { it.without(id) }
 
     /** Moves [id] into [section] at [index] within that section (end if out of range). */
     fun move(id: String, section: Section, index: Int) = update { c -> c.copy(items = c.items.moved(id, section, index)) }
@@ -210,7 +234,7 @@ object Store {
 object Defaults {
     /**
      * A calm first bar, left to right: the next meeting (only when one is near), the calendar, a
-     * timer and keep awake. Everything else is one click away in Add.
+     * timer and keep awake. Everything else is one click away in the library.
      */
     fun config() = BarConfig(
         items = listOf(

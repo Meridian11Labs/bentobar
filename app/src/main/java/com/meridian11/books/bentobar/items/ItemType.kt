@@ -97,6 +97,8 @@ data class ItemState(
      * changes. Null: none.
      */
     val turns: List<String>? = null,
+    /** [image] takes the strip's text colour, as a symbol does (a strip of other apps' small icons, which are masks). */
+    val tintImage: Boolean = false,
 ) {
     /** For logs and dumps: never the words themselves, which can be a track's title, a city or a flight. */
     override fun toString() = "ItemState(icon=${icon != null}, text of ${text?.length ?: 0}, active=$active, tone=$tone)"
@@ -109,10 +111,33 @@ interface MenuHost {
     fun openItemSettings(id: String)
     /** Runs [action] after the menu has gone (e.g. before a screenshot). */
     fun afterClose(action: () -> Unit)
+    /**
+     * Runs [action] once when this popup starts to close (before the fold), whatever closes it: its own button, Esc, a
+     * press on its item, another popup, the bar hiding. For what must end the moment the popup is on its way out (a
+     * camera). A host without a window never calls it. A popup that ran it is never turned round: a click while it
+     * folds opens a new one.
+     */
+    fun onClosing(action: () -> Unit) {}
 }
 
 /**
- * Where Add lists a type, and under which heading. A new type states its group and is listed: nothing else names types by
+ * The accesses the newer types cannot work without, each given in Android's own settings (the camera in its own dialog
+ * first). [Accesses] says each in words, asks Android whether it is given and opens where it is.
+ */
+enum class Access { CAMERA, NOTICES, DO_NOT_DISTURB, WRITE_SETTINGS }
+
+/** Moments at which a type gives back what outlives the bar being on screen (a mute, a Do Not Disturb rule, a light). */
+enum class Settle {
+    /** The accessibility service has started (after Env.init). Not sent under tests' Env.init, nor from the settings app alone. */
+    SERVICE_STARTED,
+    /** The service is ending: an unbind, also a plain rebind; never sent when the process is killed. */
+    SERVICE_ENDING,
+    /** The type's last item outside Off has left the layout (removed, or moved to Off). An Undo may bring it back. */
+    LEFT_LAYOUT,
+}
+
+/**
+ * Where the library lists a type, and under which heading. A new type states its group and is listed: nothing else names types by
  * hand. The only group that says so goes online, and every type that goes online is in it (`ItemCatalogTest`).
  */
 enum class ItemGroup(@StringRes val title: Int, @StringRes val caption: Int? = null) {
@@ -121,6 +146,13 @@ enum class ItemGroup(@StringRes val title: Int, @StringRes val caption: Int? = n
     TOOLS(R.string.add_group_tools),
     ONLINE(R.string.add_group_online, R.string.add_group_online_caption),
 }
+
+/**
+ * A service that gave no answer, as the settings window says it. [text]: the notice. [lastAt]: when what the item still
+ * shows was fetched, 0 if it shows nothing. [ready]: a press of Try again asks now; else it is dimmed (a try is on its
+ * way, or one has just failed).
+ */
+data class Trouble(@param:StringRes val text: Int, val lastAt: Long, val ready: Boolean)
 
 /**
  * One kind of bar item (network speed, timer, …). Types are stateless objects; per-instance
@@ -138,7 +170,7 @@ abstract class ItemType(
     val title: String get() = Env.app.getString(titleRes)
     val blurb: String get() = Env.app.getString(blurbRes)
 
-    /** Where Add lists it. */
+    /** Where the library lists it. */
     abstract val group: ItemGroup
 
     /** Its reading goes up and down around the user's line (speed, load): "has something to say" is held for a while ([TickRules.held]), so it doesn't blink. */
@@ -182,8 +214,15 @@ abstract class ItemType(
     open val notificationAccess: Boolean = false
 
     /**
-     * Speaks up now and then (Now playing, Device batteries, Heat): Add puts it in "When active"
-     * with its rule on, and the second button adds it always shown.
+     * The accesses this type cannot work without ([Access]). Setup has a row for each that a registered type needs, and the
+     * item's options a line with its button while it is not given. The older types keep [permissions] and
+     * [notificationAccess]; only the newer ones use this.
+     */
+    open val needs: List<Access> = emptyList()
+
+    /**
+     * Speaks up now and then (Now playing, Device batteries, Heat): the library's + puts it under the
+     * line with its rule on, and its row there says so; "Always" in its options keeps it in the bar.
      */
     open val addsWhenActive: Boolean = false
 
@@ -263,13 +302,79 @@ abstract class ItemType(
      */
     open fun menuOpening(item: ItemConfig) {}
 
-    /** Type-specific settings, shown in BentoBar's settings. */
+    /**
+     * What the settings window says of [item] when its service gave no answer, in the item's row and over its options;
+     * null while there is nothing to say. It asks nothing.
+     */
+    open fun trouble(item: ItemConfig, now: Long): Trouble? = null
+
+    /** A press of Try again in that notice. */
+    open fun tryAgain(item: ItemConfig) {}
+
+    /** Type-specific settings, shown in the item's options in BentoBar's settings, on the window's own controls (ui/Controls.kt). */
     open val options: (@Composable (item: ItemConfig, set: (ItemConfig) -> Unit) -> Unit)? = null
 
-    /** The heading over [options] in settings: "Options", unless the first thing there has a name of its own (the flight item's key). */
-    @get:StringRes open val optionsTitle: Int get() = com.meridian11.books.bentobar.R.string.detail_options
-
     open fun defaultOptions(): Map<String, String> = emptyMap()
+
+    /**
+     * Whether [item] holds something of the user's that is kept outside the layout, under the item's id (the flight a
+     * Flight item follows). Such an item is a setup whatever its options say ([carriesSetup][com.meridian11.books.bentobar.data.carriesSetup]):
+     * Remove keeps it as a line in the library, and what is kept for it stays for as long as the line does. Asked inside
+     * a change to the layout, on any thread: it must not wait for anything.
+     */
+    open fun keepsOwn(item: ItemConfig): Boolean = false
+
+    /**
+     * The item [id] of this type is gone from the layout and no Undo can bring it back (its line was forgotten, and
+     * the Bar page's Undo has gone on to something else): what was kept for it outside the layout goes. Main thread.
+     * Only for deleting kept text: it runs late or never (Undo is in memory). "The item was removed" is [settle].
+     */
+    open fun forgetOwn(id: String) {}
+
+    /**
+     * This type's items in the layout, in the bar or a line in the library, and any the Bar page's Undo can still bring
+     * back: what a type keeps under another id ([keepsOwn]) belonged to an item that is gone. Main thread.
+     */
+    internal fun ids(): Set<String> =
+        com.meridian11.books.bentobar.data.Store.config.value.items.filter { it.type == type }.mapTo(HashSet()) { it.id }
+            .also { it += com.meridian11.books.bentobar.ui.Undo.held(type) }
+
+    /**
+     * Gives back what outlives the bar being on screen (a mute, a Do Not Disturb rule, a keyboard's light), at the moments
+     * [Settle] names; the bar merely hiding is none of them. Main thread, behind `Ticker.guarded`. Never throws; disk
+     * work goes to the background, as `FlightItem.sweepAtStart` does.
+     */
+    open fun settle(why: Settle) {}
+
+    /**
+     * Its popup stays when the user presses elsewhere (a mirror, a prompter): that press gives the keys back to the app
+     * below, and a press inside takes them again. Its own close, Esc, a press on its item, another item's popup, the bar
+     * hiding and its strip going still close it; pointing at another item does not, with "Switch popups on hover" on.
+     */
+    open val staysOpen: Boolean = false
+
+    /** Text or links dragged onto it in the bar are handed to [onDrop]. */
+    open val takesDrops: Boolean = false
+
+    /** [clip] was dropped on [item] in the bar: true if anything was taken. Main thread, behind `Ticker.guarded`; never throws. */
+    open fun onDrop(item: ItemConfig, clip: android.content.ClipData): Boolean = false
+
+    /**
+     * Types that are kept live ([onLive], [sample], [onIdle]) while [item] is sampled, though no item of theirs is. [state]
+     * is NOT run for them: what they have to say reaches [item]'s type through [liveNow].
+     */
+    open fun wakes(item: ItemConfig): Set<String> = emptySet()
+
+    /** Can stand in the Live activity item ([liveNow]). */
+    open val liveSource: Boolean = false
+
+    /**
+     * What is happening right now, or null. [items]: this type's items outside Off (may be empty: the type was only
+     * woken). [now] is the clock [sample] gets; [LiveNow.since] is in it. Called from the Live activity's sample on the
+     * tick. Reads what is at hand, and may ask for its own refresh without waiting (`Refresher.want`, `Calendar.refresh()`),
+     * since nobody runs [state] for a woken type.
+     */
+    open fun liveNow(now: Long, items: List<ItemConfig>): LiveNow? = null
 }
 
 /**

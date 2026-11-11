@@ -18,7 +18,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Googlebook_OS-Android_17-133F43" alt="Googlebook OS, Android 17">
-  <img src="https://img.shields.io/badge/goes_online-only_for_five_items_you_set_up-2E7D32" alt="Goes online only for five items you set up">
+  <img src="https://img.shields.io/badge/goes_online-only_for_seven_items_you_set_up-2E7D32" alt="Goes online only for seven items you set up">
   <img src="https://img.shields.io/badge/license-MIT-555555" alt="MIT license">
   <img src="https://img.shields.io/badge/developed_on-a_Googlebook-1F6F66" alt="Developed on a Googlebook">
 </p>
@@ -84,6 +84,23 @@ hides when an app goes full screen or the screen locks.
 | **Flight** *(online)* | a line with the plane where the flight is, a countdown to departure with the gate, then to landing, and delays | times at both airports, terminal, gate, baggage belt; a choice where a number flies more than once a day. From AirLabs, with a free key of your own |
 | **US stocks** *(online)* | US stocks you pick, one at a time (`AAPL 227.52 ▲1.2%`) for 3 seconds to a minute each, as you choose; can pop out on a big move | each stock's price, day change and range, and the market's hours. From [Finnhub](https://finnhub.io), with a free key of your own |
 | **Exchange rates** *(online)* | currency pairs you follow (`EUR/USD 1.0942`), rotating in the bar; can pop out on a big daily move | rate and daily % change for up to 6 pairs, plus an inline currency converter. From the European Central Bank via [Frankfurter](https://frankfurter.dev) (no key needed) |
+| **Crypto** *(online)* | prices of the coins you choose, rotating in the bar; can pop out on a big daily move | each coin's price and daily % change, in the currency you choose. From the [Kraken](https://www.kraken.com) exchange (no key needed) |
+| **Value from a URL** *(online)* | one number or word from an address of your own, such as a sensor or a status page | the value, when it was read, and Refresh. HTTPS only; the address stays on this device |
+| **Live activity** | the one thing happening now: a running timer, the meeting about to start, a flight, what plays; can show only while something is | everything happening now, and which of them it follows |
+| **Camera and mic** | shows while an app uses the camera or the microphone, with the time it has | which of the two is in use and for how long, a button that mutes the microphone for every app, Android's privacy settings |
+| **Mirror** | a camera glyph | you, from the camera: a look before a call. The camera runs only while the popup is open |
+| **Prompter** | a notes glyph | your notes moving up under the camera, to read while you speak; play, pause and a speed. The popup stays open while you use another window |
+| **Notification icons** | other apps' notifications as icons, one per app | the list, to open, dismiss or clear |
+| **Shelf** | how many things it holds; drop text or a link on it | what it holds, to copy, drag out or open; Add what's copied |
+| **Focus** | the time left of a Do Not Disturb session you start from the item | the length, a session with no end, End now |
+| **Brightness** | the screen's brightness, with a slider in the bar | the slider, automatic brightness, display settings |
+| **Keyboard light** | the keyboard's backlight, with a slider in the bar | Give back to the system |
+| **Headphones and output** | where sound plays: headphones, USB, a display or the speaker | the output in use, the media volume, sound and Bluetooth settings |
+| **Connection** | says when you're offline, need to sign in, have no internet, use a VPN or a metered network | the link, internet, VPN and metered, network settings |
+| **Screen time** | how long the screen was on today | the apps longest in front today |
+| **Day progress** | how much of the day is gone, or of the workday, the week, the month or the year | from when to when, and how far along |
+| **Sunset** | the time until sunset or sunrise, around the main city of your time zone | sunrise, sunset and the day's length |
+| **Break reminder** | the time until your next break, counted while the screen is on | how long you worked, the next break, I took one |
 | **Tools** | toolbox | screenshot, lock, overview, all apps, power, settings shortcuts |
 | **Shortcut** | one action, as its icon, its name or both (📷 Screenshot) | none: a click does it. Screenshot, Report a bug (the Googlebook's Feedback app), lock, overview, all apps, notifications, Quick settings |
 | **App folder** / **App shortcut** | your apps | a grid of apps / one click to open |
@@ -153,7 +170,7 @@ with that access:
 
 BentoBar never reads what is in another app's window and doesn't watch your keyboard, mouse or touches.
 
-**BentoBar goes online for five items only, and only after you set them up** on this device:
+**BentoBar goes online for seven items only, and only after you set them up** on this device:
 
 - **Weather** sends [Open-Meteo](https://open-meteo.com) the city you search for, and for the forecast
   the coordinates of the city you pick, rounded to about a kilometre: about every 30 minutes while the
@@ -182,11 +199,20 @@ BentoBar never reads what is in another app's window and doesn't watch your keyb
   and when you open its menu, press Refresh or save a new key. Its search sends what you type when you
   press Search.
   Finnhub sees your IP address and can tie requests to your key's account. BentoBar ships no key.
+- **Crypto** asks [Kraken](https://www.kraken.com) for the prices of the coins you follow, in the
+  currency you chose: about every 2 minutes while the bar is on screen, and when you open its menu or
+  press Refresh. No key is needed. Kraken sees your IP address, as any website does.
+- **Value from a URL** asks the one address you typed for it, and nothing else: as often as you set,
+  never more than once a minute, while the bar is on screen. The address must be HTTPS, with no name
+  or password in it; a redirect is not followed and a reply over 64 KB is dropped. The address is kept
+  on this device only: not in your layout, a copied layout or a backup. It has a switch of its own in
+  Setup › Online services, Your own addresses. Whoever runs that address sees your IP address.
 
-Requests can go to those four services and nowhere else (the code has no way to name another
-address), **Setup › Online services** switches each off, and a layout pasted from another install
-never turns them on. BentoBar sends nothing else anywhere: not your layout, your calendar, your
-clipboard, what's playing or anything it measures. It has no accounts of its own, no ads and no analytics, and it
+Requests can go to those five services, to the one address you type for each Value from a URL item,
+and nowhere else (the code has no other way to name an address), **Setup › Online services** switches
+each off, and a layout pasted from another install never turns them on. BentoBar sends nothing else
+anywhere: not your layout, your calendar, your clipboard, your notifications, the camera's picture,
+what's playing or anything it measures. It has no accounts of its own, no ads and no analytics, and it
 sends its developer nothing.
 
 **Clipboard** reads the text you copy while the item is in use, and keeps your last few copies in
@@ -195,17 +221,38 @@ saved with the item, in your layout.
 
 **Now playing** reads the title, artist and artwork your media players publish, which Android shares
 only with apps that have notification access. That access is optional, and BentoBar tells Android to
-send it no notifications: it receives none. Without it the item still shows that something plays and
+send it no notifications through that entry, and receives none. Without it the item still shows that something plays and
 controls it. Nothing about what you play is stored or sent.
 
+**Notification icons** has its own entry in Android's Notification access list, "BentoBar notification
+icons", off until you turn it on. With it BentoBar reads other apps' notifications (the app, the
+title, the text, the icon, a progress), only while an item that shows them is on screen, and holds
+them in memory only. The bar shows icons, never words; the popup lists them, by app and title alone if
+you switch "What they say" off. Nothing of them is stored, logged or sent.
+
+**Mirror** uses the Camera permission, asked for when you first open it. The camera runs only while
+its popup is open, and the picture is never recorded, stored or sent.
+
+**Camera and mic** learns from Android that a camera or a microphone is in use, not which app uses it.
+Its button mutes the microphone for every app, and only when you press it; BentoBar unmutes when you
+remove the item or turn BentoBar off, and leaves alone a mute Android or another app made. It can't
+switch a camera off.
+
+**Shelf** keeps the text and links you drop on it or add from the clipboard, and **Prompter** keeps
+your notes: on this device only, not in your layout, a copied layout or a backup, and never sent.
+Forget, in Add items, deletes them.
+
 If you use Android's backup, Android keeps a copy of BentoBar's settings in your Google account. Your
-AirLabs and Finnhub keys, the online switches, your answer to the accessibility explanation, a running timer and
+AirLabs and Finnhub keys, the online switches, the addresses of Value from a URL, a Prompter's notes,
+what a Shelf holds, a Focus session, your answer to the accessibility explanation, a running timer and
 keep awake are left out of it.
 
 **Usage access is optional and off by default.** If you turn it on (Setup, or the Network and
 Storage menus), BentoBar reads how much data and storage each app uses, to list the top five in
-those menus, and nothing else. Android's switch also covers which apps you use and when; BentoBar
-doesn't read that. Turn it off any time in Android's Usage access settings (Setup › Usage access ›
+those menus. Android's switch also covers which apps you use and when. BentoBar reads that only for a
+**Screen time** item you put in the bar: when the screen went on and off today, and, while its menu is
+open, which apps were in front and for how long. None of it is stored or sent, and it is forgotten
+when the menu closes. Turn it off any time in Android's Usage access settings (Setup › Usage access ›
 Open setting takes you there).
 Android doesn't share other apps' CPU or memory use with apps at all, so the CPU and Memory menus
 show the whole system instead.
@@ -217,9 +264,14 @@ show the whole system instead.
 | Calendar *(optional)* | Next meeting, and events in the month view |
 | Approximate location *(optional)* | Weather's and Air quality & UV's My location, rounded to about 10 km before it is sent |
 | Alarms and reminders *(optional)* | timers that ring on the second while the Googlebook sleeps |
-| Usage access *(optional)* | the apps using the most data today and the largest apps, in the Network and Storage menus |
-| Internet | Weather and Air quality & UV (Open-Meteo), Flight (AirLabs), US stocks (Finnhub) and Exchange rates (Frankfurter), only after you set them up; nothing else |
-| Notification access *(optional)* | Now playing's title, artist and artwork; BentoBar receives no notifications |
+| Usage access *(optional)* | the apps using the most data today and the largest apps, in the Network and Storage menus; Screen time |
+| Camera *(optional)* | Mirror, only while its popup is open |
+| Do Not Disturb access *(optional)* | Focus, to turn its own mode on and off |
+| Modify system settings *(optional)* | Brightness's slider |
+| Modify audio settings | Camera and mic's microphone mute, only when you press it |
+| Internet | Weather and Air quality & UV (Open-Meteo), Flight (AirLabs), US stocks (Finnhub), Exchange rates (Frankfurter), Crypto (Kraken) and Value from a URL (your own address), only after you set them up; nothing else |
+| Notification access *(optional)* | Now playing's title, artist and artwork; BentoBar receives no notifications through this entry |
+| Notification access, "BentoBar notification icons" *(optional)* | Notification icons, and other apps' progress in Live activity; read while on screen, never stored |
 | Network state, launcher apps | the network menu, and picking apps for shortcuts |
 
 ## Good to know

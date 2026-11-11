@@ -6,8 +6,8 @@ import org.junit.Test
 import java.io.File
 
 /**
- * What only reading the code can show: there is one way out of the device, and three item types use
- * it. These rules hold for every file of the app, so a change that opens a second way, or lets
+ * What only reading the code can show: there is one way out of the device, and only the item types that go online
+ * use it. These rules hold for every file of the app, so a change that opens a second way, or lets
  * another item ask a service, fails here and not in a review.
  */
 class OneWayOutTest {
@@ -21,7 +21,8 @@ class OneWayOutTest {
         val name = place.removePrefix("items/")
         if (!place.startsWith("items/")) return false
         return name.startsWith("Flight") || name.startsWith("AirLabs") || name.startsWith("Stocks") || name.startsWith("Finnhub") ||
-            (!keyed && (name.startsWith("Weather") || name.startsWith("Air") || name.startsWith("Fx") || name == "Places.kt" || name == "OnlineBase.kt"))
+            (!keyed && (name.startsWith("Weather") || name.startsWith("Air") || name.startsWith("Fx") || name.startsWith("Crypto") ||
+                name.startsWith("WebValue") || name == "Places.kt" || name == "OnlineBase.kt"))
     }
 
     @Test fun theSourcesAreThere() {
@@ -40,10 +41,11 @@ class OneWayOutTest {
         }
     }
 
-    /** The only files that ask a service: each loader of the five online items, by name, not by a prefix a new file could match. */
-    private val loaders = setOf("items/WeatherLoad.kt", "items/AirLoad.kt", "items/FxLoad.kt", "items/FlightLoad.kt", "items/StocksLoad.kt")
+    /** The only files that ask a named service: each loader of the six items that do, by name, not by a prefix a new file could match. */
+    private val loaders = setOf("items/WeatherLoad.kt", "items/AirLoad.kt", "items/FxLoad.kt", "items/FlightLoad.kt", "items/StocksLoad.kt",
+        "items/CryptoLoad.kt")
 
-    @Test fun onlyTheFiveLoadersCallHttpGet() {
+    @Test fun onlyTheSixLoadersCallHttpGet() {
         // No road from what the accessibility service, the media players or a sampler read to a request: a request is made by a
         // loader, from what its own item holds. A new loader is added to the list above on purpose. Http.get( and Http::get both count.
         val call = Regex("""\bHttp\s*(\.|::)\s*get\b""")
@@ -53,10 +55,29 @@ class OneWayOutTest {
             val place = f.place()
             if (place.startsWith("net/")) continue
             // Nor is there a way around the gate in Http.get: the transport is net's own, to ask and to make.
-            for (way in listOf("Http.transport", "HttpTransport(")) assertTrue("$place reaches for the transport: a request goes through Http.get", way !in code(f))
+            for (way in listOf("Http.transport", "Http.ownTransport", "HttpTransport(")) assertTrue("$place reaches for the transport: a request goes through Http.get", way !in code(f))
         }
         val declared = sources.filter { Regex("""override\s+val\s+online\b""").containsMatchIn(code(it)) }.map { it.place() }.sorted()
-        assertEquals("the item types that name an online service", listOf("items/AirItem.kt", "items/FlightItem.kt", "items/FxItem.kt", "items/StocksItem.kt", "items/WeatherItem.kt"), declared)
+        assertEquals("the item types that name an online service", listOf("items/AirItem.kt", "items/CryptoItem.kt", "items/FlightItem.kt", "items/FxItem.kt",
+            "items/StocksItem.kt", "items/WeatherItem.kt", "items/WebValueItem.kt"), declared)
+    }
+
+    @Test fun onlyValueFromAUrlsLoaderAsksAnAddressAndOnlyItsFilesMakeOne() {
+        // The one call that takes an address: one caller, by name, and it is not among the loaders of the named services.
+        val call = Regex("""\bHttp\s*(\.|::)\s*getOwn\b""")
+        val callers = sources.filter { !it.place().startsWith("net/") && call.containsMatchIn(code(it)) }.map { it.place() }.toSet()
+        assertEquals("the files that call Http.getOwn", setOf("items/WebValueLoad.kt"), callers)
+        assertTrue("items/WebValueLoad.kt" !in loaders)
+        // An address is made from what the user typed in Value from a URL's own files, and nowhere else.
+        val makers = sources.filter { !it.place().startsWith("net/") && "OwnAddress.parse(" in code(it) }.map { it.place() }
+        assertTrue("$makers", makers.isNotEmpty() && makers.all { it.startsWith("items/WebValue") })
+        // And nothing else opens its gate, which is the same rule as every named service's, by its own switch.
+        val gate = sources.filter { !it.place().startsWith("net/") && Regex("""\bHttp\.ownAllowed\s*=""").containsMatchIn(code(it)) }.map { it.place() }
+        assertEquals(listOf("items/Env.kt"), gate)
+        val env = code(sources.single { it.place() == "items/Env.kt" })
+        assertTrue("Env wires Http.ownAllowed to the shared rule for Your own addresses",
+            Regex("""Http\.ownAllowed\s*=\s*\{\s*mayAsk\(Online\.Service\.OWN\)\s*}""").containsMatchIn(env))
+        assertTrue("and the shared rule is Online.mayAsk", Regex("""fun mayAsk\(service: Online\.Service\)\s*=\s*Online\.mayAsk\(service, Ticker\.running, Store\.config\.value\.items\)""").containsMatchIn(env))
     }
 
     @Test fun theFilesThatGoOnlineNameNothingThatReadsTheScreenTheMediaOrTheClipboard() {

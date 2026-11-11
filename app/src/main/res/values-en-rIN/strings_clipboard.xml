@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- British English for strings_clipboard.xml: only the strings whose spelling differs from the US default. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="clipboard_ai_summarize">Summarise</string>
+    <string name="clipboard_ai_section_note">Summarise, proofread, shorten or translate a snippet with the language model on this device.</string>
+</resources>
