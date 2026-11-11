@@ -91,9 +91,6 @@ enum class WindowClass {
     WIDE,
 }
 
-/** Where the panel switch stands. */
-enum class SwitchPlace { PANEL_HEAD, UNDER_PREVIEW }
-
 /**
  * What a window's width makes of the settings window: one model at every width, the bar's list and one panel chosen
  * by the switch. There is no layout with two panels: a wider window gives the list the room.
@@ -101,10 +98,6 @@ enum class SwitchPlace { PANEL_HEAD, UNDER_PREVIEW }
 data class WindowLayout(val kind: WindowClass, /** The panel's width beside the list, 0 where there is no room for one. */ val panelDp: Int) {
     /** The window's margin, also under the cards. */
     val marginDp: Int get() = if (kind == WindowClass.NARROW) 16 else 24
-    /** At the panel's head while it stands beside the list; else under the preview, at full width. */
-    val switchAt: SwitchPlace get() = if (kind == WindowClass.WIDE) SwitchPlace.PANEL_HEAD else SwitchPlace.UNDER_PREVIEW
-    /** Two parts beside the list (Add items, the item); a first part, Your bar, where the list takes its turn too. */
-    val switchParts: Int get() = if (kind == WindowClass.WIDE) 2 else 3
 }
 
 /**

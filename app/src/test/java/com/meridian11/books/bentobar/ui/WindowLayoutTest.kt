@@ -12,8 +12,6 @@ class WindowLayoutTest {
         assertEquals(WindowClass.NARROW, l.kind)
         assertEquals(0, l.panelDp)
         assertEquals(16, l.marginDp)
-        assertEquals(SwitchPlace.UNDER_PREVIEW, l.switchAt)
-        assertEquals(3, l.switchParts)
     }
 
     @Test fun from760To1099OnePaneAtFullWidth() {
@@ -22,8 +20,6 @@ class WindowLayoutTest {
             assertEquals("at $w", WindowClass.MID, l.kind)
             assertEquals("at $w", 0, l.panelDp)
             assertEquals("at $w", 24, l.marginDp)
-            assertEquals("at $w", SwitchPlace.UNDER_PREVIEW, l.switchAt)
-            assertEquals("at $w", 3, l.switchParts)
         }
     }
 
@@ -33,8 +29,6 @@ class WindowLayoutTest {
             assertEquals("at $w", WindowClass.WIDE, l.kind)
             assertEquals("at $w", 348, l.panelDp)
             assertEquals("at $w", 24, l.marginDp)
-            assertEquals("at $w", SwitchPlace.PANEL_HEAD, l.switchAt)
-            assertEquals("at $w", 2, l.switchParts)
         }
     }
 
@@ -43,7 +37,6 @@ class WindowLayoutTest {
             val l = windowLayout(w)
             assertEquals("at $w", WindowClass.WIDE, l.kind)
             assertEquals("at $w", 420, l.panelDp)
-            assertEquals("at $w", SwitchPlace.PANEL_HEAD, l.switchAt)
         }
     }
 
