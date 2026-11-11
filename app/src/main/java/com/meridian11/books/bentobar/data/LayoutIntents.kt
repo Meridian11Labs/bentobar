@@ -195,6 +195,12 @@ fun BarConfig.addedAt(type: ItemType, id: String, area: Position, part: Part, in
     return copy(items = with(Store) { items.added(new) }).placed(id, area, part, index)
 }
 
+/**
+ * A new item of [type] while it is in no part of the bar yet (carried from the library, over no place): what the +
+ * makes ([fresh]) without its rule, so nothing about it says when it would show. It is drawn, never stored.
+ */
+fun BarConfig.unplaced(type: ItemType, id: String): ItemConfig = type.fresh(id, homeArea()).copy(whenActive = false)
+
 /** A remembered setup dropped at a place in the bar: [broughtBack] as it was, then [placed]. Under a line it can't wait under, it stays in the library. */
 fun BarConfig.broughtBackAt(id: String, area: Position, part: Part, index: Int): BarConfig {
     val back = broughtBack(id, area)

@@ -20,6 +20,7 @@ import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
 import com.meridian11.books.bentobar.data.placed
 import com.meridian11.books.bentobar.data.removed
+import com.meridian11.books.bentobar.data.unplaced
 import com.meridian11.books.bentobar.data.without
 import com.meridian11.books.bentobar.items.Items
 import kotlin.math.abs
@@ -235,7 +236,7 @@ fun BarConfig.showing(c: Carried, drop: Drop): BarConfig = when (drop) {
  */
 fun BarConfig.carriedAs(c: Carried, drop: Drop): ItemConfig? {
     if (drop is Drop.At) dropped(c, drop).items.firstOrNull { it.id == c.id }?.let { return it }
-    if (c.from == From.TYPE) return Items.of(c.type)?.fresh(c.id, homeArea())?.copy(whenActive = false)
+    if (c.from == From.TYPE) return Items.of(c.type)?.let { unplaced(it, c.id) }
     return items.firstOrNull { it.id == c.id }
 }
 
