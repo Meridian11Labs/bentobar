@@ -26,6 +26,9 @@ object Items {
         NoticesItem,
         BrightnessItem,
         KeyLightItem,
+        OutputItem,
+        ConnectionItem,
+        ScreenTimeItem,
         // Time
         CalendarItem,
         EventItem,
