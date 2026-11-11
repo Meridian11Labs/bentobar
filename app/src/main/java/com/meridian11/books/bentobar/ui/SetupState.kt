@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.compose.runtime.Immutable
 import com.meridian11.books.bentobar.data.Uses
+import com.meridian11.books.bentobar.items.Access
+import com.meridian11.books.bentobar.items.Accesses
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.MediaAccess
 import com.meridian11.books.bentobar.items.Notify
@@ -30,6 +32,8 @@ data class SetupState(
     val location: Boolean = false,
     /** Installed from a download: Android guards the accessibility and notification access switches until they are allowed in App info. */
     val sideloaded: Boolean = false,
+    /** The accesses the newer items need ([com.meridian11.books.bentobar.items.ItemType.needs]) that Android has given. */
+    val access: Set<Access> = emptySet(),
 )
 
 /**
@@ -59,6 +63,7 @@ object Setup {
             mediaAccess = MediaAccess.granted(app),
             location = app.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED,
             sideloaded = Env.sideloaded(),
+            access = Access.entries.filter { Accesses.granted(app, it) }.toSet(),
         )
         // A running timer's alarm is exact only while exact alarms are allowed and used: follow a change.
         if (state.value.exactAlarms != before.exactAlarms) com.meridian11.books.bentobar.items.Timers.reschedule()

@@ -29,4 +29,11 @@ class SetupRulesTest {
         assertFalse("asked from an item's options", SetupRules.saidInItsRow(Page.BAR, calendar))
         assertFalse("Setup has no row for it", SetupRules.saidInItsRow(Page.SETUP, "android.permission.ACCESS_COARSE_LOCATION"))
     }
+
+    @Test fun aCameraRefusedForGoodIsSaidInItsAccessRow() {
+        // Its row is there whenever an item needs the camera, which is the only way it is asked for.
+        val camera = "android.permission.CAMERA"
+        assertTrue(SetupRules.saidInItsRow(Page.SETUP, camera))
+        assertFalse("asked from Mirror's options or popup", SetupRules.saidInItsRow(Page.BAR, camera))
+    }
 }

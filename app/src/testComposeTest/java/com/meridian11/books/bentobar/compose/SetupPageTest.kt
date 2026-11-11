@@ -28,7 +28,12 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.bar.BarStatus
+import com.meridian11.books.bentobar.data.ItemConfig
+import com.meridian11.books.bentobar.items.Access
 import com.meridian11.books.bentobar.items.Env
+import com.meridian11.books.bentobar.items.ItemGroup
+import com.meridian11.books.bentobar.items.ItemState
+import com.meridian11.books.bentobar.items.ItemType
 import com.meridian11.books.bentobar.ui.AboutPage
 import com.meridian11.books.bentobar.ui.AccessibilityDisclosure
 import com.meridian11.books.bentobar.ui.Page
@@ -173,6 +178,31 @@ class SetupPageTest {
     @Test fun aPermissionAllowedSinceSaysNothingOfTheRefusal() {
         setup(SetupState(serviceOn = true, calendar = true), wontAsk = setOf(Manifest.permission.READ_CALENDAR))
         rule.onNode(hasTestTag("wont-ask")).assertDoesNotExist()
+    }
+
+    /** A type of the newer kind, which needs the camera and Modify system settings: Setup has a row for each, and none for the rest. */
+    private val needing = object : ItemType("needs-test", R.string.access_camera_title, com.meridian11.books.bentobar.util.Sym.VIDEOCAM, R.string.access_camera_explain) {
+        override val group = ItemGroup.TOOLS
+        override val needs = listOf(Access.CAMERA, Access.WRITE_SETTINGS)
+        override fun state(item: ItemConfig) = ItemState()
+    }
+
+    @Test fun aTypeThatNeedsAnAccessGetsItsRow() {
+        val state = SetupState(serviceOn = true, access = setOf(Access.WRITE_SETTINGS))
+        window(Page.SETUP, running = true) { SetupPage(state, declined = false, wontAsk = setOf(Manifest.permission.CAMERA), types = listOf(needing), onTurnOn = {}) }
+        // Not given: Allow, named for a screen reader. Given: Allowed, and the way to Android's setting.
+        rule.onNode(hasTestTag("permission:access-camera")).assertExists()
+        rule.onNode(hasContentDescription(str(R.string.setup_action_for, str(R.string.common_allow), str(R.string.access_camera_title)))).assertExists()
+        rule.onNode(hasText(str(R.string.setup_allowed)) and within("permission:access-write_settings"), useUnmergedTree = true).assertExists()
+        rule.onNode(hasContentDescription(str(R.string.setup_action_for, str(R.string.setup_open_setting), str(R.string.access_write_settings_title)))).assertExists()
+        // The camera refused for good says so once, under its own row, as the other permissions do.
+        rule.onAllNodes(hasTestTag("wont-ask")).assertCountEquals(1)
+        val row = rule.onNode(hasTestTag("permission:access-camera")).fetchSemanticsNode().boundsInRoot
+        val notice = rule.onNode(hasTestTag("wont-ask")).fetchSemanticsNode().boundsInRoot
+        assertTrue("under its own row", notice.top >= row.bottom - 1f && notice.top < row.bottom + 24f)
+        // What no type needs has no row.
+        rule.onNode(hasTestTag("permission:access-notices")).assertDoesNotExist()
+        rule.onNode(hasTestTag("permission:access-do_not_disturb")).assertDoesNotExist()
     }
 
     @Test fun aGuardedNotificationAccessSaysHowAndOffersAppInfo() {

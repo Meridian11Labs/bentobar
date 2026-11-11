@@ -52,6 +52,15 @@ class ItemCatalogTest {
         assertEquals(setOf("weather", "air"), Items.all.filter { it.usesMyLocation }.map { it.type }.toSet())
     }
 
+    @Test fun everyAccessATypeNeedsHasWords() {
+        // Setup's row and the item's line are drawn from these: an access with no words would be a blank row.
+        for (type in Items.all) for (access in type.needs) {
+            assertTrue("${type.type} needs $access, which has no title", Accesses.title(access) != 0)
+            assertTrue("${type.type} needs $access, which has no explanation", Accesses.explain(access) != 0)
+            assertTrue("${type.type} needs $access, which has no button", Accesses.allow(access) != 0)
+        }
+    }
+
     @Test fun everySamplerNamedIsARealType() {
         val names = Regex(""""(\w+)" in types""").findAll(SourceScan.code(SourceScan.sources.single { it.name == "Env.kt" })).map { it.groupValues[1] }.toSet()
         assertTrue(names.isNotEmpty())

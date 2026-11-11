@@ -36,7 +36,11 @@ import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.Online
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.Uses
+import com.meridian11.books.bentobar.items.Access
+import com.meridian11.books.bentobar.items.Accesses
 import com.meridian11.books.bentobar.items.Env
+import com.meridian11.books.bentobar.items.ItemType
+import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.items.MediaAccess
 import com.meridian11.books.bentobar.items.Ticker
 import com.meridian11.books.bentobar.items.Usage
@@ -60,8 +64,14 @@ internal object SetupRules {
      * is the window's message with "Open settings"; never both.
      */
     fun saidInItsRow(page: Page, permission: String): Boolean =
-        page == Page.SETUP && (permission == Manifest.permission.POST_NOTIFICATIONS || permission == Manifest.permission.READ_CALENDAR)
+        page == Page.SETUP && permission in setOf(Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.READ_CALENDAR, Manifest.permission.CAMERA)
 }
+
+/**
+ * The accesses Setup has a row for: those the given [types] need ([ItemType.needs]), each once, in [Access]'s order.
+ * None while no registered type needs one.
+ */
+internal fun accessRows(types: List<ItemType>): List<Access> = Access.entries.filter { a -> types.any { a in it.needs } }
 
 /**
  * Setup, from [setup] (observed, so a row changes the moment something does): turning BentoBar on, then the
@@ -69,10 +79,11 @@ internal object SetupRules {
  * button and the rest is "Later, for some items".
  *
  * [declined]: the answer to the disclosure was No thanks, which Turn on asks about again. [wontAsk]: the permissions
- * Android refused without showing its dialog, since this window opened.
+ * Android refused without showing its dialog, since this window opened. [types]: the registered item types, whose
+ * [ItemType.needs] give the rows for the newer items' accesses ([accessRows]).
  */
 @Composable
-fun SetupPage(setup: SetupState, declined: Boolean, wontAsk: Set<String>, onTurnOn: () -> Unit) {
+fun SetupPage(setup: SetupState, declined: Boolean, wontAsk: Set<String>, types: List<ItemType> = Items.all, onTurnOn: () -> Unit) {
     val activity = LocalActivity.current ?: return
     val running = setup.serviceOn
     PageColumn(Modifier.testTag("setup")) {
@@ -127,6 +138,19 @@ fun SetupPage(setup: SetupState, declined: Boolean, wontAsk: Set<String>, onTurn
             Permission("listener", stringResource(R.string.setup_listener_title), if (guarded) listener + "\n" + stringResource(R.string.media_access_restricted) else listener,
                 setup.mediaAccess, running, manage, onAllow = { MediaAccess.openSettings(activity) }, onManage = { MediaAccess.openSettings(activity) },
                 appInfo = if (guarded) ({ MainActivity.openAppInfo(activity) }) else null)
+            // The newer items' accesses, one row for each that an item needs: given, its way to Android's setting; not given,
+            // the way to give it. Notification icons' switch is guarded as Now playing's is, on an install from a download.
+            for (access in accessRows(types)) {
+                RowLine()
+                val given = access in setup.access
+                val explain = stringResource(Accesses.explain(access))
+                val sideGuarded = access == Access.NOTICES && !given && setup.sideloaded
+                Permission("access-${access.name.lowercase()}", stringResource(Accesses.title(access)),
+                    if (sideGuarded) explain + "\n" + stringResource(R.string.media_access_restricted) else explain, given, running, manage,
+                    onAllow = { Accesses.open(activity, access) }, onManage = { Accesses.open(activity, access) },
+                    appInfo = if (sideGuarded) ({ MainActivity.openAppInfo(activity) }) else null)
+                if (access == Access.CAMERA && !given && Manifest.permission.CAMERA in wontAsk) WontAsk(activity)
+            }
         }
 
         // Observed where it is kept: an item's menu can change it while this page is open.

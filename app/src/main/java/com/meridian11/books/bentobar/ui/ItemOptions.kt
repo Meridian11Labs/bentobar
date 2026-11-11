@@ -65,6 +65,8 @@ import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
 import com.meridian11.books.bentobar.data.standing
 import com.meridian11.books.bentobar.data.stepped
+import com.meridian11.books.bentobar.items.Access
+import com.meridian11.books.bentobar.items.Accesses
 import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.items.ItemType
 import com.meridian11.books.bentobar.items.Items
@@ -238,6 +240,14 @@ private fun Needs(item: ItemConfig, type: ItemType) {
         val text = stringResource(R.string.media_access_explain) + if (setup.sideloaded) "\n" + stringResource(R.string.media_access_restricted) else ""
         NoticeLine(text, Modifier.padding(bottom = Space.s), stacked = true) {
             BentoButton(stringResource(R.string.media_access_allow), { MediaAccess.openSettings(context) }, kind = ButtonKind.WARN)
+        }
+    }
+    // The newer items' accesses: one line each that Android has not given, with the button that leads to it.
+    for (access in type.needs.distinct()) if (access !in setup.access) {
+        val sideGuarded = access == Access.NOTICES && setup.sideloaded
+        val text = stringResource(Accesses.explain(access)) + if (sideGuarded) "\n" + stringResource(R.string.media_access_restricted) else ""
+        NoticeLine(text, Modifier.padding(bottom = Space.s).testTag("needs-${access.name.lowercase()}"), stacked = true) {
+            BentoButton(stringResource(Accesses.allow(access)), { Accesses.open(context, access) }, kind = ButtonKind.WARN)
         }
     }
 }
