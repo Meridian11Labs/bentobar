@@ -100,20 +100,21 @@ class WindowPicturesTest {
         rule.waitForIdle()
     }
 
-    /** A bar of seven items and two that wait for their rule, in one area or in three. */
-    private fun bar(three: Boolean = false, mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null, vararg remembered: ItemConfig) {
+    /** A bar of seven items and two that wait for their rule, in one area, in two or in three. */
+    private fun layout(areas: Int, mode: HiddenMode = HiddenMode.SHOW_ALL, vararg remembered: ItemConfig): BarConfig {
         fun area(id: String) = when {
-            !three -> Position.RIGHT
-            id in setOf("event", "weather", "clock") -> Position.LEFT
-            id == "timer" -> Position.CENTER
+            areas > 1 && id in setOf("event", "weather", "clock") -> Position.LEFT
+            areas > 2 && id == "timer" -> Position.CENTER
             else -> Position.RIGHT
         }
         fun item(id: String, display: Display = Display.ICON_AND_TEXT) = ItemConfig(id, id, display = display, area = area(id))
         fun waiting(id: String) = ItemConfig(id, id, Section.HIDDEN, whenActive = true, area = Position.RIGHT)
-        Store.update {
-            BarConfig(items = listOf(item("event"), item("weather"), item("clock"), item("timer"), item("network", Display.TEXT), item("cpu"),
-                item("sound", Display.ICON), waiting("media"), waiting("devices")) + remembered, position = Position.RIGHT, hiddenMode = mode)
-        }
+        return BarConfig(items = listOf(item("event"), item("weather"), item("clock"), item("timer"), item("network", Display.TEXT), item("cpu"),
+            item("sound", Display.ICON), waiting("media"), waiting("devices")) + remembered, position = Position.RIGHT, hiddenMode = mode)
+    }
+
+    private fun bar(three: Boolean = false, mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null, vararg remembered: ItemConfig) {
+        Store.update { layout(if (three) 3 else 1, mode, *remembered) }
         selected = select
         window(Page.BAR) { BarPage(selected, onSelect = { selected = it }) }
     }
@@ -134,6 +135,63 @@ class WindowPicturesTest {
     private fun large(name: String) {
         picture(name)
         assertEquals("texts cut off in $name", emptyList<String>(), cutOff())
+    }
+
+    /**
+     * The pictures to look at beside the design's boards: the Bar page in light and dark with one area, two and three.
+     * What each holds besides: every item has its row, and no text is cut off.
+     */
+    private fun barPictures(width: Int) {
+        bar()
+        for (areas in 1..3) {
+            rule.runOnUiThread { Store.update { layout(areas) } }
+            for (night in listOf(false, true)) {
+                dark = night
+                rule.waitForIdle()
+                large("bar-$width-$areas-${if (night) "dark" else "light"}")
+                layout(areas).items.forEach { rule.onNodeWithTag("row:${it.id}").assertExists() }
+            }
+        }
+    }
+
+    @Test fun theBarPageAt1180() = barPictures(1180)
+
+    @Config(qualifiers = "w960dp-h780dp-mdpi")
+    @Test fun theBarPageAt960() = barPictures(960)
+
+    @Config(qualifiers = "w700dp-h780dp-mdpi")
+    @Test fun theBarPageAt700() = barPictures(700)
+
+    /** Look, Setup and About, and what a first run shows before BentoBar is on: the Bar page, Setup and the disclosure. */
+    @Config(qualifiers = "w1180dp-h1100dp-mdpi")
+    @Test fun theOtherPagesAndAFirstRun() {
+        var shown by mutableStateOf("look")
+        Store.update { layout(1) }
+        rule.setContent {
+            view = LocalView.current
+            SettingsTheme(dark) {
+                val first = shown.startsWith("first")
+                val page = when (shown) { "look" -> Page.LOOK; "about" -> Page.ABOUT; "first-run-bar" -> Page.BAR; else -> Page.SETUP }
+                Shell(page, {}, running = !first, enabled = true, status = if (first) BarStatus.STOPPED else BarStatus.SHOWN, onEnabled = {}, onTurnOn = {},
+                    insets = WindowInsets(top = 36.dp)) {
+                    when (shown) {
+                        "look" -> LookPage()
+                        "about" -> AboutPage()
+                        "setup" -> SetupPage(SetupState(serviceOn = true, notifications = true, calendar = true), declined = false, wontAsk = emptySet(), onTurnOn = {})
+                        "first-run-bar" -> BarPage(null, onSelect = {}, running = false)
+                        "first-run-setup" -> SetupPage(SetupState(), declined = false, wontAsk = emptySet(), onTurnOn = {})
+                        else -> AccessibilityDisclosure({}, {}, {})
+                    }
+                }
+            }
+        }
+        for (name in listOf("look", "setup", "about", "first-run-bar", "first-run-setup", "first-run-disclosure")) for (night in listOf(false, true)) {
+            shown = name
+            dark = night
+            rule.waitForIdle()
+            large("$name-${if (night) "dark" else "light"}")
+        }
+        rule.onNodeWithTag("disclosure").assertExists()
     }
 
     @Test fun atTwiceTheTextSizeNothingOnTheBarPageIsCutOff() {
