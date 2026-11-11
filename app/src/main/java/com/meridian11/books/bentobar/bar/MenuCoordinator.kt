@@ -71,11 +71,20 @@ internal class MenuCoordinator(
         }, hideBar = { Store.update { it.copy(enabled = false) } }, everything = everything)
     }
 
-    private val host = object : MenuHost {
+    /** What a popup's content can ask of the strip: one for each popup, since what runs as it starts to close is that popup's own. */
+    private fun hostFor(window: MenuWindow) = object : MenuHost {
         override fun close() = closeMenu()
         override fun openItemSettings(id: String) { closeMenu(); MainActivity.open(service, id.ifEmpty { null }) }
         // Once the popup is gone from the screen (a screenshot must not show it): a frame after its window is removed.
         override fun afterClose(action: () -> Unit) { closeMenu(then = { main.postDelayed(action, 50) }) }
+        override fun onClosing(action: () -> Unit) = window.onClosing(action)
+    }
+
+    /** Whether the popup [key] stays when pressed beside: an item's own popup, whose type says so (a mirror, a prompter). */
+    private fun staysOpen(key: MenuKey?): Boolean {
+        val id = (key as? MenuKey.Item)?.id ?: return false
+        val item = Store.config.value.items.firstOrNull { it.id == id } ?: return false
+        return Items.of(item.type)?.staysOpen == true
     }
 
     /**
@@ -93,6 +102,7 @@ internal class MenuCoordinator(
         when (val step = popups.toggle(key, now)) {
             PopupCommand.Fold -> { closeMenu(); return }
             PopupCommand.Spend -> return
+            PopupCommand.LetKeysGo, PopupCommand.TakeKeys -> return // a click's answer is never one of these
             is PopupCommand.Reopen -> if (step.popup.reopen()) {
                 popups.reopened(step.popup, key)
                 menuStrip = strip
@@ -118,7 +128,8 @@ internal class MenuCoordinator(
         val x = left.coerceIn(side, (bounds.width() - w - side).coerceAtLeast(side))
         val y = s.bar.bottom + (MenuRoom.top.value * density).toInt()
         val maxH = ((bounds.height() - s.bar.bottom) / density - 170).toInt().coerceAtLeast(200)
-        val o = MenuWindow(service, "BentoBar menu", onOutside = { outside(it) }, onEscape = { closeMenu() })
+        val o = MenuWindow(service, "BentoBar menu", onOutside = { outside(it) }, onEscape = { closeMenu() }, onInside = { inside() })
+        val host = hostFor(o)
         if (!o.show(x, y, w, shadow = { MenuShadow(widthDp.dp, o.glass) }) { MenuSurface(widthDp.dp, maxH.dp, o.glass) { content(host) } }) return
         popups.opened(o, key)
         menuStrip = strip
@@ -129,7 +140,8 @@ internal class MenuCoordinator(
     /**
      * A press outside the open popup. On the popup's own item it folds the popup away and that press's click is
      * spent; on another item, of any strip, the popup dissolves, and the click opens that item's popup as it unfolds;
-     * anywhere else it folds. (A press on another app's window comes without coordinates: it is "anywhere else".)
+     * anywhere else it folds, or, for a popup that stays (a mirror, a prompter), gives the keys back to the app below.
+     * (A press on another app's window comes without coordinates: it is "anywhere else".)
      */
     private fun outside(ev: MotionEvent) {
         if (menuKey == null) return
@@ -138,11 +150,17 @@ internal class MenuCoordinator(
         val on = facts.stripAt(ev.rawX, ev.rawY)
         // The same rule as the highlight's: a press in a gap belongs to the item on its side of the gap's middle.
         val item = on?.let { PopupRules.pressedItem(ev.rawX - it.locationOnScreen()[0], it.placed.map { (k, r) -> Span(k, r.left.toFloat(), r.right.toFloat()) }) }
-        when (popups.press(PopupRules.pressedOwner(item, on?.area ?: strip.area, strip.area), SystemClock.uptimeMillis())) {
+        when (popups.press(PopupRules.pressedOwner(item, on?.area ?: strip.area, strip.area), SystemClock.uptimeMillis(), stays = staysOpen(menuKey))) {
             PopupCommand.Fold -> closeMenu()
             PopupCommand.Dissolve -> closeMenu(dissolve = true)
+            PopupCommand.LetKeysGo -> menu?.keys(take = false)
             else -> Unit
         }
+    }
+
+    /** A press inside the open popup: one that gave the keys back takes them again. */
+    private fun inside() {
+        if (popups.pressInside() == PopupCommand.TakeKeys) menu?.keys(take = true)
     }
 
     private fun focusMenu(key: MenuKey) {
@@ -235,7 +253,7 @@ internal class MenuCoordinator(
         // "Switch popups on hover": with a popup open, the item pointed at opens its own, as in a menu bar.
         val type = Items.of(item.type)
         if (inside && !sliding && type != null &&
-            PopupRules.hoverOpens(menuKey, item.id, hasPopup = type.menu != null, on = Store.config.value.hoverSwitchesPopups)) {
+            PopupRules.hoverOpens(menuKey, item.id, hasPopup = type.menu != null, on = Store.config.value.hoverSwitchesPopups, stays = staysOpen(menuKey))) {
             strip.placed[item.id] = at
             toggleMenu(strip, MenuKey.Item(item.id), at, type.menuWidthDp) { host -> ItemMenu(item.id, host) }
             return

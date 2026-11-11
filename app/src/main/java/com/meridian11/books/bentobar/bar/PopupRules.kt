@@ -40,10 +40,11 @@ internal object PopupRules {
      * Whether the pointer coming onto item [hovered] opens its popup: only with "Switch popups on hover" [on] (off by
      * default: nothing opens on hover by itself), only while an item's popup or the ‹ menu is [open], never for the
      * item already open, never for a right-click menu, and only for an item that [hasPopup]: one that acts on a click
-     * (keep awake, a Shortcut) must not act on a hover.
+     * (keep awake, a Shortcut) must not act on a hover. Never over a popup that [stays] (a mirror, a prompter): the
+     * pointer crossing the bar must not take it away.
      */
-    fun hoverOpens(open: MenuKey?, hovered: String, hasPopup: Boolean, on: Boolean): Boolean {
-        if (!on || open == null || !hasPopup) return false
+    fun hoverOpens(open: MenuKey?, hovered: String, hasPopup: Boolean, on: Boolean, stays: Boolean = false): Boolean {
+        if (!on || open == null || !hasPopup || stays) return false
         if (open is MenuKey.ItemContext) return false
         return open != MenuKey.Item(hovered)
     }

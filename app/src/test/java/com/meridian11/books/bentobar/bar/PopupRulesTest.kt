@@ -54,6 +54,12 @@ class PopupRulesTest {
         assertFalse(PopupRules.hoverOpens(open = MenuKey.ItemContext("weather1"), hovered = "calendar1", hasPopup = true, on = true))
     }
 
+    @Test fun pointingAtAnotherItemNeverReplacesAPopupThatStays() {
+        // A mirror or a prompter stays while the pointer crosses the bar; a click on the other item still replaces it.
+        assertFalse(PopupRules.hoverOpens(open = MenuKey.Item("mirror1"), hovered = "calendar1", hasPopup = true, on = true, stays = true))
+        assertTrue(PopupRules.hoverOpens(open = MenuKey.Item("mirror1"), hovered = "calendar1", hasPopup = true, on = true, stays = false))
+    }
+
     // ---- which area's strip a press landed on ----------------------------------------------------------------
 
     /** Three strips in a 41 px bar: Left from 168, the Middle from 800, Right up to 1681. */
