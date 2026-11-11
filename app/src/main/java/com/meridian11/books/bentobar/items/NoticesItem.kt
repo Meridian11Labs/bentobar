@@ -70,8 +70,8 @@ object NoticesItem : ItemType("notices", R.string.item_notices_title, Sym.NOTIFI
     private var accessOn = false
     /** When the access was last asked for, in [sample]'s clock; null: at [onLive], before the first sample. */
     private var accessReadAt: Long? = null
-    /** The strip the bar drew last, and the icons it was drawn from: drawn again only when they change. */
-    private var strip: Pair<List<Bitmap?>, Bitmap>? = null
+    /** The strip each item drew last, and the icons it was drawn from: drawn again only when they change. */
+    private val strips = HashMap<String, Pair<List<Bitmap?>, Bitmap>>()
 
     /** A staged sample (debug builds' hook): its name, its notifications, and whether the access counts as given. */
     internal class Staged(val name: String, val notices: List<Notices.Notice>, val granted: Boolean)
@@ -116,7 +116,7 @@ object NoticesItem : ItemType("notices", R.string.item_notices_title, Sym.NOTIFI
         accessOn = false
         outside.release()
         Notices.publish(emptyList())
-        strip = null
+        strips.clear()
         NoticeIcons.forget()
     }
 
@@ -130,14 +130,14 @@ object NoticesItem : ItemType("notices", R.string.item_notices_title, Sym.NOTIFI
         if (bar.isEmpty()) return ItemState(icon = Sym.NOTIFICATIONS, filled = false, desc = Env.str(R.string.notices_none))
         val icons = bar.take(limit.of(item)).map { it.icon }
         val count = NoticesRules.counted(all, ongoing.of(item)).size
-        return ItemState(icon = Sym.NOTIFICATIONS, image = strip(icons), tintImage = true, text = NoticesRules.more(icons.size, bar.size),
+        return ItemState(icon = Sym.NOTIFICATIONS, image = strip(item.id, icons), tintImage = true, text = NoticesRules.more(icons.size, bar.size),
             active = true, desc = Env.plural(R.plurals.notices_desc, count, count, bar.joinToString(", ") { it.app }))
     }
 
-    /** The bar's picture of [icons], the one drawn before while they are the same pictures (so the strip has nothing to draw anew). */
-    private fun strip(icons: List<Bitmap?>): Bitmap {
-        strip?.let { (drawnFrom, picture) -> if (drawnFrom.size == icons.size && drawnFrom.indices.all { drawnFrom[it] === icons[it] }) return picture }
-        return NoticeIcons.strip(icons).also { strip = icons to it }
+    /** [id]'s picture of [icons], the one drawn before while they are the same pictures (so the strip has nothing to draw anew). */
+    private fun strip(id: String, icons: List<Bitmap?>): Bitmap {
+        strips[id]?.let { (drawnFrom, picture) -> if (drawnFrom.size == icons.size && drawnFrom.indices.all { drawnFrom[it] === icons[it] }) return picture }
+        return NoticeIcons.strip(icons).also { strips[id] = icons to it }
     }
 
     override fun liveNow(now: Long, items: List<ItemConfig>): LiveNow? {
@@ -169,7 +169,7 @@ object NoticesItem : ItemType("notices", R.string.item_notices_title, Sym.NOTIFI
 
     private fun stage(sample: Staged?) {
         staging.value = sample
-        strip = null
+        strips.clear()
         outside.redraw()
     }
 
