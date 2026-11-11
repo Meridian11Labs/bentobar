@@ -154,10 +154,12 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     puts the keyboard in its filter, and Remove from the bar in the options turns there too, to the item's new line),
     `Library` (the panel's "Add items": the filter with its count, the types in their groups with +, and under a type
     the setups the app remembers, which are exactly the Off items, each a line with its own words, Forget and +. A
-    type's + always adds a fresh item, a line's + brings that item back (`broughtBack`), both into `homeArea()`; a type
+    type's + always adds a fresh item, a line's + brings that item back (`broughtBack`), both into `homeArea()`, or with several lanes on screen into the one "Add to" names; a type
     that comes waiting on its rule says where its + puts it. `shelvesOf`, `matching` and `setupWords` are the pure part:
     what is listed, what a filter leaves, and a line's words, which `removedName` uses for the slip too), `BarRows`
-    (the list: one row per item, the line between its two parts, a head per area while several are in use, Undo in a removed row's place; `listEntries` is what it draws, pure), `ItemOptions` (the panel's
+    (the list: one row per item, the line between its two parts, a head per lane while several are on screen, Undo in
+    a removed row's place; `listEntries` is what it draws, pure, and each entry names its lane, which `Lines` lays side
+    by side from 760 dp and one under the other below that), `ItemOptions` (the panel's
     options: Visibility with only what the chosen part needs, Order, Area, Show as, then the type's own), `Reorder` (drag
     and drop in the list: the gesture sits on the container, a copy of the row floats above, the Store changes once on
     the drop; a press let go without moving selects, a pickup never does), `Pages` (Look, Setup, About),
@@ -170,10 +172,18 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     bar's popups keep the device's colors (`BentoBarTheme`). The settings window's own controls are in `Controls`
     (`Segment`, equal parts or each as wide as its words; `SwitchMark`, `BentoButton`, `FilterField`, `Keycap`) and `Notice`
     (`NoticeLine`; an amber notice's one button is `ButtonKind.WARN`), beside the rows the item menus share.
-    Areas in Settings: an item's options have the Area chooser; the list has a head per area only while more than one is
-    in use (`listAreas`); Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
+    Areas in Settings: with one lane on screen the Bar page has nothing of areas but "Add an area" at the end of the
+    list's head (and Area as the last, quiet row of an item's options). The lanes on screen are the areas with rows and
+    the ones "Add an area" opened that are still empty (`ui/Lanes.kt`, pure: `lanesOnScreen`; the opened ones are the
+    page's own state in `BarEdit`, gone on leaving the tab). With more than one, and only then: the lanes side by side
+    with a head each, a bracket per area in use under the preview, Alt with ← or → moving a row to the lane beside it
+    (`landedIn`: first in its part moving right, last moving left), Area first in the options as a three-way choice
+    with its keycaps, and "Add to" in the library. That key binding is in `AreaKeys` and nowhere else. A lane whose
+    last row leaves closes, said in a slip with Undo above the list (`foldOf`); an area the bar has no room for says so
+    once in its lane (`noRoomAreas`, from what the bar reports in `BarOverflow`), and the preview shows who has its place.
+    Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
     while they all are in it (`oneArea`); while they are in several, and only then, a line under its title says what a
-    choice does. Those two count an item of a type this version doesn't know, which `areasInUse` does
+    choice does. `listAreas` and `oneArea` count an item of a type this version doesn't know, which `areasInUse` does
     not: Settings has its row, the bar nothing of it. `Controls.areaChoices` is the one order and wording; `AreaChoosersTest`.
   - "Show when…": a type's `trigger` (in `ItemType.kt`) words its pop-out rule, and its `Threshold`
     is the one source of the option key and default for both `state()` and the settings slider.
