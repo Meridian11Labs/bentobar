@@ -4,6 +4,12 @@ import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
@@ -83,6 +89,36 @@ class ItemOptionsTest {
     private val sliders get() = rule.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo) and inTag("options"))
     private fun button(description: Int) = rule.onNode(hasContentDescription(str(description)) and hasClickAction() and inTag("options"))
     private fun top(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.top
+
+    /** The lines of the text tagged [tag], each line's width, and how its style breaks them. */
+    private fun lines(tag: String): Pair<List<Float>, LineBreak> {
+        val results = mutableListOf<TextLayoutResult>()
+        val node = rule.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult) and (hasTestTag(tag) or inTag(tag)), useUnmergedTree = true).fetchSemanticsNodes().first()
+        node.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+        val layout = results.single()
+        return (0 until layout.lineCount).map { layout.getLineRight(it) - layout.getLineLeft(it) } to layout.layoutInput.style.lineBreak
+    }
+
+    @Test fun theRulesSentenceBreaksIntoLinesOfLikeLength() {
+        val layout = BarConfig(items = listOf(item("m", "memory", Section.HIDDEN).copy(whenActive = true), item("c", "clock")), position = Position.RIGHT, hiddenMode = HiddenMode.SHOW_ALL)
+        Store.update { layout }
+        selected = "m"
+        rule.setContent {
+            // Large text, so that the sentence takes two lines in the panel.
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 1.6f)) {
+                SettingsTheme(dark = false) { BarPage(selected, onSelect = { selected = it }) }
+            }
+        }
+        rule.waitForIdle()
+        val (widths, how) = lines("rule")
+        assertEquals(LineBreak.Heading, how)
+        assertTrue("it takes more than one line here: $widths", widths.size > 1)
+        assertTrue("no line is left with a word or two: $widths", widths.min() > widths.max() * 0.6f)
+        // Behind ‹ the same sentence is the switch's label, broken the same way.
+        rule.runOnUiThread { Store.update { it.copy(hiddenMode = HiddenMode.CLICK) } }
+        rule.waitForIdle()
+        assertEquals(LineBreak.Heading, lines("pops-out").second)
+    }
 
     @Test fun underAlwaysThereIsNoRuleAndUnderOnlyWhenActiveItsSentenceWithItsValue() {
         page("m", HiddenMode.SHOW_ALL, item("m", "memory"), item("c", "clock"))

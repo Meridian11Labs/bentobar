@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -280,15 +281,17 @@ private fun Rule(item: ItemConfig, trigger: Trigger, words: Int, switch: Boolean
     // The slider's value while it is dragged; the layout is written when it is let go.
     var live by remember(item.id, stored) { mutableIntStateOf(stored) }
     val sentence = stringResource(words, trigger.sentence(item, live))
+    // A sentence over two lines breaks into lines of like length, not a full line and a word.
+    val balanced = Bento.type.small.copy(lineBreak = LineBreak.Heading)
     if (switch) {
         Row(Modifier.fillMaxWidth().heightIn(min = Target.control)
             .toggleable(item.whenActive, role = Role.Switch) { edit.popsOut(item.id, it) }.testTag("pops-out"),
             verticalAlignment = Alignment.CenterVertically) {
-            Text(sentence, Modifier.weight(1f).padding(end = Space.s), style = Bento.type.small, color = c.ink)
+            Text(sentence, Modifier.weight(1f).padding(end = Space.s), style = balanced, color = c.ink)
             SwitchMark(item.whenActive)
         }
     } else {
-        Text(sentence, Modifier.fillMaxWidth().testTag("rule"), style = Bento.type.small, color = c.ink)
+        Text(sentence, Modifier.fillMaxWidth().testTag("rule"), style = balanced, color = c.ink)
     }
     if (threshold != null && (!switch || item.whenActive)) {
         val r = threshold.range
