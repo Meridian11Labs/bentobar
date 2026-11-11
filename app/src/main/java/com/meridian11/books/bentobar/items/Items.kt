@@ -24,6 +24,7 @@ object Items {
         DevicesItem,
         DisplaysItem,
         BrightnessItem,
+        KeyLightItem,
         // Time
         CalendarItem,
         EventItem,
