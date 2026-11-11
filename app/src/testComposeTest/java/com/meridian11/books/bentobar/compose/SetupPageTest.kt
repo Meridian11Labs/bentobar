@@ -207,8 +207,11 @@ class SetupPageTest {
 
     @Test fun aGuardedNotificationAccessSaysHowAndOffersAppInfo() {
         setup(SetupState(serviceOn = true, sideloaded = true))
-        rule.onNode(hasText(str(R.string.media_access_restricted), substring = true)).assertExists()
-        rule.onNode(hasText(str(R.string.setup_app_info)) and button and within("permission:listener")).assertExists()
+        // Notification icons' access is guarded the same way, and its row says so too: each says it in its own row.
+        for (row in listOf("permission:listener", "permission:access-notices")) {
+            rule.onNode(hasText(str(R.string.media_access_restricted), substring = true) and within(row), useUnmergedTree = true).assertExists()
+            rule.onNode(hasText(str(R.string.setup_app_info)) and button and within(row)).assertExists()
+        }
     }
 
     @Test @Config(sdk = [37], qualifiers = "w1180dp-h780dp-mdpi")
