@@ -31,7 +31,7 @@ object ProgressRules {
         val hoursMinutes: (Long, Long) -> String = { h, m -> String.format(Locale.ROOT, "%d h %02d", h, m) },
         val days: (Long) -> String = { if (it == 1L) "1 day" else "$it days" },
         val left: (String) -> String = { "$it left" },
-        val over: String = "Over",
+        val over: () -> String = { "Over" },
     )
 
     /** [hour] o'clock on [date] in [zone], 24 being the next day's start; an hour a clock change skips is the first after it. */
@@ -103,7 +103,7 @@ object ProgressRules {
     fun left(of: Of, now: ZonedDateTime, workStart: Int = 9, workEnd: Int = 17, weekStart: DayOfWeek, words: Words = Words()): String {
         val (start, end) = span(of, now, workStart, workEnd, weekStart)
         val left = ms(end) - maxOf(ms(now), ms(start))
-        if (left <= 0) return words.over
+        if (left <= 0) return words.over()
         val daysAfter = if (of == Of.DAY || of == Of.WORKDAY) 0L else ChronoUnit.DAYS.between(now.toLocalDate(), end.toLocalDate()) - 1
         if (daysAfter > 0) return words.left(words.days(daysAfter))
         val minutes = (left + 59_999) / 60_000
@@ -112,7 +112,7 @@ object ProgressRules {
 
     /** The day the week starts on in [locale]: a first day the user chose (the "fw" in the locale), else the region's. */
     fun weekStart(locale: Locale): DayOfWeek {
-        val fw = locale.getUnicodeLocaleType("fw")
+        val fw = locale.getUnicodeLocaleType("fw") ?: ""
         val chosen = listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun").indexOf(fw)
         return if (chosen >= 0) DayOfWeek.of(chosen + 1) else WeekFields.of(locale).firstDayOfWeek
     }
