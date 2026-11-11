@@ -57,7 +57,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     on time, and each frame's values go to Compose at once (`Snapshot.sendApplyNotifications`) so the blur and the
     drawn glass move together. Closing passes touches through at once; a timer removes the window regardless.
   - `ui/Glass.kt`: the glass's per-frame state, its look (veil, rim, hairline; a solid card where the platform
-    has no blur), the drawn shadow, and `DropColumn`, in which `MenuCard`'s children drop into place as blocks.
+    has no blur), the drawn shadow (and the settings preview's soft one, `softShadow`), and `DropColumn`, in which `MenuCard`'s children drop into place as blocks.
   - `bar/BarUi.kt`: the strip (chevron, FitRow, items, clicks/right-clicks/wheel), and the slider an
     item can have in its text's place (`ItemState.slider`: `VolumeTrack` draws it, `Modifier.slides`
     takes the pointer in its zone and consumes the press, so `clicks` on the item around it sees

@@ -200,7 +200,8 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
     } }
     Column(Modifier.testTag("preview")) {
         BoxWithConstraints(
-            Modifier.fillMaxWidth().height(52.dp).onGloballyPositioned { barAt[0] = it; reorder?.previewBar = it }.clip(RoundedCornerShape(Radius.large))
+            Modifier.fillMaxWidth().height(52.dp).onGloballyPositioned { barAt[0] = it; reorder?.previewBar = it }
+                .softShadow(Bento.colors.dark, Radius.large).clip(RoundedCornerShape(Radius.large))
                 .background(barBrush),
         ) {
             // The strip may take what the mock clock and system icons leave (about 380 dp go to them and the gaps).

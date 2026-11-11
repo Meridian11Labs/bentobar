@@ -52,6 +52,7 @@ import com.meridian11.books.bentobar.ui.Shell
 import com.meridian11.books.bentobar.ui.Undo
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -166,6 +167,22 @@ class BarPagePicturesTest {
         // The list is there to arrange, and the header offers Turn on.
         rule.onNodeWithTag("bar-list").assertExists()
         rule.onNode(hasText(app.getString(R.string.setup_turn_on))).assertExists()
+    }
+
+    @Test fun thePreviewHasTheWindowsOneSoftShadowUnderIt() { window(); shadowed("preview-shadow") }
+    @Test fun thePreviewHasItsShadowBeforeBentoBarIsOnToo() { running = false; window(); shadowed("preview-shadow-off") }
+
+    /** Under the preview the page's ground is darker, most right under it; above the bar it is next to nothing. */
+    private fun shadowed(name: String) = both(name) { bitmap ->
+        fun light(argb: Int) = (argb shr 16 and 0xFF) + (argb shr 8 and 0xFF) + (argb and 0xFF)
+        val bar = bounds("preview")
+        val x = bar.right.toInt() - 60
+        val foot = bar.top.toInt() + 52
+        val ground = light(palette().surface.toArgb())
+        val near = light(bitmap.getPixel(x, foot + 3)); val far = light(bitmap.getPixel(x, foot + 26)); val above = light(bitmap.getPixel(x, bar.top.toInt() - 4))
+        assertTrue("a shadow right under the bar: $near against $ground", near <= ground - 6)
+        assertTrue("which fades downwards: $near, then $far", far > near)
+        assertTrue("and is under the bar far more than over it: $above above, $near below", above >= ground - 15 && above - near >= 6)
     }
 
     @Test fun onceBentoBarIsOnThePreviewSaysHowToEditAnItem() {
