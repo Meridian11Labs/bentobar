@@ -202,7 +202,7 @@ private fun sought(key: String, edit: BarEdit, height: Dp = 0.dp, above: Dp = 0.
  * of the bar is carried the filter's place is the well that says a drop here removes it; nothing else moves.
  */
 @Composable
-internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reorder, modifier: Modifier = Modifier) {
+internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reorder, modifier: Modifier = Modifier, selected: Boolean = false) {
     val c = Bento.colors
     val res = LocalResources.current
     val kept by Undo.last.collectAsState()
@@ -236,7 +236,7 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
     Column(modifier.fillMaxSize().padding(start = Space.l, top = 14.dp, end = 6.dp).testTag("library")) {
         Box(Modifier.padding(end = 10.dp)) {
             FilterField(edit.filter, { edit.filter = it }, stringResource(R.string.library_filter), Modifier.testTag("filter"), field,
-                find = BarKeys.FIND.caps(res), clear = BarKeys.ESC.caps(res), held = reorder.busy)
+                find = BarKeys.FIND.caps(res), clear = BarKeys.ESC.caps(res), held = reorder.busy, ends = selected)
             DropWell(reorder, Modifier.matchParentSize())
         }
         if (query.isNotBlank()) Text(pluralStringResource(R.plurals.add_filter_count, shown.rows(), shown.rows(), shelves.rows()),

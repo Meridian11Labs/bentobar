@@ -648,7 +648,7 @@ private fun Panel(side: PanelSide, item: ItemConfig?, cfg: BarConfig, states: Ma
         }, label = "panel") { shown ->
             when (shown) {
                 PanelSide.BAR -> BarList(cfg, states, item?.id, edit, reorder, lanes, Modifier.fillMaxSize())
-                PanelSide.ADD -> Library(cfg, edit, lanes, reorder)
+                PanelSide.ADD -> Library(cfg, edit, lanes, reorder, selected = item != null)
                 PanelSide.OPTIONS -> (item ?: last.item)?.let { of -> key(of.id) { ItemOptions(of, cfg, states[of.id], edit, lanes.several, reorder = reorder) } }
             }
         }

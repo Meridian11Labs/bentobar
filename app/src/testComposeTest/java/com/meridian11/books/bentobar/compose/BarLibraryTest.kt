@@ -318,6 +318,36 @@ class BarLibraryTest {
         assertEquals("the key is not typed into it", "", filterText())
     }
 
+    /** How many caps with this word the filter's field shows. */
+    private fun caps(word: Int) = rule.onAllNodes(hasText(str(word)) and within("filter"), useUnmergedTree = true).fetchSemanticsNodes().size
+
+    @Test fun theFilterShowsEscOnlyWhileEscHasSomethingToDo() {
+        page("a", *bar)
+        keyboard()
+        tag("row:a").requestFocus()
+        press(Key.CtrlLeft, Key.F)
+        assertEquals("the field is empty, but the item can be let go from it", 1, caps(R.string.key_esc))
+        tag("filter").performTextInput("mem")
+        rule.waitForIdle()
+        assertEquals(1, caps(R.string.key_esc))
+        press(Key.Escape, on = "filter")
+        assertEquals("the filter is empty again and the item is still held", 1, caps(R.string.key_esc))
+        press(Key.Escape, on = "filter")
+        assertNull(selected)
+        tag("filter").assertIsFocused()
+        assertEquals("nothing is left for Esc to do", 0, caps(R.string.key_esc))
+        assertEquals("nor would Ctrl+F bring the keyboard, which is here", 0, caps(R.string.key_f))
+        tag("filter").performTextInput("m")
+        rule.waitForIdle()
+        assertEquals("something to empty", 1, caps(R.string.key_esc))
+    }
+
+    @Test fun beforeTheFilterHasTheKeyboardItShowsTheKeysThatBringItThere() {
+        page(null, *bar)
+        assertEquals(1, caps(R.string.key_f))
+        assertEquals(0, caps(R.string.key_esc))
+    }
+
     @Test fun escInTheFilterEmptiesItAndThenLetsTheItemGoThatCtrlFKept() {
         val layout = page("a", *bar)
         keyboard()

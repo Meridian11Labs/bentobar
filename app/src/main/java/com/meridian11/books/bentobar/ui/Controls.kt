@@ -607,13 +607,15 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
 
 /**
  * A filter's field: sunk, a search glyph, [label] as its placeholder and spoken name, and at its end the keycaps of the
- * keys that go with it, as its page binds them: [find], which brings the keyboard here (Ctrl F), and [clear], which
- * empties it (Esc), once it has the keyboard or holds something. Esc is the field's own while there is something to empty,
- * unless its page has something nearer for Esc to end ([held]: a drag), which the page's own handler then gets.
+ * keys that go with it, as its page binds them: [find], which brings the keyboard here (Ctrl F), until it has it, and
+ * [clear] (Esc) only while Esc has something to do: the field holds something to empty, or it has the keyboard and its
+ * page has something for Esc to end from here ([ends]: an item to let go). A cap never stands for a key that would do
+ * nothing. Esc is the field's own while there is something to empty, unless its page has something nearer for Esc to
+ * end ([held]: a drag), which the page's own handler then gets.
  */
 @Composable
 fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier: Modifier = Modifier, focus: FocusRequester = remember { FocusRequester() },
-    find: List<String> = emptyList(), clear: List<String> = emptyList(), held: Boolean = false) {
+    find: List<String> = emptyList(), clear: List<String> = emptyList(), held: Boolean = false, ends: Boolean = false) {
     val c = Bento.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -638,7 +640,7 @@ fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier:
                     inner()
                 }
                 Spacer(Modifier.width(Space.s))
-                (if (focused || text.isNotEmpty()) clear else find).forEachIndexed { i, cap ->
+                (if (text.isNotEmpty() || focused && ends) clear else if (focused) emptyList() else find).forEachIndexed { i, cap ->
                     if (i > 0) Spacer(Modifier.width(3.dp))
                     Keycap(cap)
                 }
