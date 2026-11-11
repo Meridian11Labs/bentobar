@@ -334,8 +334,7 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
                     val chevron = cfg.hiddenMode != HiddenMode.SHOW_ALL
                     val words = if (to != null) stringResource(R.string.library_adds_to, to, rule)
                         else stringResource(if (chevron) R.string.library_adds_behind else R.string.library_adds_when_active, rule)
-                    val spoken = words.replace("‹", stringResource(R.string.chevron_spoken))
-                    Text(words, Modifier.semantics { if (chevron && to == null) contentDescription = spoken }.testTag("adds"),
+                    Text(words, Modifier.said(arrowInWords(words)).testTag("adds"),
                         style = Bento.type.help.copy(fontWeight = FontWeight.Medium), color = c.ink2)
                 }
             }

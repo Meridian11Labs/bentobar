@@ -97,6 +97,28 @@ fun areaChoices(): List<Pair<Position, String>> = listOf(Position.LEFT to string
     Position.CENTER to stringResource(R.string.areas_middle), Position.RIGHT to stringResource(R.string.areas_right))
 
 /** How a choice is set where room is short (an item's options in the panel). */
+/** The hidden-items arrow as a screen reader says it: a sign is read as "single left-pointing angle quotation mark", or not at all. */
+object ArrowWords {
+    /**
+     * [text] with each arrow sign as [arrow], the words for it ("the hidden-items arrow"), or null when it holds no
+     * sign. An article in front of the sign is not said twice ("the ‹ menu"). The sign is ‹; [both] takes › for it
+     * too, which is the Left area's arrow in a row of the list and anywhere else a step in a path ("Setup › Online services").
+     */
+    fun spoken(text: String, arrow: String, both: Boolean = false): String? {
+        val signs = if (both) listOf("‹", "›") else listOf("‹")
+        if (signs.none { it in text }) return null
+        val article = arrow.substringBefore(' ', "")
+        return signs.fold(text) { t, sign -> (if (article.isEmpty()) t else t.replace("$article $sign", arrow)).replace(sign, arrow) }
+    }
+}
+
+/** [text] as it is read out where it holds the arrow's sign, else null: for [said]. */
+@Composable
+internal fun arrowInWords(text: String, both: Boolean = false): String? = ArrowWords.spoken(text, stringResource(R.string.chevron_spoken), both)
+
+/** What a screen reader says in this text's place; with no [words], the text itself. */
+internal fun Modifier.said(words: String?): Modifier = if (words == null) this else semantics { contentDescription = words }
+
 object ChoiceRules {
     /**
      * A choice of two or three short values is a segment, as Show as and Visibility are; anything longer is a list of
@@ -130,7 +152,7 @@ internal fun OptionRow(label: String, keys: List<String> = emptyList(), content:
 /** A line of help under a setting in the panel. */
 @Composable
 internal fun OptionHelp(text: String, warn: Boolean = false) {
-    Text(text, Modifier.fillMaxWidth().padding(bottom = Space.s), style = Bento.type.help, color = if (warn) Bento.colors.warnInk else Bento.colors.ink2)
+    Text(text, Modifier.fillMaxWidth().padding(bottom = Space.s).said(arrowInWords(text)), style = Bento.type.help, color = if (warn) Bento.colors.warnInk else Bento.colors.ink2)
 }
 
 /**
@@ -154,7 +176,7 @@ fun <T> RadioList(choices: List<Pair<T, String>>, selected: T?, onSelect: (T) ->
                     drawCircle(if (chosen) c.accent else c.ink3, (size.minDimension - w) / 2, style = Stroke(w))
                 }
                 Spacer(Modifier.width(10.dp))
-                Text(text, style = if (chosen) Bento.type.strong else Bento.type.body, color = c.ink)
+                Text(text, Modifier.said(arrowInWords(text)), style = if (chosen) Bento.type.strong else Bento.type.body, color = c.ink)
             }
         }
     }

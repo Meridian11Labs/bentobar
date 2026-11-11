@@ -89,7 +89,7 @@ private fun SettingName(name: String, help: String?, modifier: Modifier = Modifi
     val c = Bento.colors
     Column(modifier) {
         Text(name, style = Bento.type.label, color = if (enabled) c.ink else c.ink3)
-        if (help != null) Text(help, Modifier.padding(top = 2.dp), style = Bento.type.help, color = if (warn) c.warnInk else c.ink3)
+        if (help != null) Text(help, Modifier.padding(top = 2.dp).said(arrowInWords(help)), style = Bento.type.help, color = if (warn) c.warnInk else c.ink3)
     }
 }
 

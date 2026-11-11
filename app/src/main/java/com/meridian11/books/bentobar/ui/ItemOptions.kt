@@ -249,7 +249,7 @@ private fun Visibility(item: ItemConfig, cfg: BarConfig, type: ItemType?, edit: 
     val chevron = cfg.hiddenMode != HiddenMode.SHOW_ALL
     val standing = cfg.standing(item)
     val behind = stringResource(R.string.visibility_behind)
-    val second = if (chevron) SegmentPart(behind, enabled = cfg.canGoBelow(item, type), spoken = behind.replace("‹", stringResource(R.string.chevron_spoken)))
+    val second = if (chevron) SegmentPart(behind, enabled = cfg.canGoBelow(item, type), spoken = arrowInWords(behind))
         else SegmentPart(stringResource(R.string.visibility_when_active), enabled = cfg.canGoBelow(item, type))
     OptionRow(stringResource(R.string.visibility_label)) {
         Segment(listOf(SegmentPart(stringResource(R.string.visibility_always)), second), if (standing == Standing.ALWAYS) 0 else 1,

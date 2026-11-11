@@ -526,7 +526,7 @@ private fun PartLine(mode: HiddenMode, modifier: Modifier) {
         HiddenMode.CLICK -> R.string.section_hidden_reveal_chevron
         HiddenMode.HOVER -> R.string.section_hidden_reveal_both
     })
-    val spoken = title + ". " + help.replace("‹", stringResource(R.string.chevron_spoken))
+    val spoken = title + ". " + (arrowInWords(help) ?: help)
     // The words take what they need and the hairline the rest, to the card's edge: weights would split the room instead.
     Layout({
         Text(title, style = Bento.type.help.copy(fontWeight = FontWeight.SemiBold), color = c.ink, maxLines = 1)
@@ -688,11 +688,11 @@ private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, behi
         val two = behind != null && !needs
         if (stacked) Column(Modifier.weight(1f).padding(vertical = if (two) 6.dp else 0.dp)) {
             Text(name, style = Bento.type.label, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
-            if (detail.isNotEmpty()) Detail(detail, warn, few = if (two) 2 else 1)
+            if (detail.isNotEmpty()) Detail(detail, warn, few = if (two) 2 else 1, left = behind != null)
         } else {
             Text(name, Modifier.width(188.dp.ofText()), style = Bento.type.label, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.width(10.dp))
-            Detail(detail, warn, Modifier.weight(1f))
+            Detail(detail, warn, Modifier.weight(1f), left = behind != null)
         }
         if (mark != null) Text(stringResource(if (mark == Mark.ADDED) R.string.add_added else R.string.areas_moved),
             Modifier.padding(start = Space.s).testTag(if (mark == Mark.ADDED) "added-mark" else "moved-mark"),
@@ -701,11 +701,12 @@ private fun RowBody(item: ItemConfig, state: ItemState?, overflow: Boolean, behi
 }
 
 @Composable
-private fun Detail(text: String, warn: Boolean, modifier: Modifier = Modifier, few: Int = 1) {
+private fun Detail(text: String, warn: Boolean, modifier: Modifier = Modifier, few: Int = 1, left: Boolean = false) {
     val c = Bento.colors
     Row(modifier, verticalAlignment = if (few > 1) Alignment.Top else Alignment.CenterVertically) {
         if (warn) { SymIcon(Sym.WARNING, size = 14.sp, color = c.warnInk); Spacer(Modifier.width(Space.xs)) }
-        Text(text, style = Bento.type.small.tabular, color = if (warn) c.warnInk else c.ink2, maxLines = lines(few), overflow = TextOverflow.Ellipsis)
+        // [left]: the words name the row's own arrow, which in the Left area is ›.
+        Text(text, Modifier.said(arrowInWords(text, both = left)), style = Bento.type.small.tabular, color = if (warn) c.warnInk else c.ink2, maxLines = lines(few), overflow = TextOverflow.Ellipsis)
     }
 }
 

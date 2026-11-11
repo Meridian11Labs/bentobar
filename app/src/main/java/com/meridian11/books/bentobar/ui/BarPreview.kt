@@ -41,6 +41,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -274,11 +276,11 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         val hint = stringResource(if (off) R.string.bar_preview_hint_off else if (plans.values.any { it.hidden.isNotEmpty() }) R.string.bar_preview_hint_hidden
             else R.string.bar_preview_hint)
         val words = if (reorder != null && carried != null) dropWords(res, cfg, carried, reorder.drop, lanesSeveral, reorder.touch) else null
-        Text(words ?: said ?: if (more.isEmpty()) hint else hint + " " + pluralStringResource(R.plurals.bar_preview_more, more.size, more.size),
-            style = if (words != null) Bento.type.help.copy(fontWeight = FontWeight.SemiBold) else Bento.type.help,
+        val line = words ?: said ?: if (more.isEmpty()) hint else hint + " " + pluralStringResource(R.plurals.bar_preview_more, more.size, more.size)
+        Text(line, style = if (words != null) Bento.type.help.copy(fontWeight = FontWeight.SemiBold) else Bento.type.help,
             color = if (words != null) Bento.colors.ink else Bento.colors.ink2, maxLines = lines(2),
             modifier = Modifier.padding(start = 4.dp, top = if (several || zonesUp) 0.dp else 6.dp).semantics { liveRegion = LiveRegionMode.Polite }
-                .testTag("preview-line"))
+                .said(arrowInWords(line)).testTag("preview-line"))
         // The room the areas' names take while a drag shows them: kept, so that nothing under the preview moves then.
         if (!several && !zonesUp) Spacer(Modifier.height(BRACKETS - 6.dp))
     }
@@ -449,7 +451,9 @@ private fun Brackets(spans: Map<Position, IntRange>, origin: Int, chosen: Positi
         order.forEach { area ->
             val tint = if (area == chosen) c.accent else c.ink3
             val line = if (area == chosen) c.accent else c.ink3.copy(alpha = 0.55f)
-            Row(Modifier.testTag("bracket:$area"), verticalAlignment = Alignment.CenterVertically) {
+            // Read out as "Left area": the name alone, under the bar, would be a word with nothing around it.
+            val spoken = stringResource(R.string.areas_bracket_spoken, stringResource(areaRes(area)))
+            Row(Modifier.testTag("bracket:$area").clearAndSetSemantics { contentDescription = spoken }, verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.width(1.dp).height(7.dp).background(line))
                 Box(Modifier.weight(1f).height(1.dp).background(line))
                 Text(stringResource(areaRes(area)), Modifier.padding(horizontal = 6.dp), style = Bento.type.help.copy(fontWeight = if (area == chosen) FontWeight.SemiBold else FontWeight.Medium),

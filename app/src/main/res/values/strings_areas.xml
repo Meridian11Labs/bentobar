@@ -41,4 +41,6 @@
     <string name="areas_drop_in">%1$s in %2$s</string>
     <!-- In the preview, in the place of an area the bar has no room for. -->
     <string name="areas_system_now">Used by the system right now</string>
+    <!-- Read out for an area's name under the preview's bar. %1$s is the area. -->
+    <string name="areas_bracket_spoken">%1$s area</string>
 </resources>
