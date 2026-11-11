@@ -97,6 +97,8 @@ data class ItemState(
      * changes. Null: none.
      */
     val turns: List<String>? = null,
+    /** [image] takes the strip's text colour, as a symbol does (a strip of other apps' small icons, which are masks). */
+    val tintImage: Boolean = false,
 ) {
     /** For logs and dumps: never the words themselves, which can be a track's title, a city or a flight. */
     override fun toString() = "ItemState(icon=${icon != null}, text of ${text?.length ?: 0}, active=$active, tone=$tone)"
@@ -109,6 +111,29 @@ interface MenuHost {
     fun openItemSettings(id: String)
     /** Runs [action] after the menu has gone (e.g. before a screenshot). */
     fun afterClose(action: () -> Unit)
+    /**
+     * Runs [action] once when this popup starts to close (before the fold), whatever closes it: its own button, Esc, a
+     * press on its item, another popup, the bar hiding. For what must end the moment the popup is on its way out (a
+     * camera). A host without a window never calls it. A popup that ran it is never turned round: a click while it
+     * folds opens a new one.
+     */
+    fun onClosing(action: () -> Unit) {}
+}
+
+/**
+ * The accesses the newer types cannot work without, each given in Android's own settings (the camera in its own dialog
+ * first). [Accesses] says each in words, asks Android whether it is given and opens where it is.
+ */
+enum class Access { CAMERA, NOTICES, DO_NOT_DISTURB, WRITE_SETTINGS }
+
+/** Moments at which a type gives back what outlives the bar being on screen (a mute, a Do Not Disturb rule, a light). */
+enum class Settle {
+    /** The accessibility service has started (after Env.init). Not sent under tests' Env.init, nor from the settings app alone. */
+    SERVICE_STARTED,
+    /** The service is ending: an unbind, also a plain rebind; never sent when the process is killed. */
+    SERVICE_ENDING,
+    /** The type's last item outside Off has left the layout (removed, or moved to Off). An Undo may bring it back. */
+    LEFT_LAYOUT,
 }
 
 /**
@@ -187,6 +212,13 @@ abstract class ItemType(
 
     /** Shows more with Android's notification access (Now playing): the item's settings offer it. */
     open val notificationAccess: Boolean = false
+
+    /**
+     * The accesses this type cannot work without ([Access]). Setup has a row for each that a registered type needs, and the
+     * item's options a line with its button while it is not given. The older types keep [permissions] and
+     * [notificationAccess]; only the newer ones use this.
+     */
+    open val needs: List<Access> = emptyList()
 
     /**
      * Speaks up now and then (Now playing, Device batteries, Heat): the library's + puts it under the
@@ -295,8 +327,46 @@ abstract class ItemType(
     /**
      * The item [id] of this type is gone from the layout and no Undo can bring it back (its line was forgotten, and
      * the Bar page's Undo has gone on to something else): what was kept for it outside the layout goes. Main thread.
+     * Only for deleting kept text: it runs late or never (Undo is in memory). "The item was removed" is [settle].
      */
     open fun forgetOwn(id: String) {}
+
+    /**
+     * Gives back what outlives the bar being on screen (a mute, a Do Not Disturb rule, a keyboard's light), at the moments
+     * [Settle] names; the bar merely hiding is none of them. Main thread, behind `Ticker.guarded`. Never throws; disk
+     * work goes to the background, as `FlightItem.sweepAtStart` does.
+     */
+    open fun settle(why: Settle) {}
+
+    /**
+     * Its popup stays when the user presses elsewhere (a mirror, a prompter): that press gives the keys back to the app
+     * below, and a press inside takes them again. Its own close, Esc, a press on its item, another item's popup, the bar
+     * hiding and its strip going still close it; pointing at another item does not, with "Switch popups on hover" on.
+     */
+    open val staysOpen: Boolean = false
+
+    /** Text or links dragged onto it in the bar are handed to [onDrop]. */
+    open val takesDrops: Boolean = false
+
+    /** [clip] was dropped on [item] in the bar: true if anything was taken. Main thread, behind `Ticker.guarded`; never throws. */
+    open fun onDrop(item: ItemConfig, clip: android.content.ClipData): Boolean = false
+
+    /**
+     * Types that are kept live ([onLive], [sample], [onIdle]) while [item] is sampled, though no item of theirs is. [state]
+     * is NOT run for them: what they have to say reaches [item]'s type through [liveNow].
+     */
+    open fun wakes(item: ItemConfig): Set<String> = emptySet()
+
+    /** Can stand in the Live activity item ([liveNow]). */
+    open val liveSource: Boolean = false
+
+    /**
+     * What is happening right now, or null. [items]: this type's items outside Off (may be empty: the type was only
+     * woken). [now] is the clock [sample] gets; [LiveNow.since] is in it. Called from the Live activity's sample on the
+     * tick. Reads what is at hand, and may ask for its own refresh without waiting (`Refresher.want`, `Calendar.refresh()`),
+     * since nobody runs [state] for a woken type.
+     */
+    open fun liveNow(now: Long, items: List<ItemConfig>): LiveNow? = null
 }
 
 /**
