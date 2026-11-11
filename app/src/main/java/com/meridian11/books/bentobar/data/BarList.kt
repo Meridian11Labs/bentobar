@@ -15,13 +15,14 @@ fun ItemType.fresh(id: String, area: Position): ItemConfig =
 
 /**
  * Whether a removed item is worth remembering: it differs from what the + makes of its type in its options, how it is
- * shown or its rule. Where it stands (section, area, place) is no setup. An item of a type this version doesn't know is
+ * shown or its rule, or its type keeps something for it outside the layout ([ItemType.keepsOwn]: the flight a Flight
+ * item follows). Where it stands (section, area, place) is no setup. An item of a type this version doesn't know is
  * always kept: nothing here can say what it holds.
  */
 fun ItemConfig.carriesSetup(type: ItemType? = Items.of(this.type)): Boolean {
     if (type == null) return true
     val fresh = type.fresh(id, area)
-    return options != fresh.options || display != fresh.display || whenActive != fresh.whenActive
+    return options != fresh.options || display != fresh.display || whenActive != fresh.whenActive || type.keepsOwn(this)
 }
 
 /**

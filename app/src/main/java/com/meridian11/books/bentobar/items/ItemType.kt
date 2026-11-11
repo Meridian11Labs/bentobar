@@ -283,6 +283,20 @@ abstract class ItemType(
     open val options: (@Composable (item: ItemConfig, set: (ItemConfig) -> Unit) -> Unit)? = null
 
     open fun defaultOptions(): Map<String, String> = emptyMap()
+
+    /**
+     * Whether [item] holds something of the user's that is kept outside the layout, under the item's id (the flight a
+     * Flight item follows). Such an item is a setup whatever its options say ([carriesSetup][com.meridian11.books.bentobar.data.carriesSetup]):
+     * Remove keeps it as a line in the library, and what is kept for it stays for as long as the line does. Asked inside
+     * a change to the layout, on any thread: it must not wait for anything.
+     */
+    open fun keepsOwn(item: ItemConfig): Boolean = false
+
+    /**
+     * The item [id] of this type is gone from the layout and no Undo can bring it back (its line was forgotten, and
+     * the Bar page's Undo has gone on to something else): what was kept for it outside the layout goes. Main thread.
+     */
+    open fun forgetOwn(id: String) {}
 }
 
 /**

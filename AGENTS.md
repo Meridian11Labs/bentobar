@@ -124,7 +124,10 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     carries a setup waits in Off, a bare one is gone) and `undone(before, after)` (the one Undo).
     `data/BarList.kt` is how the settings see a layout: each area's list in two parts (`parts`, `partOf`: in the bar, and
     under the line the items that wait for their rule, or with ‹ everything behind it), `canGoBelow`, `standing`, and
-    what a setup is (`fresh`, `carriesSetup`). `Store.update` keeps no Off item that carries none (`withoutBareOff`), so
+    what a setup is (`fresh`, `carriesSetup`: an item that differs from what the + makes, or one whose type keeps
+    something for it outside the layout, `ItemType.keepsOwn`. Only Flight does, the flight an item follows: it stays
+    while the item is in the layout, a line included, or `Undo` can bring it back, and goes when a forgotten line is
+    let go, `forgetOwn`, or at the next start). `Store.update` keeps no Off item that carries none (`withoutBareOff`), so
     Off holds only what the library can bring back as it was (its lines); a debug `add TYPE off` of a fresh item is therefore gone at once.
     `stripPlan` (in `Model.kt`) is the one choice of what an area's strip and the settings preview show (`StripPlanTest`).
   - `data/`: `Model.kt` (`BarConfig`, `ItemConfig`, `Section`…) and `Store` (JSON in
