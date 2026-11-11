@@ -41,6 +41,7 @@ object Items {
         AppItem,
         TextItem,
         SpacerItem,
+        MirrorItem,
         // Online
         WeatherItem,
         AirItem,

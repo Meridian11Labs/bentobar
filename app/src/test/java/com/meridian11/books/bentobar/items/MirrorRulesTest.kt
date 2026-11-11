@@ -2,7 +2,9 @@ package com.meridian11.books.bentobar.items
 
 import com.meridian11.books.bentobar.items.MirrorRules.Cam
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MirrorRulesTest {
@@ -40,6 +42,17 @@ class MirrorRulesTest {
         assertEquals(320, MirrorRules.widthDp("m"))
         assertEquals(420, MirrorRules.widthDp("l"))
         assertEquals("anything else is the default", 320, MirrorRules.widthDp("huge"))
+    }
+
+    @Test fun aMirrorThatLetsGoLateDoesNotEndANewersHold() {
+        val first = MirrorOpen.take()
+        assertTrue(MirrorOpen.now)
+        val second = MirrorOpen.take()
+        // The first popup's camera is let go a moment after it closed, while the next popup already holds one.
+        MirrorOpen.leave(first)
+        assertTrue("the camera and mic item still doesn't count the mirror's own camera", MirrorOpen.now)
+        MirrorOpen.leave(second)
+        assertFalse(MirrorOpen.now)
     }
 
     @Test fun aPictureOfAnotherShapeFillsTheBoxWithoutBeingStretched() {
