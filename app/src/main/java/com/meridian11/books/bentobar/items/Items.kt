@@ -29,6 +29,7 @@ object Items {
         OutputItem,
         ConnectionItem,
         ScreenTimeItem,
+        InUseItem,
         // Time
         CalendarItem,
         EventItem,
@@ -49,6 +50,7 @@ object Items {
         SpacerItem,
         PrompterItem,
         ShelfItem,
+        MirrorItem,
         // Online
         WeatherItem,
         AirItem,
