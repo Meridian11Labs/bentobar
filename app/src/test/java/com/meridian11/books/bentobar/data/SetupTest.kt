@@ -7,6 +7,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 /**
  * What the library remembers of a removed item, and Remove from the bar. (That every type in the catalog makes a fresh
@@ -37,6 +39,18 @@ class SetupTest {
             assertTrue(item.type, item.copy(whenActive = !item.whenActive).carriesSetup())
         }
         assertTrue("a default taken away is a change too", fresh("shortcut").copy(options = emptyMap()).carriesSetup())
+    }
+
+    @Test fun aCountdownsDateIsAlwaysOneSomebodySetSoNoDayMakesItFresh() {
+        val countdown = fresh("countdown")
+        assertEquals("a new countdown has no date: a default one would move with the day", emptyMap<String, String>(), countdown.options)
+        assertFalse(countdown.carriesSetup())
+        // Thirty days on at nine is what a new countdown once came with; on that day a date set to it looked like no setup.
+        val set = countdown.with("at", LocalDate.now().plusDays(30).atTime(9, 0).format(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm")))
+        assertTrue(set.carriesSetup())
+        assertEquals(set.copy(section = Section.OFF), layout(set, clock).removed("countdown").at("countdown"))
+        val remembered = layout(set.copy(section = Section.OFF), clock)
+        assertSame("no change of any kind drops it", remembered, remembered.withoutBareOff())
     }
 
     @Test fun whereAnItemStandsIsNoSetup() {

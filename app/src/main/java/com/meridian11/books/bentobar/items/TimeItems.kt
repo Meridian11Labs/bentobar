@@ -551,7 +551,8 @@ object CountdownItem : ItemType("countdown", R.string.item_countdown_title, Sym.
         }
     }
 
-    override fun defaultOptions() = mapOf("at" to LocalDate.now().plusDays(30).atTime(9, 0).format(format))
+    // No default date: a new countdown says "Set a date". A date that moved with the day would be what a setup is told
+    // from (data/BarList.kt), and a date somebody set would count as none on the one day the two are equal.
 }
 
 @Composable

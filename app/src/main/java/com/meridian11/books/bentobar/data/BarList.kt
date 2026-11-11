@@ -16,7 +16,8 @@ fun ItemType.fresh(id: String, area: Position): ItemConfig =
 /**
  * Whether a removed item is worth remembering: it differs from what the + makes of its type in its options, how it is
  * shown or its rule, or its type keeps something for it outside the layout ([ItemType.keepsOwn]: the flight a Flight
- * item follows). Where it stands (section, area, place) is no setup. An item of a type this version doesn't know is
+ * item follows). Where it stands (section, area, place) is no setup. A type's defaults must therefore be the same every
+ * day: one that changed would turn a choice equal to it into no setup (a Countdown comes without a date for that). An item of a type this version doesn't know is
  * always kept: nothing here can say what it holds.
  */
 fun ItemConfig.carriesSetup(type: ItemType? = Items.of(this.type)): Boolean {

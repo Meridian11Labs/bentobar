@@ -128,7 +128,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     what a setup is (`fresh`, `carriesSetup`: an item that differs from what the + makes, or one whose type keeps
     something for it outside the layout, `ItemType.keepsOwn`. Only Flight does, the flight an item follows: it stays
     while the item is in the layout, a line included, or `Undo` can bring it back, and goes when a forgotten line is
-    let go, `forgetOwn`, or at the next start). `Store.update` keeps no Off item that carries none (`withoutBareOff`), so
+    let go, `forgetOwn`, or at the next start; a type's defaults are the same every day, so a new Countdown has no date and
+    says "Set a date": a default that moved with the day made a date somebody set equal to it, and so no setup). `Store.update` keeps no Off item that carries none (`withoutBareOff`), so
     Off holds only what the library can bring back as it was (its lines); a debug `add TYPE off` of a fresh item is therefore gone at once.
     `stripPlan` (in `Model.kt`) is the one choice of what an area's strip and the settings preview show (`StripPlanTest`).
   - `data/`: `Model.kt` (`BarConfig`, `ItemConfig`, `Section`…) and `Store` (JSON in
