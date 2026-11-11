@@ -25,6 +25,13 @@ class ItemCatalogTest {
         for (group in ItemGroup.entries) assertTrue(group.name, Items.inGroup(group).isNotEmpty())
     }
 
+    @Test fun eachGroupIsOneBlockOfTheRegistry() {
+        // Items.all is written one block per group, each under its comment, in the groups' order: a type added outside its
+        // group's block would make the comments untrue.
+        val runs = Items.all.map { it.group }.fold(emptyList<ItemGroup>()) { acc, g -> if (acc.lastOrNull() == g) acc else acc + g }
+        assertEquals(ItemGroup.entries.toList(), runs)
+    }
+
     @Test fun addKeepsTheOnlineGroupForExactlyTheTypesThatGoOnline() {
         assertEquals(Items.all.filter { it.online != null }, Items.inGroup(ItemGroup.ONLINE))
         for (type in Items.inGroup(ItemGroup.ONLINE)) assertTrue(type.type, Items.of(type.type)?.online != null)
