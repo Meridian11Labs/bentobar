@@ -307,6 +307,32 @@ object EventItem : ItemType("event", R.string.item_event_title, Sym.GROUPS, R.st
     override fun onLive() = Calendar.hold(type)
     override fun onIdle() = Calendar.release(type)
 
+    override val liveSource = true
+
+    /**
+     * For the Live activity: a meeting from ten minutes before it starts until ten minutes in ([LiveRules.meeting]), in the
+     * words of [state], its title cut so that the countdown stays whole. Woken with no item of its own, nobody runs [state],
+     * so this asks for the calendar's refresh as [state] does (it reads again only what has grown old). Without calendar
+     * access, nothing.
+     */
+    override fun liveNow(now: Long, items: List<ItemConfig>): LiveNow? {
+        if (!Calendar.allowed()) return null
+        Calendar.refresh()
+        val wall = System.currentTimeMillis()
+        val e = LiveRules.meeting(Calendar.meetings(wall), wall) ?: return null
+        val max = items.firstOrNull()?.let(chars::of) ?: chars.default
+        val since = now - (wall - (e.begin - LiveRules.MEETING_MS)).coerceAtLeast(0)
+        if (e.begin <= wall) {
+            val left = Fmt.duration(e.end - wall)
+            return LiveNow(LiveRank.MEETING, Sym.GROUPS, LiveRules.around(e.title, max) { Env.str(R.string.event_now_text, it, left) },
+                Env.str(R.string.event_now_desc, e.title, Fmt.spokenMinutes(e.end - wall)), Tone.ACCENT, since, open = { Calendar.open(e) })
+        }
+        val until = (e.begin - wall).coerceAtLeast(60_000)
+        val whenText = Env.str(R.string.event_in, Fmt.duration(until))
+        return LiveNow(LiveRank.MEETING, Sym.GROUPS, LiveRules.around(e.title, max) { Env.str(R.string.event_next_text, it, whenText) },
+            Env.str(R.string.event_next_desc, e.title, Env.str(R.string.event_in, Fmt.spokenMinutes(until))), Tone.ACCENT, since, open = { Calendar.open(e) })
+    }
+
     override fun state(item: ItemConfig): ItemState {
         if (!Calendar.allowed()) return ItemState(icon = Sym.GROUPS, desc = Env.str(R.string.event_access_needed))
         Calendar.refresh()
@@ -375,6 +401,30 @@ object TimerItem : ItemType("timer", R.string.item_timer_title, Sym.TIMER, R.str
     private val presets = listOf(5, 10, 25, 60)
 
     override val trigger = Trigger(R.string.trigger_timer, R.string.trigger_timer_short)
+
+    override val liveSource = true
+
+    /**
+     * For the Live activity: the timer while it runs, its face as the bar has it, and for the minute the bar says "Done"
+     * the one that has rung ([LiveRules.timer]). [Timers] is at hand and checked on every tick: nothing is asked of anybody.
+     */
+    override fun liveNow(now: Long, items: List<ItemConfig>): LiveNow? {
+        val s = Timers.state.value
+        val wall = Timers.now()
+        val says = LiveRules.timer(s, Timers.finishedAt, wall) ?: return null
+        if (says == LiveRules.Timer.DONE || s == null) return LiveNow(LiveRank.TIMER_DONE, Sym.TIMER, Env.str(R.string.common_done),
+            Env.str(R.string.timer_finished_desc), Tone.ALERT, since = now - (wall - Timers.finishedAt).coerceAtLeast(0))
+        if (s.mode == Timers.Mode.STOPWATCH) {
+            val taken = Timers.elapsed(s, wall)
+            return LiveNow(LiveRank.TIMER, Sym.AVG_PACE, Fmt.clock(taken, elapsed = true), Env.str(R.string.timer_stopwatch_desc, Fmt.spoken(taken)),
+                since = now - taken)
+        }
+        val left = Timers.remaining(s, wall)
+        val onBreak = s.mode == Timers.Mode.POMODORO && s.phase != Timers.Phase.WORK
+        return LiveNow(LiveRank.TIMER, if (onBreak) Sym.COFFEE else Sym.TIMER, Fmt.clock(left),
+            Env.str(if (onBreak) R.string.timer_break_left_desc else R.string.timer_left_desc, Fmt.spokenLeft(left)),
+            if (left < 60_000) Tone.ACCENT else Tone.NORMAL, since = now - (s.lengthMs - left).coerceAtLeast(0))
+    }
 
     override fun state(item: ItemConfig): ItemState {
         val s = Timers.state.value

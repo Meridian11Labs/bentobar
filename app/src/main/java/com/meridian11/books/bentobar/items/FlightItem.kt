@@ -268,6 +268,33 @@ object FlightItem : ItemType("flight", R.string.item_flight_title, Sym.FLIGHT, R
         return bar
     }
 
+    override val liveSource = true
+
+    /**
+     * For the Live activity: the first Flight item's flight from boarding until it lands ([LiveRules.flight]), in the words
+     * its bar has as text alone (no line: the words keep their tones). Nothing without a key or with the service off. Woken
+     * with that item hidden, nobody runs [state], so this asks for its flight as [state] does: what is fresh is not asked
+     * for again.
+     */
+    override fun liveNow(now: Long, items: List<ItemConfig>): LiveNow? {
+        val item = items.firstOrNull() ?: return null
+        val t = when (val s = stagedFor(item)) {
+            is Staged.Following -> s.tracked
+            null -> {
+                if (!Online.hasKey(online) || !Online.on(online)) return null
+                tracker.want(item.id)
+                followed(item.id)
+            }
+            else -> null
+        } ?: return null
+        val at = Instant.ofEpochMilli(Now.wall())
+        val f = t.flight ?: return null
+        val since = LiveRules.flight(FlightRules.shown(f, at, t.ended), at) ?: return null
+        val bar = FlightText.bar(t, null, at, before.of(item), voice())
+        val text = bar.text ?: return null
+        return LiveNow(LiveRank.FLIGHT, bar.icon, text, bar.desc, bar.tone, since = now - (at.toEpochMilli() - since.toEpochMilli()).coerceAtLeast(0))
+    }
+
     /**
      * The number that is being looked up for the item [id], as it is shown: a press of Track (until
      * its answer is taken, which is the next thing to happen once a flight was found, and while
