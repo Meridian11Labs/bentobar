@@ -315,7 +315,7 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
         .padding(start = Space.xs, top = Space.xs, bottom = Space.xs), verticalAlignment = Alignment.CenterVertically) {
         SymIcon(type.icon, size = 18.sp, color = c.ink2)
         Spacer(Modifier.width(Space.m))
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f).padding(vertical = TYPE_AIR)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(shelf.name, Modifier.weight(1f, fill = false), style = Bento.type.label, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
                 if (shelf.inBar) Text(stringResource(R.string.library_in_bar), Modifier.padding(start = Space.s), style = Bento.type.help, color = c.ink3, maxLines = lines())
@@ -408,5 +408,10 @@ private fun LibraryUndo(edit: BarEdit) {
 
 /** A line starts where its type's name does: the glyph's room and the gap after it. */
 private val LINE_INDENT = 34.dp
-/** A type's row at its lowest, whether its description takes one line or two. */
+/** A type's row at its lowest: a name and one line of help. */
 private val TYPE_ROW = 64.dp
+/**
+ * The room above and below a type's words, inside the row's own padding. It is what a name and one line of help have
+ * in a row of [TYPE_ROW]; a row that says more grows by its lines and keeps it, so the list keeps its rhythm.
+ */
+private val TYPE_AIR = 13.dp

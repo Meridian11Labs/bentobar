@@ -5,6 +5,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.input.key.Key
@@ -373,6 +375,27 @@ class BarLibraryTest {
         assertEquals("c", filterText())
         tag("filter").assertIsFocused()
         assertEquals(layout, Store.config.value)
+    }
+
+    @Test fun aRowOfThreeOrFourLinesHasTheAirAboveAndBelowItsWordsThatARowOfTwoHas() {
+        page(null, *bar)
+        /** A type's row and the block its words make in it: the air above, the air below, and how many lines of help it has. */
+        fun air(type: String): Triple<Float, Float, Float> {
+            val row = tag("type:$type").fetchSemanticsNode().let { Rect(it.positionInRoot, it.size.toSize()) }
+            val words = rule.onAllNodes(within("type:$type") and SemanticsMatcher.keyIsDefined(SemanticsProperties.Text), useUnmergedTree = true)
+                .fetchSemanticsNodes().map { Rect(it.positionInRoot, it.size.toSize()) }
+            return Triple(words.minOf { it.top } - row.top, row.bottom - words.maxOf { it.bottom }, words.maxOf { it.bottom } - words.minOf { it.top })
+        }
+        val two = air("storage")
+        assertEquals("a row of a name and one line is the least a row is", 64f, bottom("type:storage") - top("type:storage"), 0.5f)
+        assertEquals(two.first, two.second, 1f)
+        // Heat says what it is in a line or two and where its + puts it in one more.
+        for (type in listOf("heat", "devices", "event")) {
+            val tall = air(type)
+            assertTrue("$type has more lines than Storage", tall.third > two.third + 8f)
+            assertEquals("$type, above its words", two.first, tall.first, 1f)
+            assertEquals("$type, below its words", two.second, tall.second, 1f)
+        }
     }
 
     @Test fun aQuietTypesPlusLandsItUnderTheLineWithItsRuleOnAndItsRowSaysSoBeforeAndAfter() {
