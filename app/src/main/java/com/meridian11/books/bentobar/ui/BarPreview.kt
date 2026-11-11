@@ -112,6 +112,12 @@ internal fun barMirrored(direction: LayoutDirection): Boolean = direction == Lay
 internal val LocalPreviewClock = staticCompositionLocalOf<() -> ZonedDateTime> { { ZonedDateTime.now() } }
 
 /**
+ * The air the Bar page leaves between the header and the preview. The bar's shadow keeps within it, short of the
+ * page's first line: the header's ground and the page's meet in one clean line.
+ */
+internal val PREVIEW_AIR = Space.m
+
+/**
  * A mock status bar with the real strips in it, one for each area the layout uses, standing where the bar has them;
  * clicking an item selects it. With several areas in use each strip has its area's name on a bracket under it, the
  * selected item's in the accent; an area the bar has [noRoom] for right now has neither, and the Middle's place then
@@ -201,7 +207,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
     Column(Modifier.testTag("preview")) {
         BoxWithConstraints(
             Modifier.fillMaxWidth().height(52.dp).onGloballyPositioned { barAt[0] = it; reorder?.previewBar = it }
-                .softShadow(Bento.colors.dark, Radius.large).clip(RoundedCornerShape(Radius.large))
+                .softShadow(Bento.colors.dark, Radius.large, above = PREVIEW_AIR - 1.dp).clip(RoundedCornerShape(Radius.large))
                 .background(barBrush),
         ) {
             // The strip may take what the mock clock and system icons leave (about 380 dp go to them and the gaps).

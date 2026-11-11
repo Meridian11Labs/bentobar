@@ -579,7 +579,7 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
     // The one drag of the page: its gesture is here, over the preview, the bar's card and the panel, and so is the copy it carries.
     Box(Modifier.fillMaxSize().onGloballyPositioned { reorder.container = it }.drags(reorder)) {
         Column(Modifier.fillMaxSize().onKeyEvent { edit.key(it, view.onCheckIsTextEditor(), reorder) }
-            .padding(start = layout.marginDp.dp, end = layout.marginDp.dp, top = Space.m, bottom = Space.xl)) {
+            .padding(start = layout.marginDp.dp, end = layout.marginDp.dp, top = PREVIEW_AIR, bottom = Space.xl)) {
             BarPreview(states, item?.id, edit.said, lanes.noRoom, reorder, lanes.several, off = !running) { id -> if (id != null) edit.select(id) }
             // What a change came to, for a screen reader; the page draws nothing for it.
             Box(Modifier.size(1.dp).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = edit.announced })
