@@ -599,12 +599,13 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
 }
 
 /**
- * A filter's field: sunk, a search glyph, [label] as its placeholder and spoken name, and at its end the keys that go
- * with it: Ctrl F, which brings the keyboard here, and Esc, which empties it, once it has the keyboard or holds
- * something. Esc is the field's own while there is something to empty.
+ * A filter's field: sunk, a search glyph, [label] as its placeholder and spoken name, and at its end the keycaps of the
+ * keys that go with it, as its page binds them: [find], which brings the keyboard here (Ctrl F), and [clear], which
+ * empties it (Esc), once it has the keyboard or holds something. Esc is the field's own while there is something to empty.
  */
 @Composable
-fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier: Modifier = Modifier, focus: FocusRequester = remember { FocusRequester() }) {
+fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier: Modifier = Modifier, focus: FocusRequester = remember { FocusRequester() },
+    find: List<String> = emptyList(), clear: List<String> = emptyList()) {
     val c = Bento.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -629,11 +630,9 @@ fun FilterField(text: String, onText: (String) -> Unit, label: String, modifier:
                     inner()
                 }
                 Spacer(Modifier.width(Space.s))
-                if (focused || text.isNotEmpty()) Keycap(stringResource(R.string.key_esc))
-                else {
-                    Keycap(stringResource(R.string.key_ctrl))
-                    Spacer(Modifier.width(3.dp))
-                    Keycap(stringResource(R.string.key_f))
+                (if (focused || text.isNotEmpty()) clear else find).forEachIndexed { i, cap ->
+                    if (i > 0) Spacer(Modifier.width(3.dp))
+                    Keycap(cap)
                 }
             }
         })

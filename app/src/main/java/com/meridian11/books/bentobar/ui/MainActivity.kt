@@ -12,6 +12,9 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.WindowInsetsController
+import android.view.KeyboardShortcutGroup
+import android.view.KeyboardShortcutInfo
+import android.view.Menu
 import android.view.accessibility.AccessibilityManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -140,6 +143,16 @@ class MainActivity : ComponentActivity() {
     // A key no control took (nothing in the window has the focus): the Bar page's keys still act on the selected item.
     override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean =
         (page == Page.BAR && BarKeys.handler?.invoke(event) == true) || super.onKeyDown(keyCode, event)
+
+    /**
+     * The system's list of shortcuts: the Bar page's bindings themselves ([BarKeys.listed]), while that page is shown,
+     * so the list and what the window does with a key cannot disagree.
+     */
+    override fun onProvideKeyboardShortcuts(data: MutableList<KeyboardShortcutGroup>, menu: Menu?, deviceId: Int) {
+        super.onProvideKeyboardShortcuts(data, menu, deviceId)
+        val keys = BarKeys.listed().takeIf { page == Page.BAR && it.isNotEmpty() } ?: return
+        data += KeyboardShortcutGroup(getString(R.string.page_bar), keys.map { KeyboardShortcutInfo(getString(it.does), it.keycode, it.modifiers) })
+    }
 
     override fun onDestroy() {
         if (current === this) current = null

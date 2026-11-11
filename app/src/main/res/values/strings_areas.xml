@@ -24,6 +24,9 @@
     <string name="areas_moved">Moved</string>
     <!-- A screen reader's action on a row: "Move to Left". -->
     <string name="areas_move_to">Move to %1$s</string>
+    <!-- In the system's list of keyboard shortcuts: Alt with an arrow. -->
+    <string name="areas_key_left">Move to the area on the left</string>
+    <string name="areas_key_right">Move to the area on the right</string>
     <!-- The library's choice of the area its + adds to. -->
     <string name="areas_add_to">Add to</string>
     <!-- An area the bar has no room for right now; %1$s (and %2$s) are the areas that come first, the last one the area itself. -->

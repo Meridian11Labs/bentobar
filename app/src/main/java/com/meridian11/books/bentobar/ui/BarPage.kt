@@ -1,6 +1,7 @@
 package com.meridian11.books.bentobar.ui
 
 import android.content.res.Resources
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -45,6 +46,7 @@ import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -92,33 +94,86 @@ enum class PanelSide { BAR, ADD, OPTIONS }
 /** A row the list goes to after a change: scrolled into view, and focused if the row it stands for had the focus. */
 internal data class Follow(val id: String, val focus: Boolean, val serial: Int)
 
-/** The Bar page's keys for a press that no control took (nothing in the window has the focus): the window hands it here. */
+/**
+ * One key of the Bar page: the press ([key] with Alt or Ctrl, or bare; Shift held too is the same press), and what it
+ * does in words ([does]). The page's key handler, the keycaps the window draws and the system's list of shortcuts
+ * ([BarKeys.listed], which the window hands the system) all read the binding, so they cannot disagree. [also] is a
+ * second key that does the same and is not listed.
+ */
+internal data class Binding(val key: Key, val alt: Boolean = false, val ctrl: Boolean = false, @StringRes val does: Int, val also: Key? = null) {
+    fun pressed(e: KeyEvent): Boolean = (e.key == key || (also != null && e.key == also)) && e.isAltPressed == alt && e.isCtrlPressed == ctrl && !e.isMetaPressed
+
+    /** As the system counts keys: for its list of shortcuts. */
+    val keycode: Int get() = key.nativeKeyCode
+    val modifiers: Int get() = (if (alt) android.view.KeyEvent.META_ALT_ON else 0) or (if (ctrl) android.view.KeyEvent.META_CTRL_ON else 0)
+
+    /** The key held with it, as a keycap's words: "Alt", "Ctrl", or none. */
+    fun held(res: Resources): List<String> = listOfNotNull(res.getString(R.string.key_alt).takeIf { alt }, res.getString(R.string.key_ctrl).takeIf { ctrl })
+
+    /** The key itself as a keycap's words: an arrow as its sign, a key by its name. */
+    fun sign(res: Resources): String = when (key) {
+        Key.DirectionLeft -> "←"
+        Key.DirectionRight -> "→"
+        Key.DirectionUp -> "↑"
+        Key.DirectionDown -> "↓"
+        Key.Delete -> res.getString(R.string.key_del)
+        Key.Escape -> res.getString(R.string.key_esc)
+        Key.F -> res.getString(R.string.key_f)
+        else -> android.view.KeyEvent.keyCodeToString(keycode).removePrefix("KEYCODE_")
+    }
+
+    /** The whole press as keycaps: "Ctrl", "F". */
+    fun caps(res: Resources): List<String> = held(res) + sign(res)
+}
+
+/**
+ * The Bar page's keys. Each binding is here and nowhere else. [handler] is the page's, for a press that no control took
+ * (nothing in the window has the focus): the window hands it here.
+ */
 internal object BarKeys {
+    val UP = Binding(Key.DirectionUp, alt = true, does = R.string.row_move_up)
+    val DOWN = Binding(Key.DirectionDown, alt = true, does = R.string.row_move_down)
+    val FIND = Binding(Key.F, ctrl = true, does = R.string.library_filter)
+    val DUPLICATE = Binding(Key.D, ctrl = true, does = R.string.detail_duplicate)
+    val REMOVE = Binding(Key.Delete, does = R.string.detail_remove, also = Key.Backspace)
+    val UNDO = Binding(Key.Z, ctrl = true, does = R.string.bar_undo)
+    val ESC = Binding(Key.Escape, does = R.string.key_esc_does)
+    val all = listOf(UP, DOWN, FIND, DUPLICATE, REMOVE, UNDO, ESC)
+
     var handler: ((android.view.KeyEvent) -> Boolean)? = null
+    /** Several lanes are on screen, so [AreaKeys] have somewhere to move a row. The page says so. */
+    var several = false
+
+    /** What the system's list of shortcuts shows: the page's keys while it is on screen, the areas' while they do something. */
+    fun listed(): List<Binding> = if (handler == null) emptyList() else if (several) all + AreaKeys.all else all
+
+    /** The keycaps beside Order: "Alt", "↑↓". */
+    fun orderCaps(res: Resources): List<String> = UP.held(res) + (UP.sign(res) + DOWN.sign(res))
 }
 
 /**
  * The keys that move an item to the lane beside it: Alt with ← or →. The binding is here and nowhere else (the page's
- * key handler, the keycaps beside Area and what an empty lane says all ask this), so that it can become another one,
- * Alt+Shift say, in this one place if a device keeps these for itself.
+ * key handler, the keycaps beside Area, what an empty lane says and the system's list of shortcuts all ask this), so
+ * that it can become another one in this one place if a device keeps these for itself. Shift held too is the same
+ * press, which is the way round such a device today.
  */
 internal object AreaKeys {
-    private const val LEFT = "←"
-    private const val RIGHT = "→"
+    val LEFT = Binding(Key.DirectionLeft, alt = true, does = R.string.areas_key_left)
+    val RIGHT = Binding(Key.DirectionRight, alt = true, does = R.string.areas_key_right)
+    val all = listOf(LEFT, RIGHT)
 
     /** Whether [e] asks for the lane on the right (true) or on the left (false); null for any other key. */
     fun side(e: KeyEvent): Boolean? = when {
-        !e.isAltPressed -> null
-        e.key == Key.DirectionRight -> true
-        e.key == Key.DirectionLeft -> false
+        RIGHT.pressed(e) -> true
+        LEFT.pressed(e) -> false
         else -> null
     }
 
     /** The keycaps beside Area. */
-    fun caps(res: Resources): List<String> = listOf(res.getString(R.string.key_alt), "$LEFT $RIGHT")
+    fun caps(res: Resources): List<String> = LEFT.held(res) + "${LEFT.sign(res)} ${RIGHT.sign(res)}"
 
     /** One of the two as it is said: "Alt+←". */
-    fun spoken(res: Resources, right: Boolean): String = res.getString(R.string.key_alt) + "+" + if (right) RIGHT else LEFT
+    fun spoken(res: Resources, right: Boolean): String = (if (right) RIGHT else LEFT).caps(res).joinToString("+")
 }
 
 /**
@@ -405,15 +460,15 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     }
 
     /**
-     * The page's keys, on the focused row or else the selected item: Alt with ↑ or ↓ moves it by a row, [AreaKeys] to the
-     * lane beside it. Esc does one thing, the nearest first: it cancels a
+     * The page's keys ([BarKeys]), on the focused row or else the selected item: Alt with ↑ or ↓ moves it by a row,
+     * [AreaKeys] to the lane beside it. Esc does one thing, the nearest first: it cancels a
      * drag, empties the filter of the library on screen, or lets the item go. Ctrl+F finds from anywhere. While text is
      * being typed ([typing]) every other key is the field's; with no field in focus a letter or a digit typed beside the
      * library starts its filter.
      */
     fun key(e: KeyEvent, typing: Boolean, reorder: Reorder): Boolean {
         if (e.type != KeyEventType.KeyDown) return false
-        if (e.key == Key.Escape) {
+        if (BarKeys.ESC.pressed(e)) {
             if (reorder.dragging != null) { reorder.cancel(); return true }
             if (showing == PanelSide.ADD && filter.isNotEmpty()) { filter = ""; return true }
             if (typing || selected == null) return false
@@ -421,17 +476,17 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
             return true
         }
         // No field has a use for Ctrl+F, so it finds from inside one too.
-        if (e.isCtrlPressed && !e.isAltPressed && e.key == Key.F) { find(); return true }
+        if (BarKeys.FIND.pressed(e)) { find(); return true }
         if (typing) return false
         val target = focusedRow ?: selected
         return when {
-            e.isAltPressed && (e.key == Key.DirectionUp || e.key == Key.DirectionDown) -> target?.let { step(it, down = e.key == Key.DirectionDown) } != null
+            BarKeys.UP.pressed(e) || BarKeys.DOWN.pressed(e) -> target?.let { step(it, down = BarKeys.DOWN.pressed(e)) } != null
             AreaKeys.side(e) != null -> target?.let { sideways(it, AreaKeys.side(e) == true) } == true
             e.isAltPressed -> false
-            e.isCtrlPressed && e.key == Key.Z -> { undo(); true }
-            e.isCtrlPressed && e.key == Key.D -> target?.let { duplicate(it) } != null
+            BarKeys.UNDO.pressed(e) -> { undo(); true }
+            BarKeys.DUPLICATE.pressed(e) -> target?.let { duplicate(it) } != null
             e.isCtrlPressed || e.isMetaPressed -> false
-            e.key == Key.Delete || e.key == Key.Backspace -> target?.let { remove(it) } != null
+            BarKeys.REMOVE.pressed(e) -> target?.let { remove(it) } != null
             showing == PanelSide.ADD && Character.isLetterOrDigit(e.nativeKeyEvent.unicodeChar) -> {
                 filter += String(Character.toChars(e.nativeKeyEvent.unicodeChar))
                 focusFilter = true
@@ -499,8 +554,9 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
     }
     DisposableEffect(edit, reorder, view) {
         BarKeys.handler = { native -> edit.key(KeyEvent(native), view.onCheckIsTextEditor(), reorder) }
-        onDispose { BarKeys.handler = null }
+        onDispose { BarKeys.handler = null; BarKeys.several = false }
     }
+    SideEffect { BarKeys.several = lanes.several }
     // The one drag of the page: its gesture is here, over the preview, the bar's card and the panel, and so is the copy it carries.
     Box(Modifier.fillMaxSize().onGloballyPositioned { reorder.container = it }.drags(reorder)) {
         Column(Modifier.fillMaxSize().onKeyEvent { edit.key(it, view.onCheckIsTextEditor(), reorder) }

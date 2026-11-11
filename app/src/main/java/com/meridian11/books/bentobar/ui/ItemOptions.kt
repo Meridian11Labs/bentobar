@@ -159,7 +159,7 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
             }
             Visibility(item, cfg, type, edit)
             OptionRow(stringResource(R.string.order_label),
-                keys = if (item.type == Store.PINNED_LEFT) emptyList() else listOf(stringResource(R.string.key_alt), "↑↓")) {
+                keys = if (item.type == Store.PINNED_LEFT) emptyList() else BarKeys.orderCaps(res)) {
                 Text(orderWords(res, cfg, item, several).orEmpty(), Modifier.weight(1f).testTag("order"), style = Bento.type.small, color = c.ink)
                 if (item.type != Store.PINNED_LEFT) {
                     Spacer(Modifier.width(Space.s))
@@ -201,7 +201,7 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
                 Spacer(Modifier.width(Space.s))
             }
             BentoButton(stringResource(R.string.detail_remove), { edit.remove(item.id) }, kind = ButtonKind.PLAIN)
-            Keycap(stringResource(R.string.key_del))
+            BarKeys.REMOVE.caps(res).forEach { Keycap(it) }
         }
     }
 }
