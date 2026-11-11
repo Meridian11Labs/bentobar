@@ -4,12 +4,12 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.PowerManager
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.createBitmap
 import com.meridian11.books.bentobar.items.ScreenTimeRules.Flip
 import com.meridian11.books.bentobar.items.ScreenTimeRules.Front
 import com.meridian11.books.bentobar.util.Now
@@ -102,7 +102,7 @@ object ScreenTimeLoad {
 
     private fun icon(pm: PackageManager, pkg: String): ImageBitmap? = runCatching {
         val d = pm.getApplicationIcon(pkg)
-        val b = Bitmap.createBitmap(ICON_PX, ICON_PX, Bitmap.Config.ARGB_8888)
+        val b = createBitmap(ICON_PX, ICON_PX)
         d.setBounds(0, 0, ICON_PX, ICON_PX)
         d.draw(Canvas(b))
         b.asImageBitmap()

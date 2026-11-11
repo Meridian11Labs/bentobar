@@ -8,6 +8,7 @@ import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -82,10 +83,11 @@ object OutputItem : ItemType("output", R.string.item_output_title, Sym.HEADPHONE
             .getOrDefault(emptyList())
     }
 
+    /** From Android's callback, on the main thread: it must never throw. */
     private fun changed() {
         if (!live) return
         read()
-        Ticker.refresh(type)
+        try { Ticker.refresh(type) } catch (e: Exception) { Log.w(Env.TAG, "output: ${e.javaClass.simpleName}") }
     }
 
     override fun onLive() {
