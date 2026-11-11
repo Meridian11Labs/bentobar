@@ -25,6 +25,7 @@ object Items {
         DisplaysItem,
         OutputItem,
         ConnectionItem,
+        ScreenTimeItem,
         // Time
         CalendarItem,
         EventItem,
