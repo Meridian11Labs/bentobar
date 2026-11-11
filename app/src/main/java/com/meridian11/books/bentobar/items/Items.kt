@@ -41,6 +41,7 @@ object Items {
         TextItem,
         SpacerItem,
         PrompterItem,
+        ShelfItem,
         // Online
         WeatherItem,
         AirItem,
