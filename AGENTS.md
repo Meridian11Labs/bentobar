@@ -160,9 +160,19 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     (the list: one row per item, the line between its two parts, a head per lane while several are on screen, Undo in
     a removed row's place; `listEntries` is what it draws, pure, and each entry names its lane, which `Lines` lays side
     by side from 760 dp and one under the other below that), `ItemOptions` (the panel's
-    options: Visibility with only what the chosen part needs, Order, Area, Show as, then the type's own), `Reorder` (drag
-    and drop in the list: the gesture sits on the container, a copy of the row floats above, the Store changes once on
-    the drop; a press let go without moving selects, a pickup never does), `Pages` (Look, Setup, About),
+    options: Visibility with only what the chosen part needs, Order, Area, Show as, then the type's own), `Reorder` (the Bar
+    page's one drag: the gesture sits on the page's root, over the preview, the list and the panel. A row of the list,
+    a type of the library or one of its remembered lines is carried; it lands at a place in either part of any lane,
+    on an area of the preview (also one with no items, which starts it), or, a row only, on the panel, which removes
+    it: the library shows a well in its filter's place, an item's options in their first row's. A copy travels under
+    the pointer, a row in the list and the item's chip over the preview; the others make room by moving; the Store
+    changes once on the drop, as one step of `Undo` through `BarEdit.dropped`; Esc or a drop anywhere else puts
+    everything back with no change. A mouse picks up at once, a finger by a row's handle or after a long press on a
+    library line; a press let go without moving selects, a pickup never does and never turns the panel. What a point
+    means is pure, in `ui/Drops.kt` (`dropAt` over a `DropMap` of rectangles, `dropped`, `showing`, `dropLine`;
+    `ReorderTest`); `Reorder` only measures and carries. Frames run while the pointer moves or the list scrolls and
+    a quarter second after, so a row held still costs nothing; `DragTest` drives it with an injected mouse and finger,
+    pressed, moved and released), `Pages` (Look, Setup, About),
     `Disclosure` (the accessibility disclosure and consent Google Play requires, and the one list of
     what the service does that Setup shows too; `ConsentRules` says when it comes up), `Theme`, `MenuKit` and
     `Controls` (shared UI pieces).
