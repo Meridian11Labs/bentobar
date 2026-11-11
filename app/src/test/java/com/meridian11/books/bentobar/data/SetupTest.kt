@@ -192,16 +192,30 @@ class SetupTest {
         val back = setUp.undone(c, added)!!
         assertEquals(c.items, back.items.filter { it.section != Section.OFF })
         assertEquals(setUp.at("timer").copy(section = Section.OFF), back.at("timer"))
-        // Duplicate: the copy of an item that was set up carries that setup from the start.
-        val tokyo = layout(cpu, clock.with("zone", "Asia/Tokyo"))
-        val twice = tokyo.copy(items = tokyo.items + tokyo.at("clock").copy(id = "copy"))
-        val one = twice.undone(tokyo, twice)!!
-        assertEquals(tokyo.items, one.items.filter { it.section != Section.OFF })
-        assertEquals(Section.OFF, one.at("copy").section)
-        assertEquals("Asia/Tokyo", one.at("copy").options["zone"])
         // What it leaves is a layout the Store keeps as it is, and the bar's own Remove would have left the same line.
         assertEquals(back, back.withoutBareOff())
         assertEquals(setUp.removed("timer").at("timer"), back.at("timer"))
+        // A copy that was changed since waits as a line too.
+        val tokyo = layout(cpu, clock.with("zone", "Asia/Tokyo"))
+        val twice = tokyo.copy(items = tokyo.items + tokyo.at("clock").copy(id = "copy"))
+        val paris = twice.copy(items = twice.items.map { if (it.id == "copy") it.with("zone", "Europe/Paris") else it })
+        val one = paris.undone(tokyo, twice)!!
+        assertEquals(tokyo.items, one.items.filter { it.section != Section.OFF })
+        assertEquals(paris.at("copy").copy(section = Section.OFF), one.at("copy"))
+    }
+
+    @Test fun undoTakesAnItemTheChangeBroughtInOutAgainWithoutALineWhileItIsAsTheChangeLeftIt() {
+        // Duplicate: the copy carries the item's setup from the start, and nothing was done to it since.
+        val tokyo = layout(cpu, clock.with("zone", "Asia/Tokyo").copy(display = Display.ICON))
+        val twice = tokyo.copy(items = tokyo.items + tokyo.at("clock").copy(id = "copy"))
+        assertEquals(tokyo, twice.undone(tokyo, twice))
+        // A quiet type dropped above the line: always in the bar is not how the + makes it, and it is how the drop left it.
+        val c = layout(cpu, clock)
+        val dropped = c.copy(items = listOf(media.copy(section = Section.SHOWN, whenActive = false)) + c.items)
+        assertTrue(dropped.at("media").carriesSetup())
+        assertEquals(c, dropped.undone(c, dropped))
+        // What else changed since stays, as with any Undo.
+        assertEquals(c.copy(spacing = 20), dropped.copy(spacing = 20).undone(c, dropped))
     }
 
     @Test fun offItemsThatCarryNoSetupAreDroppedAndNothingElseIs() {
