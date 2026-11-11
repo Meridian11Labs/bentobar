@@ -226,13 +226,15 @@ fun SwitchRow(label: String, checked: Boolean, help: String? = null, enabled: Bo
 
 /**
  * A text field on the window's tokens: sunk, no outline, [placeholder] while it is empty; [label] is its spoken name.
- * [marked]: what it holds can't be used (the words that say why stand under it). [secret]: it shows dots.
+ * [marked]: what it holds can't be used (the words that say why stand under it). [secret]: it shows dots. [lines]: more
+ * than one, and it is that many lines high, takes line breaks, and scrolls within itself past twice that.
  */
 @Composable
 internal fun BentoField(value: TextFieldValue, onValue: (TextFieldValue) -> Unit, label: String, modifier: Modifier = Modifier,
                         placeholder: String = "", marked: Boolean = false, secret: Boolean = false,
                         keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default,
-                        trailing: (@Composable () -> Unit)? = null) {
+                        trailing: (@Composable () -> Unit)? = null, lines: Int = 1) {
+    val several = lines > 1
     val c = Bento.colors
     val interaction = remember { MutableInteractionSource() }
     BasicTextField(value, onValue,
@@ -241,12 +243,14 @@ internal fun BentoField(value: TextFieldValue, onValue: (TextFieldValue) -> Unit
             .background(c.sunk, RoundedCornerShape(Radius.medium))
             .then(if (marked) Modifier.border(1.dp, c.warnInk, RoundedCornerShape(Radius.medium)) else Modifier)
             .semantics { contentDescription = label },
-        textStyle = Bento.type.body.copy(color = c.ink), singleLine = true, cursorBrush = SolidColor(c.accent), interactionSource = interaction,
+        textStyle = Bento.type.body.copy(color = c.ink), singleLine = !several, minLines = lines, maxLines = if (several) 2 * lines else 1,
+        cursorBrush = SolidColor(c.accent), interactionSource = interaction,
         visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = keyboardOptions, keyboardActions = keyboardActions,
         decorationBox = { inner ->
-            Row(Modifier.padding(start = Space.m, end = if (trailing == null) Space.m else Space.xs), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            Row(Modifier.padding(start = Space.m, end = if (trailing == null) Space.m else Space.xs).then(if (several) Modifier.padding(vertical = Space.s) else Modifier),
+                verticalAlignment = if (several) Alignment.Top else Alignment.CenterVertically) {
+                Box(Modifier.weight(1f), contentAlignment = if (several) Alignment.TopStart else Alignment.CenterStart) {
                     if (value.text.isEmpty()) Text(placeholder.ifEmpty { label }, Modifier.clearAndSetSemantics { }, style = Bento.type.body, color = c.ink3,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                     inner()
@@ -282,6 +286,33 @@ fun TextRow(label: String, value: String, help: String? = null, placeholder: Str
         (error ?: help)?.let { OptionHelp(it, warn = error != null) }
     }
 }
+
+/**
+ * A text of several lines that is the item's own and stays on this device (a prompter's script), in [TextRow]'s look: its
+ * label above a field as wide as the options, [NOTES_LINES] lines high and scrolling within itself past twice that. Like
+ * [TextRow] it keeps what is typed while it has the focus and shows [value] again when the focus goes; no more than [max]
+ * characters can be typed. The settings window only: a popup never holds one. Where the text is kept is the caller's
+ * business, and never the layout (`Kept.own`).
+ */
+@Composable
+fun NotesRow(label: String, value: String, max: Int, onChange: (String) -> Unit) {
+    var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(value, focused) { if (!focused && field.text != value) field = TextFieldValue(value, TextRange(value.length)) }
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(label, Modifier.padding(bottom = Space.xs), style = Bento.type.small, color = Bento.colors.ink2,
+            maxLines = lines(2), overflow = TextOverflow.Ellipsis)
+        BentoField(field, { typed ->
+            val text = typed.text.take(max)
+            val changed = text != field.text
+            field = if (text == typed.text) typed else typed.copy(text = text, selection = TextRange(text.length))
+            if (changed) onChange(text)
+        }, label, Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused }, lines = NOTES_LINES)
+    }
+}
+
+/** How many lines high a [NotesRow]'s field is. */
+private const val NOTES_LINES = 6
 
 /**
  * A slider on the window's tokens: a thin line and a round thumb, on whole stops. [onValue] follows the thumb,

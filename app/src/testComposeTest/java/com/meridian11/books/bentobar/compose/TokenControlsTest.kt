@@ -26,6 +26,8 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.LayoutDirection
@@ -34,6 +36,7 @@ import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.ui.BentoButton
 import com.meridian11.books.bentobar.ui.ButtonKind
 import com.meridian11.books.bentobar.ui.Keycap
+import com.meridian11.books.bentobar.ui.NotesRow
 import com.meridian11.books.bentobar.ui.Segment
 import com.meridian11.books.bentobar.ui.SegmentPart
 import com.meridian11.books.bentobar.ui.SettingsTheme
@@ -98,6 +101,23 @@ class TokenControlsTest {
         rule.waitForIdle()
         for (kind in ButtonKind.entries) part(kind.name, Role.Button).assertIsNotEnabled().performClick()
         assertEquals(ButtonKind.entries.size, clicks)
+    }
+
+    /** An item's long text of its own (a prompter's script): several lines, line breaks kept, and no more than its most. */
+    @Test fun aNotesFieldTakesSeveralLinesUpToItsMost() {
+        var kept by mutableStateOf("")
+        rule.setContent { SettingsTheme(dark = false) { Column { NotesRow("Your notes", kept, max = 12) { kept = it } } } }
+        val field = rule.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.EditableText))
+        field.performTextReplacement("one\ntwo")
+        rule.waitForIdle()
+        assertEquals("one\ntwo", kept)
+        field.performTextInput("\nthree four")
+        rule.waitForIdle()
+        assertEquals("cut at its most", "one\ntwo\nthre", kept)
+        val one = rule.onNode(hasText("Your notes") and !SemanticsMatcher.keyIsDefined(SemanticsProperties.EditableText)).fetchSemanticsNode().boundsInRoot
+        val box = field.fetchSemanticsNode().boundsInRoot
+        assertTrue("its label stands above it", one.bottom <= box.top + 1f)
+        assertTrue("several lines high: ${box.height}", box.height > 3 * one.height)
     }
 
     /** A cap of arrows is as high as a cap of words and says the same; its arrows keep their sides from right to left. */

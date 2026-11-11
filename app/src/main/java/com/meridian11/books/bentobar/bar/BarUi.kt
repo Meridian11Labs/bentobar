@@ -449,6 +449,14 @@ private fun DrawScope.capsule(color: Color, room: Float, pill: Boolean) {
 }
 
 /**
+ * How wide an item's picture ([ItemState.image], [width] by [height] pixels) is drawn in the strip, in dp: as high as an
+ * icon ([iconDp]) and as wide as its own shape makes it. A square one is an icon's size, as every picture was; a row of
+ * other apps' icons in one picture is as wide as they are. The item's width follows from it, as it does from a symbol.
+ */
+internal fun imageWidthDp(iconDp: Float, width: Int, height: Int): Float =
+    if (width <= 0 || height <= 0) iconDp else iconDp * width / height
+
+/**
  * Which of [widths] fit in [limit] with [gap] between them, keeping from the start (or the end with
  * [keepEnd]) and stopping at the first that doesn't fit; and the width they take.
  */
@@ -694,8 +702,10 @@ private fun ItemView(entry: StripEntry, look: StripLook, events: StripEvents, gl
         if (parts.iconDrawn) {
             val img = s.image
             if (img != null) {
-                Image(img.asImageBitmap(), null, Modifier.size(look.iconDp),
-                    colorFilter = if (AppItem.mono.of(entry.item) && entry.item.type == "app") ColorFilter.tint(color) else null)
+                // A mask (a notification's small icon, an app's monochrome icon) takes the strip's colour, as a symbol does.
+                val tint = s.tintImage || (AppItem.mono.of(entry.item) && entry.item.type == "app")
+                Image(img.asImageBitmap(), null, Modifier.size(width = imageWidthDp(look.iconDp.value, img.width, img.height).dp, height = look.iconDp),
+                    colorFilter = if (tint) ColorFilter.tint(color) else null)
             } else if (s.dayNumber != null) {
                 DayBadge(s.dayNumber, look.iconDp, color, look.background)
             } else if (s.icon != null) {
