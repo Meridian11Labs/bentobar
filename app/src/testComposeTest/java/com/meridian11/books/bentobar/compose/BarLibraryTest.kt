@@ -316,6 +316,23 @@ class BarLibraryTest {
         assertEquals("the key is not typed into it", "", filterText())
     }
 
+    @Test fun escInTheFilterEmptiesItAndThenLetsTheItemGoThatCtrlFKept() {
+        val layout = page("a", *bar)
+        keyboard()
+        tag("row:a").requestFocus()
+        press(Key.CtrlLeft, Key.F)
+        tag("filter").performTextInput("mem")
+        rule.waitForIdle()
+        // One thing per press, the nearest first.
+        press(Key.Escape, on = "filter")
+        assertEquals("", filterText())
+        assertEquals("a", selected)
+        press(Key.Escape, on = "filter")
+        assertNull("the item is let go from the filter too", selected)
+        tag("library").assertExists()
+        assertEquals(layout, Store.config.value)
+    }
+
     @Test fun belowTheWidthWithRoomForBothCtrlFTurnsToAddItems() {
         page("a", *bar, width = 960)
         keyboard()

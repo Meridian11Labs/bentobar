@@ -477,7 +477,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
      * The page's keys ([BarKeys]), on the focused row or else the selected item: Alt with ↑ or ↓ moves it by a row,
      * [AreaKeys] to the lane beside it. Esc does one thing, the nearest first: it cancels a
      * drag, empties the filter of the library on screen, or lets the item go. Ctrl+F finds from anywhere. While text is
-     * being typed ([typing]) every other key is the field's; with no field in focus a letter or a digit typed beside the
+     * being typed ([typing]) every other key is the field's (in an item's options Esc too); with no field in focus a letter or a digit typed beside the
      * library starts its filter. While something let go is still on its way (into its place, or back) no key does
      * anything: the drop is written when it arrives, and a key would act on the layout before it.
      */
@@ -487,7 +487,8 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         if (BarKeys.ESC.pressed(e)) {
             if (reorder.dragging != null) { reorder.cancel(); return true }
             if (showing == PanelSide.ADD && filter.isNotEmpty()) { filter = ""; return true }
-            if (typing || selected == null) return false
+            // The library's one field is its filter, and an empty filter has no use for Esc: the item goes from there too.
+            if (selected == null || typing && showing != PanelSide.ADD) return false
             letGo()
             return true
         }
