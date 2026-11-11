@@ -26,6 +26,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
+import androidx.compose.ui.test.withKeyDown
 import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.BarConfig
@@ -319,6 +320,40 @@ class DragTest {
         assertEquals("the button let go later drops nothing", layout, Store.config.value)
         assertNull(Undo.last.value)
         assertTrue(at("row:a").top < at("row:b").top)
+    }
+
+    @Test fun keysDoNothingWhileADroppedRowGlidesIntoPlace() {
+        page("c", *three)
+        rule.runOnIdle { assertTrue(inputMode.requestInputMode(InputMode.Keyboard)) }
+        // A change before the drag: what Ctrl+Z would take back.
+        drag(at("row:c").center, Offset(at("row:a").center.x, at("row:a").top + 4f))
+        assertEquals(listOf("c", "a", "b"), order())
+        val first = Store.config.value
+        tag("row:c").requestFocus()
+        hold(at("row:a").center, at("row:b").center + Offset(0f, 12f))
+
+        rule.mainClock.autoAdvance = false
+        rule.onRoot().performMouseInput { release() }
+        rule.mainClock.advanceTimeBy(48)
+        tag("drag-row").assertExists()
+        assertEquals("the drop is written when the copy has arrived", first, Store.config.value)
+        fun keys(block: androidx.compose.ui.test.KeyInjectionScope.() -> Unit) = tag("bar-list").performKeyInput(block)
+        // Each press without the time a key is held: the copy is still on its way at the last of them.
+        keys { withKeyDown(Key.CtrlLeft) { pressKey(Key.Z, 0) } }
+        assertEquals("Ctrl+Z takes nothing back meanwhile", first, Store.config.value)
+        keys { pressKey(Key.Delete, 0) }
+        assertEquals("Delete removes nothing meanwhile", first, Store.config.value)
+        keys { pressKey(Key.Escape, 0) }
+        keys { withKeyDown(Key.CtrlLeft) { pressKey(Key.D, 0) } }
+        assertEquals("nor do Esc and Ctrl+D", first, Store.config.value)
+        tag("drag-row").assertExists()
+
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        tag("drag-row").assertDoesNotExist()
+        assertEquals(listOf("c", "b", "a"), order())
+        assertEquals("c", selected)
+        assertEquals("the drop is the one step, on top of the change before it", first, Undo.last.value?.before)
     }
 
     @Test fun escWhileAFingerCarriesATypeOutOfAFilteredLibraryEndsTheDragAndTheFilterStays() {

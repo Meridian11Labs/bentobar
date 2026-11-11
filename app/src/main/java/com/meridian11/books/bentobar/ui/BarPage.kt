@@ -468,10 +468,12 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
      * [AreaKeys] to the lane beside it. Esc does one thing, the nearest first: it cancels a
      * drag, empties the filter of the library on screen, or lets the item go. Ctrl+F finds from anywhere. While text is
      * being typed ([typing]) every other key is the field's; with no field in focus a letter or a digit typed beside the
-     * library starts its filter.
+     * library starts its filter. While something let go is still on its way (into its place, or back) no key does
+     * anything: the drop is written when it arrives, and a key would act on the layout before it.
      */
     fun key(e: KeyEvent, typing: Boolean, reorder: Reorder): Boolean {
         if (e.type != KeyEventType.KeyDown) return false
+        if (reorder.busy && !reorder.live) return true
         if (BarKeys.ESC.pressed(e)) {
             if (reorder.dragging != null) { reorder.cancel(); return true }
             if (showing == PanelSide.ADD && filter.isNotEmpty()) { filter = ""; return true }
