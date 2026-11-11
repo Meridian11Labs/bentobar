@@ -95,10 +95,10 @@ fun itemName(res: Resources, item: ItemConfig): String = Items.of(item.type)?.le
 
 /**
  * Where [item] stands, as Order says it and as a moved row is read out: "5th of 7 in the bar", "2nd of 2 when active",
- * with several areas in use "2nd of 2 in Left"; Next meeting, which never moves, "Always first in Right". Null for an
+ * with [several] lanes on screen "2nd of 2 in Left"; Next meeting, which never moves, "Always first in Right". Null for an
  * item that is not in the bar.
  */
-fun orderWords(res: Resources, cfg: BarConfig, item: ItemConfig): String? {
+fun orderWords(res: Resources, cfg: BarConfig, item: ItemConfig, several: Boolean = cfg.listAreas().size > 1): String? {
     val part = cfg.partOf(item) ?: return null
     val area = res.getString(areaRes(item.area))
     if (item.type == Store.PINNED_LEFT) return res.getString(R.string.order_pinned, area)
@@ -107,23 +107,22 @@ fun orderWords(res: Resources, cfg: BarConfig, item: ItemConfig): String? {
     val nth = res.getString(ordinalRes(at), at)
     return when {
         part == Part.LOWER -> res.getString(if (cfg.hiddenMode == HiddenMode.SHOW_ALL) R.string.order_when_active else R.string.order_hidden, nth, rows.size)
-        cfg.listAreas().size > 1 -> res.getString(R.string.order_in_area, nth, rows.size, area)
+        several -> res.getString(R.string.order_in_area, nth, rows.size, area)
         else -> res.getString(R.string.order_in_bar, nth, rows.size)
     }
 }
 
 /**
- * The selected item's options, in the panel: its name, what it waits for, then Area (first, as a three-way choice, while
- * several areas are in use; else last, as a menu), Visibility with its rule, Order, Show as and the type's own options;
+ * The selected item's options, in the panel: its name, what it waits for, then Area (first, as a three-way choice with
+ * its keys, while [several] lanes are on screen; else last, as a menu), Visibility with its rule, Order, Show as and the type's own options;
  * Duplicate and Remove from the bar at the card's foot. Every command is [edit]'s, the same one the keys and a row's
  * screen-reader actions use.
  */
 @Composable
-internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, edit: BarEdit, modifier: Modifier = Modifier) {
+internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, edit: BarEdit, several: Boolean, modifier: Modifier = Modifier) {
     val c = Bento.colors
     val res = androidx.compose.ui.platform.LocalResources.current
     val type = Items.of(item.type)
-    val several = cfg.listAreas().size > 1
     Column(modifier.fillMaxSize().testTag("options")) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = Space.s)) {
             Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
@@ -137,7 +136,7 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
             }
             Spacer(Modifier.height(Space.s))
             if (type != null) Needs(type)
-            if (several) OptionRow(stringResource(R.string.areas_label)) {
+            if (several) OptionRow(stringResource(R.string.areas_label), keys = AreaKeys.caps(res)) {
                 val areas = areaChoices()
                 Segment(areas.map { SegmentPart(it.second) }, areas.indexOfFirst { it.first == item.area }, { edit.area(item.id, areas[it].first) },
                     Modifier.weight(1f).testTag("area"))
@@ -145,7 +144,7 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
             Visibility(item, cfg, type, edit)
             OptionRow(stringResource(R.string.order_label),
                 keys = if (item.type == Store.PINNED_LEFT) emptyList() else listOf(stringResource(R.string.key_alt), "↑↓")) {
-                Text(orderWords(res, cfg, item).orEmpty(), Modifier.weight(1f).testTag("order"), style = Bento.type.small, color = c.ink)
+                Text(orderWords(res, cfg, item, several).orEmpty(), Modifier.weight(1f).testTag("order"), style = Bento.type.small, color = c.ink)
                 if (item.type != Store.PINNED_LEFT) {
                     Spacer(Modifier.width(Space.s))
                     BentoIconButton(Sym.ARROW_UPWARD, stringResource(R.string.row_move_up), { edit.step(item.id, down = false) },

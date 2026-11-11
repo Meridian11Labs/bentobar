@@ -335,17 +335,17 @@ fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
     }
 }
 
-/** A square tonal button with one glyph (Order's arrows); [description] is its spoken name. */
+/** A square tonal button with one glyph (Order's arrows); [description] is its spoken name. Not [filled], it has no ground of its own (an area's +). */
 @Composable
-fun BentoIconButton(icon: String, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun BentoIconButton(icon: String, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, filled: Boolean = true) {
     val c = Bento.colors
     val interaction = remember { MutableInteractionSource() }
     Box(modifier.size(Target.control).alpha(if (enabled) 1f else DIMMED)
         .states(interaction)
-        .background(c.sunk, RoundedCornerShape(Radius.medium))
+        .background(if (filled) c.sunk else Color.Transparent, RoundedCornerShape(Radius.medium))
         .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center) {
-        SymIcon(icon, size = 18.sp, color = c.ink, contentDescription = description)
+        SymIcon(icon, size = 18.sp, color = if (filled) c.ink else c.ink2, contentDescription = description)
     }
 }
 

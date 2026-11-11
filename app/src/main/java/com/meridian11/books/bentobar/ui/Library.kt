@@ -56,6 +56,7 @@ import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.fresh
+import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.items.ItemGroup
 import com.meridian11.books.bentobar.items.ItemType
@@ -185,10 +186,11 @@ private fun sought(key: String, edit: BarEdit, height: Dp = 0.dp, above: Dp = 0.
 /**
  * The library, the panel's "Add items": the filter, and every type in its group with a +; under a type the setups
  * remembered of it, each a line with Forget and a + that brings it back. What a + did is said on the type's row, with
- * Undo. Every change is one of [edit]'s commands.
+ * Undo. With several [lanes] on screen "Add to" stands under the filter, set to the area in use or the one just opened,
+ * and every + says where it adds. Every change is one of [edit]'s commands.
  */
 @Composable
-internal fun Library(cfg: BarConfig, edit: BarEdit, modifier: Modifier = Modifier) {
+internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, modifier: Modifier = Modifier) {
     val c = Bento.colors
     val res = LocalResources.current
     val kept by Undo.last.collectAsState()
@@ -210,6 +212,9 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, modifier: Modifier = Modifie
         edit.focusFilter = false
     }
     LaunchedEffect(query) { scroll.scrollTo(0) }
+    // Where a + adds, said only while there is a choice.
+    val to = if (lanes.several) edit.addTo ?: cfg.homeArea() else null
+    val toName = to?.let { stringResource(areaRes(it)) }
     // Something to go to that the filter hides, or that has no row here: nothing goes there later, out of the blue.
     LaunchedEffect(edit.seek) {
         val seek = edit.seek ?: return@LaunchedEffect
@@ -222,15 +227,23 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, modifier: Modifier = Modifie
         if (query.isNotBlank()) Text(stringResource(R.string.add_filter_count, shown.rows(), shelves.rows()),
             Modifier.padding(start = Space.xs, top = 10.dp, end = Space.xs).semantics { liveRegion = LiveRegionMode.Polite }.testTag("filter-count"),
             style = Bento.type.help, color = c.ink3)
+        if (to != null) Row(Modifier.fillMaxWidth().padding(top = 10.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            val label = stringResource(R.string.areas_add_to)
+            val areas = areaChoices()
+            Text(label, Modifier.padding(start = Space.xs), style = Bento.type.small, color = c.ink2, maxLines = 1)
+            Spacer(Modifier.width(Space.m))
+            Segment(areas.map { SegmentPart(it.second, spoken = "$label ${it.second}") }, areas.indexOfFirst { it.first == to }, { edit.addTo = areas[it].first },
+                Modifier.weight(1f).testTag("add-to"))
+        }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(end = 10.dp, bottom = Space.m)) {
             ItemGroup.entries.forEach { group ->
                 val here = shown.filter { it.type.group == group }
                 if (here.isEmpty()) return@forEach
                 key(group) { GroupHead(group) }
                 here.forEach { shelf ->
-                    key(shelf.type.type) { TypeRow(shelf, cfg, added?.takeIf { it.type == shelf.type.type }, edit) }
+                    key(shelf.type.type) { TypeRow(shelf, cfg, added?.takeIf { it.type == shelf.type.type }, edit, toName) }
                     shelf.lines.forEach { line ->
-                        key(line.item.id) { if (line.forgotten) ForgotRow(shelf, line, edit) else LineRow(shelf, line, edit) }
+                        key(line.item.id) { if (line.forgotten) ForgotRow(shelf, line, edit) else LineRow(shelf, line, edit, toName) }
                     }
                 }
             }
@@ -250,9 +263,10 @@ private fun GroupHead(group: ItemGroup) {
 /**
  * A type: glyph, name ("In your bar" after it), what it is, and for a type that comes waiting on its rule where its +
  * puts it. Right after a + it says "Added" in the description's place, with Undo. Its + always adds a fresh item.
+ * [to] is the area's name while "Add to" is on screen: the + and both lines then say it.
  */
 @Composable
-private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarEdit) {
+private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarEdit, to: String?) {
     val c = Bento.colors
     val type = shelf.type
     val (bring, plus) = sought(Seek.type(type.type), edit)
@@ -270,7 +284,13 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
                 Row(Modifier.testTag("added"), verticalAlignment = Alignment.CenterVertically) {
                     SymIcon(Sym.CHECK, size = 14.sp, color = c.accent)
                     Spacer(Modifier.width(Space.xs))
-                    Text(if (rule != null) stringResource(R.string.add_added_rule, rule) else stringResource(R.string.add_added),
+                    val at = if (to != null) stringResource(areaRes(added.area)) else null
+                    Text(when {
+                        at != null && rule != null -> stringResource(R.string.add_added_to_rule, at, rule)
+                        at != null -> stringResource(R.string.add_added_to, at)
+                        rule != null -> stringResource(R.string.add_added_rule, rule)
+                        else -> stringResource(R.string.add_added)
+                    },
                         style = Bento.type.help.copy(fontWeight = FontWeight.SemiBold), color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             } else {
@@ -278,9 +298,10 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
                 if (type.addsWhenActive) {
                     val rule = remember(type) { type.trigger?.short(type.fresh("", Position.RIGHT)) } ?: stringResource(R.string.row_when_active)
                     val chevron = cfg.hiddenMode != HiddenMode.SHOW_ALL
-                    val words = stringResource(if (chevron) R.string.library_adds_behind else R.string.library_adds_when_active, rule)
+                    val words = if (to != null) stringResource(R.string.library_adds_to, to, rule)
+                        else stringResource(if (chevron) R.string.library_adds_behind else R.string.library_adds_when_active, rule)
                     val spoken = words.replace("‹", stringResource(R.string.chevron_spoken))
-                    Text(words, Modifier.semantics { if (chevron) contentDescription = spoken }.testTag("adds"),
+                    Text(words, Modifier.semantics { if (chevron && to == null) contentDescription = spoken }.testTag("adds"),
                         style = Bento.type.help.copy(fontWeight = FontWeight.Medium), color = c.ink2)
                 }
             }
@@ -290,20 +311,21 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
             LibraryUndo(edit)
             Spacer(Modifier.width(2.dp))
         }
-        BentoIconButton(Sym.ADD, stringResource(R.string.library_add, shelf.name), { edit.add(type) }, Modifier.focusRequester(plus).testTag("add:${type.type}"))
+        BentoIconButton(Sym.ADD, if (to != null) stringResource(R.string.library_add_to, shelf.name, to) else stringResource(R.string.library_add, shelf.name),
+            { edit.add(type) }, Modifier.focusRequester(plus).testTag("add:${type.type}"))
     }
 }
 
 /** A remembered setup: its words, Forget, and the + that brings it back as it was. No glyph: it stands under its type's. */
 @Composable
-private fun LineRow(shelf: Shelf, line: Line, edit: BarEdit) {
+private fun LineRow(shelf: Shelf, line: Line, edit: BarEdit, to: String?) {
     val c = Bento.colors
     val id = line.item.id
     val (bring, plus) = sought(Seek.line(id), edit, height = Target.row, above = TYPE_ROW)
     var onForget by remember { mutableStateOf(false) }
     var onPlus by remember { mutableStateOf(false) }
     val spoken = stringResource(R.string.library_setup_spoken, shelf.name, line.words)
-    val add = stringResource(R.string.library_add_setup, shelf.name, line.words)
+    val add = if (to != null) stringResource(R.string.library_add_setup_to, shelf.name, line.words, to) else stringResource(R.string.library_add_setup, shelf.name, line.words)
     val forget = stringResource(R.string.library_forget_setup, shelf.name, line.words)
     val addAction = stringResource(R.string.add_add)
     val forgetAction = stringResource(R.string.library_forget)

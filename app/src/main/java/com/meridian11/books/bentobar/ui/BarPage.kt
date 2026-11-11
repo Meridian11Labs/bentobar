@@ -57,6 +57,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.R
+import com.meridian11.books.bentobar.bar.BarOverflow
 import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.ItemConfig
@@ -66,9 +67,10 @@ import com.meridian11.books.bentobar.data.Step
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.broughtBack
 import com.meridian11.books.bentobar.data.hide
+import com.meridian11.books.bentobar.data.homeArea
+import com.meridian11.books.bentobar.data.landedIn
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
-import com.meridian11.books.bentobar.data.putInArea
 import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.setWhenActive
 import com.meridian11.books.bentobar.data.show
@@ -90,6 +92,39 @@ internal data class Follow(val id: String, val focus: Boolean, val serial: Int)
 /** The Bar page's keys for a press that no control took (nothing in the window has the focus): the window hands it here. */
 internal object BarKeys {
     var handler: ((android.view.KeyEvent) -> Boolean)? = null
+}
+
+/**
+ * The keys that move an item to the lane beside it: Alt with ← or →. The binding is here and nowhere else (the page's
+ * key handler, the keycaps beside Area and what an empty lane says all ask this), so that it can become another one,
+ * Alt+Shift say, in this one place if a device keeps these for itself.
+ */
+internal object AreaKeys {
+    private const val LEFT = "←"
+    private const val RIGHT = "→"
+
+    /** Whether [e] asks for the lane on the right (true) or on the left (false); null for any other key. */
+    fun side(e: KeyEvent): Boolean? = when {
+        !e.isAltPressed -> null
+        e.key == Key.DirectionRight -> true
+        e.key == Key.DirectionLeft -> false
+        else -> null
+    }
+
+    /** The keycaps beside Area. */
+    fun caps(res: Resources): List<String> = listOf(res.getString(R.string.key_alt), "$LEFT $RIGHT")
+
+    /** One of the two as it is said: "Alt+←". */
+    fun spoken(res: Resources, right: Boolean): String = res.getString(R.string.key_alt) + "+" + if (right) RIGHT else LEFT
+}
+
+/**
+ * What the Bar page has of areas right now: the lanes [on] screen in the bar's order, the area the last change closed
+ * ([fold], said in a slip with Undo) and the areas the bar has no room for ([noRoom]). Everything about areas is drawn
+ * only while there are [several] lanes.
+ */
+internal data class Lanes(val on: List<Position>, val fold: Position? = null, val noRoom: Set<Position> = emptySet()) {
+    val several: Boolean get() = on.size > 1
 }
 
 /**
@@ -121,7 +156,22 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     var said by mutableStateOf<String?>(null)
     /** What a change came to, for a screen reader: "CPU load, 5th of 7 in the bar". */
     var announced by mutableStateOf("")
+    /**
+     * The areas "Add an area" opened: the window's own, in no layout, so an empty one is gone when the Bar tab is left.
+     * One stays here while it has rows and leaves when it closes ([settle]).
+     */
+    var opened by mutableStateOf(emptySet<Position>())
+    /** The area the library adds to while several lanes are on screen; null is the area in use. */
+    var addTo by mutableStateOf<Position?>(null)
+    /** An empty lane that is to take the keyboard: the one just opened. */
+    var focusLane by mutableStateOf<Position?>(null)
+    /** The slip that says a lane closed is to take the keyboard: its last row had it and was removed. */
+    var focusFold by mutableStateOf(false)
     private var serial = 0
+    /** The last change, and whether several lanes were on screen before it. */
+    private var judged: Pair<Undo.Kept, Boolean>? = null
+    /** The change whose closed lane [settle] has taken out of [opened]. */
+    private var settled: Undo.Kept? = null
 
     private fun home() = if (wide) PanelSide.ADD else PanelSide.BAR
     private fun item(id: String) = Store.config.value.items.firstOrNull { it.id == id }
@@ -140,6 +190,42 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         side = home()
     }
 
+    private fun several(kept: Undo.Kept): Boolean {
+        judged?.let { if (it.first === kept) return it.second }
+        return (lanesOnScreen(kept.before, opened).size > 1).also { judged = kept to it }
+    }
+
+    /** The area the last change closed, until Undo or the next change; not one that "Add an area" has opened again since. */
+    fun fold(cfg: BarConfig = Store.config.value, kept: Undo.Kept? = Undo.last.value): Position? {
+        kept ?: return null
+        return foldOf(kept, cfg, several(kept))?.takeUnless { kept === settled && it in opened }
+    }
+
+    /** The lanes on screen: the areas with rows and the opened ones, without the one that just closed. */
+    fun lanes(cfg: BarConfig = Store.config.value, kept: Undo.Kept? = Undo.last.value): List<Position> =
+        lanesOnScreen(cfg, opened - setOfNotNull(fold(cfg, kept)))
+
+    /** After a frame: a lane that closed is not held open, and nothing is added to it or to a lane that is the only one. */
+    fun settle(kept: Undo.Kept?, fold: Position?, lanes: Int) {
+        if (fold != null && kept !== settled) {
+            settled = kept
+            if (fold in opened) opened = opened - fold
+            if (addTo == fold) addTo = null
+        }
+        if (lanes < 2 && addTo != null) addTo = null
+    }
+
+    /** A choice of "Add an area": its lane is on screen, empty, with the keyboard, and the library adds to it. */
+    fun openArea(area: Position) {
+        said = null
+        opened = opened + area
+        addTo = area
+        focusLane = area
+    }
+
+    /** The area a + adds to: the one chosen in "Add to" while several lanes are on screen, else the area in use. */
+    private fun target(): Position? = addTo?.takeIf { lanes().size > 1 }
+
     /** "Add items": the library, with the item still selected. */
     fun toLibrary() { side = PanelSide.ADD }
 
@@ -150,24 +236,25 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     }
 
     /**
-     * The + on a type: a fresh item of it, in the area in use (the seam for a chosen area), under the line if the type
+     * The + on a type: a fresh item of it, in the area in use or the one "Add to" names, under the line if the type
      * comes waiting on its rule. The bar's list goes to the new row; the keyboard stays on the +.
      */
     fun add(type: ItemType) {
         said = null
         val before = Store.config.value
-        val id = Store.addFresh(type)
+        val id = Store.addFresh(type, target())
         if (Undo.note(before, added = id)) moved(id, focus = false)
     }
 
     /**
-     * The + on a remembered setup's line: the item back in the bar as it was, in the area in use. Its line is gone, so
-     * the keyboard, if the + had it ([focus]), goes to its type's +.
+     * The + on a remembered setup's line: the item back in the bar as it was, in the area in use or the one "Add to"
+     * names. Its line is gone, so the keyboard, if the + had it ([focus]), goes to its type's +.
      */
     fun addSetup(id: String, focus: Boolean) {
         said = null
         val item = item(id) ?: return
-        if (!Undo.change(added = id) { it.broughtBack(id) }) return
+        val to = target()
+        if (!Undo.change(added = id) { it.broughtBack(id, to ?: it.homeArea()) }) return
         if (focus) seek = Seek(Seek.type(item.type), true, ++serial)
         moved(id, focus = false)
     }
@@ -192,7 +279,18 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         Undo.change { it.setWhenActive(id, on) }
     }
 
-    fun area(id: String, area: Position) = change(id) { it.putInArea(id, area) }
+    /** Area's choice, a lane's key and a screen reader's "Move to": the item lands in [area], in the part it was in. */
+    fun area(id: String, area: Position) = change(id) { it.landedIn(id, area) }
+
+    /**
+     * Alt with ← or →: the item goes to the lane beside it on that side, and stays at the last one. With one lane on
+     * screen it stays too: the key is a row's either way, so the focus does not wander off with it. False for no row.
+     */
+    fun sideways(id: String, right: Boolean): Boolean {
+        val item = item(id)?.takeIf { it.section != Section.OFF } ?: return false
+        laneBeside(lanes(), item.area, right)?.let { area(id, it) }
+        return true
+    }
 
     /** Move up or down by one row, across the part line where the item may; where it may not, the reason is [said]. */
     fun step(id: String, down: Boolean) {
@@ -235,6 +333,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         }
         seek = Seek(if (item(id) != null) Seek.line(id) else Seek.type(item.type), false, ++serial)
         if (focus && next != null) follow = Follow(next, true, ++serial)
+        else if (focus && fold() != null) focusFold = true
         announced = res.getString(R.string.bar_removed, removedName(res, item))
     }
 
@@ -251,14 +350,15 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     }
 
     /**
-     * Ctrl+Z, Undo in a removed row's place, and the library's Undo. A row that comes back is followed; the library's
+     * Ctrl+Z, Undo in a removed row's place or in a closed lane's slip, and the library's Undo. A row that comes back, to
+     * the bar or to its lane, is followed; the library's
      * Undo is gone with what it took back, so the keyboard, if it had it ([focus]), goes to the type's + after an add
      * and to the line that is back after Forget.
      */
     fun undo(focus: Boolean = false): Boolean {
         said = null
         val kept = Undo.last.value
-        val back = kept?.removed
+        val back = kept?.removed ?: movedBy(kept)
         val row = focusedRow != null || slipFocused
         val to = if (!focus) null else kept?.added?.let(::item)?.let { Seek.type(it.type) }
             ?: Undo.forgotten(kept, Store.config.value)?.let { Seek.line(it.id) }
@@ -277,11 +377,12 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     private fun moved(id: String, focus: Boolean) {
         follow = Follow(id, focus, ++serial)
         val item = item(id) ?: return
-        announced = orderWords(res, Store.config.value, item)?.let { res.getString(R.string.row_moved, itemName(res, item), it) }.orEmpty()
+        announced = orderWords(res, Store.config.value, item, lanes().size > 1)?.let { res.getString(R.string.row_moved, itemName(res, item), it) }.orEmpty()
     }
 
     /**
-     * The page's keys, on the focused row or else the selected item. Esc does one thing, the nearest first: it cancels a
+     * The page's keys, on the focused row or else the selected item: Alt with ↑ or ↓ moves it by a row, [AreaKeys] to the
+     * lane beside it. Esc does one thing, the nearest first: it cancels a
      * drag, empties the filter of the library on screen, or lets the item go. Ctrl+F finds from anywhere. While text is
      * being typed ([typing]) every other key is the field's; with no field in focus a letter or a digit typed beside the
      * library starts its filter.
@@ -301,6 +402,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         val target = focusedRow ?: selected
         return when {
             e.isAltPressed && (e.key == Key.DirectionUp || e.key == Key.DirectionDown) -> target?.let { step(it, down = e.key == Key.DirectionDown) } != null
+            AreaKeys.side(e) != null -> target?.let { sideways(it, AreaKeys.side(e) == true) } == true
             e.isAltPressed -> false
             e.isCtrlPressed && e.key == Key.Z -> { undo(); true }
             e.isCtrlPressed && e.key == Key.D -> target?.let { duplicate(it) } != null
@@ -339,6 +441,10 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
     val edit = remember { BarEdit(res, sideState, filter) }
     val reorder = remember { Reorder() }
     val item = cfg.items.firstOrNull { it.id == selected && it.section != Section.OFF }
+    val kept by Undo.last.collectAsState()
+    val overflow by BarOverflow.ids.collectAsState()
+    val fold = edit.fold(cfg, kept)
+    val lanes = Lanes(edit.lanes(cfg, kept), fold, noRoomAreas(cfg, overflow) { states[it.id]?.active == true })
     val side = when {
         edit.side == PanelSide.OPTIONS && item == null -> if (wide) PanelSide.ADD else PanelSide.BAR
         edit.side == PanelSide.BAR && wide -> PanelSide.ADD
@@ -350,6 +456,7 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
         edit.selected = item?.id
         edit.showing = side
         reorder.onRefused = edit::refused
+        edit.settle(kept, fold, lanes.on.size)
     }
     LaunchedEffect(turn) { if (turn > 0 && selected != null) edit.side = PanelSide.OPTIONS }
     // A reason is read, then the line is the preview's hint again.
@@ -364,22 +471,22 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
     }
     Column(Modifier.fillMaxSize().onKeyEvent { edit.key(it, view.onCheckIsTextEditor(), reorder) }
         .padding(start = layout.marginDp.dp, end = layout.marginDp.dp, top = Space.m, bottom = Space.xl)) {
-        BarPreview(states, item?.id, edit.said) { id -> if (id != null) edit.select(id) }
+        BarPreview(states, item?.id, edit.said, lanes.noRoom) { id -> if (id != null) edit.select(id) }
         // What a change came to, for a screen reader; the page draws nothing for it.
         Box(Modifier.size(1.dp).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = edit.announced })
         Spacer(Modifier.height(Space.m))
         if (wide) Row(Modifier.weight(1f)) {
-            BarList(cfg, states, item?.id, edit, reorder, Modifier.weight(1f).fillMaxHeight())
+            BarList(cfg, states, item?.id, edit, reorder, lanes, Modifier.weight(1f).fillMaxHeight())
             Spacer(Modifier.width(Space.xl))
             Column(Modifier.width(layout.panelDp.dp)) {
                 PanelSwitch(side, item, wide, edit)
                 Spacer(Modifier.height(10.dp))
-                Panel(side, item, cfg, states, edit, reorder, Modifier.weight(1f))
+                Panel(side, item, cfg, states, edit, reorder, lanes, Modifier.weight(1f))
             }
         } else {
             PanelSwitch(side, item, wide, edit)
             Spacer(Modifier.height(10.dp))
-            Panel(side, item, cfg, states, edit, reorder, Modifier.weight(1f))
+            Panel(side, item, cfg, states, edit, reorder, lanes, Modifier.weight(1f))
         }
     }
 }
@@ -412,7 +519,8 @@ private fun PanelSwitch(side: PanelSide, item: ItemConfig?, wide: Boolean, edit:
 
 /** The panel's card. The card stays; only what is in it travels, a short way, when the side changes. */
 @Composable
-private fun Panel(side: PanelSide, item: ItemConfig?, cfg: BarConfig, states: Map<String, ItemState>, edit: BarEdit, reorder: Reorder, modifier: Modifier) {
+private fun Panel(side: PanelSide, item: ItemConfig?, cfg: BarConfig, states: Map<String, ItemState>, edit: BarEdit, reorder: Reorder, lanes: Lanes,
+                  modifier: Modifier) {
     val shift = with(LocalDensity.current) { Space.l.roundToPx() }
     // The options on their way out are still the item's that was let go.
     val last = remember { object { var item: ItemConfig? = null } }
@@ -424,9 +532,9 @@ private fun Panel(side: PanelSide, item: ItemConfig?, cfg: BarConfig, states: Ma
                 (slideOutHorizontally(Motion.spec(tween(TURN_MS))) { -way * shift } + fadeOut(Motion.spec(tween(TURN_MS))))
         }, label = "panel") { shown ->
             when (shown) {
-                PanelSide.BAR -> BarList(cfg, states, item?.id, edit, reorder, Modifier.fillMaxSize())
-                PanelSide.ADD -> Library(cfg, edit)
-                PanelSide.OPTIONS -> (item ?: last.item)?.let { of -> key(of.id) { ItemOptions(of, cfg, states[of.id], edit) } }
+                PanelSide.BAR -> BarList(cfg, states, item?.id, edit, reorder, lanes, Modifier.fillMaxSize())
+                PanelSide.ADD -> Library(cfg, edit, lanes)
+                PanelSide.OPTIONS -> (item ?: last.item)?.let { of -> key(of.id) { ItemOptions(of, cfg, states[of.id], edit, lanes.several) } }
             }
         }
     }

@@ -107,6 +107,11 @@ class Reorder {
     val handles = HashMap<String, LayoutCoordinates>()
     /** Each zone's heading: a zone runs from its heading to the next one's, the last to the list's end. */
     val headings = HashMap<Zone, LayoutCoordinates>()
+    /**
+     * The areas stand side by side, each in its lane. A zone's place is told by height alone, so a row is carried up and
+     * down its own lane; a drag across lanes needs the pointer's x here too.
+     */
+    var abreast = false
     /** Told when the dragged row is carried under a line it can't go under (its type has no rule): the page says why. */
     var onRefused: (String) -> Unit = {}
 
@@ -166,7 +171,7 @@ class Reorder {
         pointerY = c.windowToLocal(pointerInWindow).y
         val current = spot ?: return
         val preview = preview(config)
-        val tops = headings.mapNotNull { (zone, h) -> bounds(h)?.let { zone to it.top } }.sortedBy { it.second }
+        val tops = headings.filterKeys { !abreast || it.area == current.zone.area }.mapNotNull { (zone, h) -> bounds(h)?.let { zone to it.top } }.sortedBy { it.second }
         val spans = tops.mapIndexed { i, (zone, top) -> zone to top..(tops.getOrNull(i + 1)?.second ?: c.size.height.toFloat()) }
         val middles = tops.associate { (zone, _) ->
             zone to preview.parts(zone.area)[zone.part].filter { it.id != id }.mapNotNull { bounds(rows[it.id])?.center?.y }

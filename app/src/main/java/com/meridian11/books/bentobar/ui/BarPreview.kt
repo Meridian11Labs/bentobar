@@ -20,6 +20,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -28,14 +29,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -49,6 +57,7 @@ import com.meridian11.books.bentobar.bar.StripContent
 import com.meridian11.books.bentobar.bar.StripEntry
 import com.meridian11.books.bentobar.bar.StripEvents
 import com.meridian11.books.bentobar.bar.StripLook
+import com.meridian11.books.bentobar.data.BAR_ORDER
 import com.meridian11.books.bentobar.data.ColorMode
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
@@ -64,14 +73,18 @@ import com.meridian11.books.bentobar.util.Fonts
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
 import java.time.ZonedDateTime
+import kotlin.math.roundToInt
 
 /**
  * A mock status bar with the real strips in it, one for each area the layout uses, standing where the bar has them;
- * clicking an item selects it. Under it one quiet line: what the preview is, or [said], what a key just could not do.
+ * clicking an item selects it. With several areas in use each strip has its area's name on a bracket under it, the
+ * selected item's in the accent; an area the bar has [noRoom] for right now has neither, and the Middle's place then
+ * says who has it. Under it one quiet line: what the preview is, or [said], what a key just could not do.
  * Internal for its test.
  */
 @Composable
-internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said: String? = null, onSelect: (String?) -> Unit) {
+internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said: String? = null, noRoom: Set<Position> = emptySet(),
+                        onSelect: (String?) -> Unit) {
     val cfg by Store.config.collectAsState()
     val tick by Ticker.tick.collectAsState()
     var expanded by remember { mutableStateOf(false) }
@@ -80,7 +93,13 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
     // Each area's own, as each of the bar's strips has its own.
     val dropped = remember { mutableStateMapOf<Position, Set<String>>() }
     // The areas the bar has a strip for, in the order it gives them room: with every item in one area, that one.
-    val areas = BarRules.wantedAreas(cfg.homeArea(), cfg.areasInUse())
+    val wanted = BarRules.wantedAreas(cfg.homeArea(), cfg.areasInUse())
+    val several = wanted.size > 1
+    val areas = if (several) wanted.filter { it !in noRoom } else wanted
+    // Where each strip stands in the bar, for the brackets under it.
+    var spans by remember { mutableStateOf(emptyMap<Position, IntRange>()) }
+    var origin by remember { mutableIntStateOf(0) }
+    val barAt = remember { arrayOfNulls<LayoutCoordinates>(1) }
     // An area that left the layout takes what it had no room for with it: back later, it starts as a new strip does.
     SideEffect { dropped.keys.retainAll(areas.toSet()) }
     // What the bar shows, by the same function: the preview makes no choice of its own.
@@ -119,7 +138,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
     } }
     Column {
         BoxWithConstraints(
-            Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(Radius.large))
+            Modifier.fillMaxWidth().height(52.dp).onGloballyPositioned { barAt[0] = it }.clip(RoundedCornerShape(Radius.large))
                 .background(barBrush),
         ) {
             // The strip may take what the mock clock and system icons leave (about 380 dp go to them and the gaps).
@@ -143,7 +162,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
                     }
                 }
                 val only = areas.singleOrNull()
-                if (only != null) {
+                if (only != null && !several) {
                     // A layout in one area is the one strip between the spacers it always had.
                     if (only == Position.LEFT) Spacer(Modifier.width(16.dp)) else Spacer(Modifier.weight(1f))
                     strip(only, maxPx)
@@ -157,7 +176,10 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
                     val drawing = areas.filterTo(HashSet()) { area ->
                         draws(area, home = area == cfg.homeArea() && areas.none { it != area && draws(it, home = false) })
                     }
-                    PreviewAreas(areas, drawing, maxPx, Modifier.weight(1f), strip)
+                    val pill: (@Composable () -> Unit)? = if (Position.CENTER in noRoom && Position.CENTER in wanted) { { SystemPill(look.fg) } } else null
+                    PreviewAreas(areas, drawing, maxPx, Modifier.weight(1f).onGloballyPositioned { at ->
+                        barAt[0]?.takeIf { it.isAttached }?.let { origin = it.localPositionOf(at, Offset.Zero).x.roundToInt() }
+                    }, pill, { if (spans != it) spans = it }, strip)
                 }
                 Spacer(Modifier.width(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -168,10 +190,11 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
                 }
             }
         }
+        if (several) Brackets(spans.filterKeys { it in areas }, origin, cfg.items.firstOrNull { it.id == selected }?.area)
         val hint = stringResource(if (plans.values.any { it.hidden.isNotEmpty() }) R.string.bar_preview_hint_hidden else R.string.bar_preview_hint)
         Text(said ?: if (more.isEmpty()) hint else hint + " " + pluralStringResource(R.plurals.bar_preview_more, more.size, more.size),
             style = Bento.type.help, color = Bento.colors.ink2, maxLines = 2,
-            modifier = Modifier.padding(start = 4.dp, top = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
+            modifier = Modifier.padding(start = 4.dp, top = if (several) 0.dp else 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
     }
 }
 
@@ -187,9 +210,13 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
  * that room only once a ‹ is needed, and the picture is steadier for keeping it always. An area with no room for a ‹ is
  * not drawn (the bar hands its items to another strip's ‹; here they are in the count under the picture), and one that
  * draws nothing takes no room.
+ *
+ * [pill], if there is one, stands for a Middle the bar has no room for: it fills what Left and Right leave, where that
+ * is enough for it. [onSpans] hears where each strip was placed, from its left edge to its right one.
  */
 @Composable
-private fun PreviewAreas(areas: List<Position>, drawing: Set<Position>, maxPx: Int, modifier: Modifier, strip: @Composable (Position, Int) -> Unit) {
+private fun PreviewAreas(areas: List<Position>, drawing: Set<Position>, maxPx: Int, modifier: Modifier, pill: (@Composable () -> Unit)?,
+                         onSpans: (Map<Position, IntRange>) -> Unit, strip: @Composable (Position, Int) -> Unit) {
     // Composed while measuring: a strip's budget comes from what the areas before it measured.
     SubcomposeLayout(modifier) { constraints ->
         val width = constraints.maxWidth
@@ -222,9 +249,68 @@ private fun PreviewAreas(areas: List<Position>, drawing: Set<Position>, maxPx: I
                 }
             }
             if (area == Position.RIGHT) usedRight = p.width else if (area == Position.LEFT) usedLeft = p.width
-            p to x
+            Triple(area, p, x)
         }
-        val height = placed.maxOfOrNull { it.first.height } ?: 0
-        layout(width, height) { placed.forEach { (p, x) -> p.place(x, (height - p.height) / 2) } }
+        onSpans(placed.associate { (area, p, x) -> area to (x until x + p.width) })
+        // The brackets reach past their strips, so the pill keeps clear of both by more than the strips do of each other.
+        val stand = pill?.let {
+            val lane = BarRules.lane(Position.CENTER, lo, hi, between = 14.dp.roundToPx(), usedRight, usedLeft)
+            val m = subcompose("pill", it).singleOrNull() ?: return@let null
+            if (m.minIntrinsicWidth(constraints.maxHeight) > lane.max) null else m.measure(Constraints.fixedWidth(lane.max).copy(maxHeight = constraints.maxHeight)) to lane.left
+        }
+        val height = maxOf(placed.maxOfOrNull { it.second.height } ?: 0, stand?.first?.height ?: 0)
+        layout(width, height) {
+            placed.forEach { (_, p, x) -> p.place(x, (height - p.height) / 2) }
+            stand?.let { (p, x) -> p.place(x, (height - p.height) / 2) }
+        }
+    }
+}
+
+/** In the place of a Middle the bar has no room for: the system has that part of the bar right now. */
+@Composable
+private fun SystemPill(fg: Color) {
+    Box(Modifier.height(32.dp).background(fg.copy(alpha = 0.1f), RoundedCornerShape(Radius.medium)).padding(horizontal = Space.m).testTag("system-pill"),
+        contentAlignment = Alignment.Center) {
+        Text(stringResource(R.string.areas_system_now), style = Bento.type.help, color = fg.copy(alpha = 0.75f), maxLines = 1)
+    }
+}
+
+/**
+ * The areas' names under the bar, each on a bracket as wide as its strip and a little more: which part of the bar is
+ * which area. [spans] are the strips' places in the room that starts [origin] into the bar; [chosen] is the selected
+ * item's area, whose bracket takes the accent. They are sides of the screen, so they are not mirrored.
+ */
+@Composable
+private fun Brackets(spans: Map<Position, IntRange>, origin: Int, chosen: Position?) {
+    val c = Bento.colors
+    val order = BAR_ORDER.filter { it in spans }
+    Layout({
+        order.forEach { area ->
+            val tint = if (area == chosen) c.accent else c.ink3
+            val line = if (area == chosen) c.accent else c.ink3.copy(alpha = 0.55f)
+            Row(Modifier.testTag("bracket:$area"), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(1.dp).height(7.dp).background(line))
+                Box(Modifier.weight(1f).height(1.dp).background(line))
+                Text(stringResource(areaRes(area)), Modifier.padding(horizontal = 6.dp), style = Bento.type.help.copy(fontWeight = if (area == chosen) FontWeight.SemiBold else FontWeight.Medium),
+                    color = tint, maxLines = 1, overflow = TextOverflow.Clip)
+                Box(Modifier.weight(1f).height(1.dp).background(line))
+                Box(Modifier.width(1.dp).height(7.dp).background(line))
+            }
+        }
+    }, Modifier.fillMaxWidth().height(20.dp)) { measurables, cs ->
+        val reach = 6.dp.roundToPx()
+        val apart = 2.dp.roundToPx()
+        val from = IntArray(order.size) { origin + spans.getValue(order[it]).first - reach }
+        val to = IntArray(order.size) { origin + spans.getValue(order[it]).last + 1 + reach }
+        // Two that would meet share the room between their strips.
+        for (i in 1 until order.size) if (to[i - 1] + apart > from[i]) {
+            val mid = (to[i - 1] + from[i]) / 2
+            to[i - 1] = mid - apart / 2
+            from[i] = mid + apart - apart / 2
+        }
+        val placed = measurables.mapIndexed { i, m -> m.measure(Constraints.fixedWidth((to[i] - from[i]).coerceAtLeast(0)).copy(maxHeight = 16.dp.roundToPx())) }
+        layout(cs.maxWidth, cs.maxHeight) {
+            placed.forEachIndexed { i, p -> p.place(from[i], 4.dp.roundToPx() + (16.dp.roundToPx() - p.height) / 2) }
+        }
     }
 }

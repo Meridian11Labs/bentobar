@@ -21,16 +21,25 @@ class BarRowsTest {
     private val lowerRight = Zone(Position.RIGHT, Part.LOWER)
 
     /** The list as words: a head, an area's name, the line, a row's id, a slip. */
-    private fun lines(cfg: BarConfig, slip: Slip? = null, dragging: Boolean = false) = listEntries(cfg, slip, dragging).map {
+    private fun words(entries: List<Entry>) = entries.map {
         when (it) {
             is Entry.ListHead -> "head ${it.area}"
             is Entry.AreaHead -> "area ${it.area}" + if (it.first) " first" else ""
             is Entry.PartLine -> "line"
+            Entry.SharedLine -> "one line"
             is Entry.Row -> it.item.id + if (it.zone.part == Part.LOWER) " below" else ""
             is Entry.Removed -> "slip ${it.slip.item.id}"
             Entry.Empty -> "empty"
+            is Entry.EmptyLane -> "lane ${it.area}"
+            is Entry.Blank -> "nothing ${it.area}"
+            is Entry.Fold -> "fold ${it.area}"
+            is Entry.NoRoom -> "no room ${it.area}"
         }
     }
+    private fun lines(cfg: BarConfig, slip: Slip? = null, dragging: Boolean = false) = words(listEntries(cfg, slip, dragging))
+    /** The lanes side by side, as the wide window has them. */
+    private fun abreast(cfg: BarConfig, opened: Set<Position> = emptySet(), slip: Slip? = null, fold: Position? = null, noRoom: Set<Position> = emptySet()) =
+        words(listEntries(cfg, slip, dragging = false, lanes = lanesOnScreen(cfg, opened), abreast = true, fold = fold, noRoom = noRoom))
 
     @Test fun withOneAreaTheListIsOneHeadTheRowsAndAlwaysTheLine() {
         val cfg = BarConfig(items = listOf(item("a"), item("w", section = Section.HIDDEN, rule = true), item("b"), item("off", section = Section.OFF)))
@@ -49,6 +58,38 @@ class BarRowsTest {
         assertEquals(listOf("area LEFT first", "l", "line", "w below", "area CENTER", "m", "area RIGHT", "r"), lines(cfg))
         // While a row is carried every area shows where its lower part is.
         assertEquals(listOf("area LEFT first", "l", "line", "w below", "area CENTER", "m", "line", "area RIGHT", "r", "line"), lines(cfg, dragging = true))
+    }
+
+    @Test fun sideBySideTheLanesShareOneLineAndALowerPartWithoutRowsSaysSo() {
+        val cfg = BarConfig(items = listOf(item("r"), item("l", Position.LEFT), item("w", Position.LEFT, Section.HIDDEN, rule = true), item("m", Position.CENTER)))
+        assertEquals(listOf("area LEFT first", "l", "one line", "w below", "area CENTER", "m", "nothing CENTER", "area RIGHT", "r", "nothing RIGHT"), abreast(cfg))
+        // Each line knows its lane; the one line and nothing else runs across them.
+        val entries = listEntries(cfg, null, dragging = false, lanes = lanesOnScreen(cfg, emptySet()), abreast = true)
+        assertEquals(listOf(Entry.SharedLine), entries.filter { it.lane == null })
+        assertEquals(listOf(Position.LEFT, Position.CENTER, Position.RIGHT), entries.mapNotNull { it.lane }.distinct())
+        // One lane is the one list, whatever the window: nothing of the lanes is in it.
+        val one = BarConfig(items = listOf(item("a"), item("w", section = Section.HIDDEN, rule = true)))
+        assertEquals(lines(one), abreast(one))
+    }
+
+    @Test fun anOpenedLaneSaysWhatItIsForInBothFormsAndIsGoneWithItsFirstRow() {
+        val cfg = BarConfig(items = listOf(item("a"), item("b")))
+        assertEquals(listOf("area LEFT first", "lane LEFT", "one line", "nothing LEFT", "area RIGHT", "a", "b", "nothing RIGHT"), abreast(cfg, setOf(Position.LEFT)))
+        // In one column the empty lane has no lower part to show.
+        assertEquals(listOf("area LEFT first", "lane LEFT", "area RIGHT", "a", "b"),
+            words(listEntries(cfg, null, dragging = false, lanes = lanesOnScreen(cfg, setOf(Position.LEFT)))))
+        val used = BarConfig(items = listOf(item("a"), item("b", Position.LEFT)))
+        assertEquals(listOf("area LEFT first", "b", "one line", "nothing LEFT", "area RIGHT", "a", "nothing RIGHT"), abreast(used, setOf(Position.LEFT)))
+    }
+
+    @Test fun aClosedLaneIsSaidFirstAndAnAreaWithoutRoomSaysSoUnderItsHead() {
+        val two = BarConfig(items = listOf(item("l", Position.LEFT), item("r")))
+        assertEquals(listOf("fold CENTER", "area LEFT first", "l", "one line", "nothing LEFT", "area RIGHT", "r", "nothing RIGHT"), abreast(two, fold = Position.CENTER))
+        assertEquals(listOf("area LEFT first", "no room LEFT", "l", "one line", "nothing LEFT", "area RIGHT", "r", "nothing RIGHT"), abreast(two, noRoom = setOf(Position.LEFT)))
+        // The last lane but one closed: the one list again, with what closed above it.
+        val one = BarConfig(items = listOf(item("r")))
+        assertEquals(listOf("fold LEFT", "head RIGHT", "r", "line"), abreast(one, fold = Position.LEFT))
+        assertEquals("with one lane nothing is said of room", listOf("head RIGHT", "r", "line"), abreast(one, noRoom = setOf(Position.RIGHT)))
     }
 
     @Test fun anAreaWithOnlyOffItemsHasNoHeadAndAnEmptyBarSaysSo() {
@@ -89,10 +130,18 @@ class BarRowsTest {
         val one = BarConfig(items = listOf(item("a", Position.LEFT)))
         val kept = removal(one, "a")
         assertEquals(listOf("head LEFT", "slip a", "line"), lines(kept.after, slipOf(kept, kept.after)))
-        // The only item of one of two areas: its area keeps its name while the slip stands.
+        // Its slip stands in its own area, wherever an empty bar would add: a setup remembered in another area changes nothing.
+        val other = BarConfig(items = listOf(item("off", Position.RIGHT, Section.OFF), item("a", Position.LEFT)))
+        val last = removal(other, "a")
+        assertEquals(listOf("head LEFT", "slip a", "line"), lines(last.after, slipOf(last, last.after)))
+    }
+
+    @Test fun theOnlyItemOfOneOfTwoAreasClosesItsLaneAndThePageSaysThatInsteadOfTheRowsSlip() {
         val two = BarConfig(items = listOf(item("l", Position.LEFT), item("r")))
         val gone = removal(two, "l")
-        assertEquals(listOf("area LEFT first", "slip l", "area RIGHT", "r"), lines(gone.after, slipOf(gone, gone.after)))
+        assertEquals(Position.LEFT, foldOf(gone, gone.after, several = true))
+        // What the page shows: no slip in a lane that is gone, the closing said above the one list.
+        assertEquals(listOf("fold LEFT", "head RIGHT", "r", "line"), abreast(gone.after, fold = Position.LEFT))
     }
 
     @Test fun theSlipClosesWithTheNextChangeToTheArrangementAndIsNoneForAChangeThatRemovedNothing() {

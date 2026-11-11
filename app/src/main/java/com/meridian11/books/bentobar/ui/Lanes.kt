@@ -2,9 +2,12 @@ package com.meridian11.books.bentobar.ui
 
 import com.meridian11.books.bentobar.data.BAR_ORDER
 import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.data.ROOM_ORDER
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.homeArea
+import com.meridian11.books.bentobar.data.stripPlan
 
 /** The areas of [cfg] that hold a row, in the bar's order: none with nothing in the bar. */
 internal fun rowAreas(cfg: BarConfig): List<Position> = BAR_ORDER.filter { a -> cfg.items.any { it.area == a && it.section != Section.OFF } }
@@ -56,3 +59,21 @@ internal fun movedBy(kept: Undo.Kept?): String? {
     val was = kept.before.items.associate { it.id to it.area }
     return kept.after.items.singleOrNull { it.section != Section.OFF && was[it.id] != null && was[it.id] != it.area }?.id
 }
+
+/**
+ * The areas the bar has no room for right now: not the one that takes the free space first, and everything its strip
+ * would draw is among the items that don't fit ([overflow], as the bar reports them; [active] as for [stripPlan]). Its
+ * lane says so once, in a notice, and its rows say nothing about fitting.
+ */
+internal fun noRoomAreas(cfg: BarConfig, overflow: Set<String>, active: (ItemConfig) -> Boolean): Set<Position> {
+    val used = rowAreas(cfg)
+    if (used.size < 2 || overflow.isEmpty()) return emptySet()
+    val first = ROOM_ORDER.first { it in used }
+    return used.filter { area ->
+        val drawn = cfg.stripPlan(area, active, expanded = false, overflow = false).visible
+        area != first && drawn.isNotEmpty() && drawn.all { it.id in overflow }
+    }.toSet()
+}
+
+/** The areas in use that take the free space before [area] does, first taker first: the ones its notice names. */
+internal fun roomAhead(cfg: BarConfig, area: Position): List<Position> = rowAreas(cfg).let { used -> ROOM_ORDER.takeWhile { it != area }.filter { it in used } }

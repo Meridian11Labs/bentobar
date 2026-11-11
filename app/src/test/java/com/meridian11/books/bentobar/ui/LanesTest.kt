@@ -81,4 +81,20 @@ class LanesTest {
         // Into a lane that was opened and still empty, the one it left closes.
         assertEquals(right, foldOf(Undo.Kept(one, over), over, several = true))
     }
+
+    @Test fun anAreaHasNoRoomWhenAllItsStripWouldDrawDoesNotFitAndItIsNotTheFirstToTakeTheSpace() {
+        val cfg = layout(item("r", right), item("l", left), item("m1", middle), item("m2", middle))
+        val none: (ItemConfig) -> Boolean = { false }
+        assertEquals(setOf(middle), noRoomAreas(cfg, setOf("m1", "m2"), none))
+        assertEquals("one of its items is in the bar: its rows say which are not", emptySet<Position>(), noRoomAreas(cfg, setOf("m1"), none))
+        assertEquals(setOf(left, middle), noRoomAreas(cfg, setOf("l", "m1", "m2"), none))
+        assertEquals("Right takes the space first: what does not fit there is behind its arrow", emptySet<Position>(), noRoomAreas(cfg, setOf("r"), none))
+        assertEquals(emptySet<Position>(), noRoomAreas(cfg, emptySet(), none))
+        assertEquals("with one area in use there is no lane to say it in", emptySet<Position>(), noRoomAreas(layout(item("m1", middle)), setOf("m1"), none))
+        // The areas its notice names: the ones in use that take the space before it.
+        assertEquals(listOf(right, left), roomAhead(cfg, middle))
+        assertEquals(listOf(right), roomAhead(cfg, left))
+        assertEquals(listOf(left), roomAhead(layout(item("l", left), item("m", middle)), middle))
+        assertEquals(emptyList<Position>(), roomAhead(cfg, right))
+    }
 }
