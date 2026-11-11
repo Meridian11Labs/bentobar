@@ -172,16 +172,30 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     means is pure, in `ui/Drops.kt` (`dropAt` over a `DropMap` of rectangles, `dropped`, `showing`, `dropLine`;
     `ReorderTest`); `Reorder` only measures and carries. Frames run while the pointer moves or the list scrolls and
     a quarter second after, so a row held still costs nothing; `DragTest` drives it with an injected mouse and finger,
-    pressed, moved and released), `Pages` (Look, Setup, About),
+    pressed, moved and released), `LookPage`, `SetupPage` and `AboutPage` (each one column of cards, 760 dp at most, built
+    from `PageKit`: `PageColumn`, `PageSection`, `PageCard`, `SettingRow`, `ChoiceSetting`, `SwitchSetting`; About has two
+    columns from 760 dp of window. Setup's first card is Turn on, or "On" once BentoBar is; a permission's row says
+    Allowed with a quiet way back, and one Android won't ask for again says so in its own row. `SetupRules`, pure, says
+    when the window goes to Bar by itself: only at the moment BentoBar comes on while Setup is shown),
     `Disclosure` (the accessibility disclosure and consent Google Play requires, and the one list of
-    what the service does that Setup shows too; `ConsentRules` says when it comes up), `Theme`, `MenuKit` and
+    what the service does that Setup shows too; `ConsentRules` says when it comes up. It is a page under the Setup tab,
+    not a dialog: Agree and No thanks are the only answers, and Back, Esc or another tab leave it with none;
+    `ConsentWindowTest` holds that in the window itself), `Theme`, `MenuKit` and
     `Controls` (shared UI pieces).
+    Before BentoBar is on the Bar page works as ever, on a preview in the window's own teal that says so
+    (`BarPreview(off)`, from `BarPage(running)`), and the header has Turn on, which goes through the disclosure.
     Two themes: the settings window has BentoBar's own colors and tokens (`SettingsTheme`: `Palette` in light and dark,
     read as `Bento.colors` and `Bento.type`, with `Space`, `Radius` and `Target`; Material's roles are set from the same
-    palette for the pages not yet moved over), and `PaletteContrastTest` holds its pairs to the contrast they need. The
-    bar's popups keep the device's colors (`BentoBarTheme`). The settings window's own controls are in `Controls`
-    (`Segment`, equal parts or each as wide as its words; `SwitchMark`, `BentoButton`, `FilterField`, `Keycap`) and `Notice`
-    (`NoticeLine`; an amber notice's one button is `ButtonKind.WARN`), beside the rows the item menus share.
+    palette for the few pieces an item's options share with its popup), and `PaletteContrastTest` holds its pairs to the
+    contrast they need. The bar's popups keep the device's colors (`BentoBarTheme`). The settings window's own controls are in `Controls`
+    (`Segment`, equal parts or each as wide as its words; `SwitchMark`, `BentoButton`, `FilterField`, `Keycap`, `RadioList`,
+    `BentoField`, `BentoSlider`) and `Notice`
+    (`NoticeLine`; an amber notice's one button is `ButtonKind.WARN`). The rows a type builds its options from
+    (`ChoiceRow`, `SwitchRow`, `TextRow`, `SliderRow`, `ServiceKey`) are drawn with them, so a type's options need no
+    look of their own: a choice of two or three short values is a segment, a longer one radio buttons under its name
+    (`ChoiceRules.asSegment`). A piece drawn both in a popup and in the window asks `LocalSettingsWindow` which look to
+    take. An item says what is wrong with it through `ItemType.trouble` (a notice over its options with Try again, and
+    "last updated" in its row); Weather is the first that does.
     Areas in Settings: with one lane on screen the Bar page has nothing of areas but "Add an area" at the end of the
     list's head (and Area as the last, quiet row of an item's options). The lanes on screen are the areas with rows and
     the ones "Add an area" opened that are still empty (`ui/Lanes.kt`, pure: `lanesOnScreen`; the opened ones are the
@@ -198,7 +212,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   - "Show when…": a type's `trigger` (in `ItemType.kt`) words its pop-out rule, and its `Threshold`
     is the one source of the option key and default for both `state()` and the settings slider.
     The settings say it as Visibility ("Always", "Only when active", and with ‹ "Behind ‹" with a "Pops out when active"
-    switch), and the bar's right-click menu says the same words (`standing` is the one reading of where an item stands).
+    switch), and the bar's right-click menu says the same words (`standing` is the one reading of where an item stands), on bare
+    lines with a tick at the end of a rule that is on, and Show as as one choice of three (`MenuSegment`, in the popup's own colors).
     An option generally is an `Opt` (`items/Opt.kt`): the key, the default and the checks on what a layout may say, declared
     once on the type and read by the bar and the settings alike; text from a layout is cleaned there. Older types still read
     by key and move over as they are touched.
@@ -222,7 +237,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   set from the text resources in `Env.init`.
 - `tools/logo.py`: draws the icon (a bento box seen from above: a status bar compartment with a ‹
   and dots cut out, over three item compartments; rice, salmon, tamago and edamame on ink blue):
-  launcher foreground/monochrome/background, `ic_bentobar` (24 dp: About, the disclosure, the ‹ menu; the settings header draws the mark itself, with the same numbers) and
+  launcher foreground/monochrome/background, `ic_bentobar` (24 dp: the ‹ menu; the settings window draws the mark itself, with the same numbers: `Mark` in `Shell`, for the header, About and the disclosure) and
   `ic_tile_bar` (the QS tile), plus docs/images/icon.png for the README. No font needed.
 - `tools/icons.py`: subsets Material Symbols Rounded into `assets/fonts` (outlined and filled),
   writes `Sym.kt`, and exports some glyphs as vector drawables (`res/drawable/sym_*.xml`, for
@@ -243,7 +258,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   Robolectric stays out of the fast tests in `app/src/test`. `MenuCompositionTest` composes every registered item's menu under
   each state in its type's `stages`; Compose has no error boundary, so this is what stands between a throwing menu and the service.
   `ShellPicturesTest` draws the settings window at each layout's width in light and dark and holds the grounds to the palette,
-  `BarPagePicturesTest` the Bar page in each of its states (and `MenuCompositionTest` the right-click menu);
+  `BarPagePicturesTest` the Bar page in each of its states, `LookPageTest`, `SetupPageTest` and `OptionsPicturesTest` the other
+  pages and an item's options (and `MenuCompositionTest` the right-click menu);
   with `BENTOBAR_PICTURES=<directory>` (and `--rerun`) they write the pictures there as PNGs, to look at beside a design. It asks
   the view to draw into a bitmap; `captureToImage` came out one change behind, or blank, when every Compose test ran. A test
   of keys asks for the keyboard first (`LocalInputModeManager`): in touch mode nothing that takes a click takes the focus.
@@ -366,8 +382,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
 - **Google Play wants a prominent disclosure with consent** before an app that isn't an
   accessibility tool sends anyone to turn its service on: in the app's normal use, saying what the
   API is used for and what happens to what it reads, with two buttons (agree and decline); a single
-  button, a switch or closing the dialog don't count. `ui/Disclosure.kt` is that screen. It comes up
-  on first opening and from Setup › Turn on until the answer is Agree (`Store.consent`, kept outside
+  button, a switch or closing the dialog don't count. `ui/Disclosure.kt` is that screen, a page of the settings
+  window with exactly those two buttons; the system's Accessibility settings open only after Agree. It comes up
+  on first opening and from Turn on (Setup's and the header's) until the answer is Agree (`Store.consent`, kept outside
   the layout so Copy settings can't carry it). The video in Play's Accessibility declaration has to
   show it.
 - **Settings state is observed, not read while drawing** (`ui/SetupState.kt`, `bar/BarStatus.kt`).
