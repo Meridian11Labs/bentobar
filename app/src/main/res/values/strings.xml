@@ -540,10 +540,10 @@
     <string name="add_group_tools">Tools</string>
     <string name="add_group_online">Online</string>
     <string name="add_group_online_caption">These ask an online service once you set them up. Nothing else in BentoBar goes online.</string>
-    <string name="look_placement">Placement</string>
+    <string name="look_items">Items</string>
     <string name="look_position">Where BentoBar sits</string>
+    <string name="look_position_help">Moves every item there. To place items one by one, use Area in an item\'s options.</string>
     <string name="look_spacing">Space between items</string>
-    <string name="look_look">Look</string>
     <string name="look_text_size">Text size</string>
     <string name="look_text_small">Small</string>
     <string name="look_text_large">Large</string>
@@ -562,7 +562,11 @@
     <string name="look_chip_fallback">When BentoBar is off</string>
     <string name="look_chip_always">Always</string>
     <string name="look_chip_help">Android shows one chip per app, next to the system icons, and hides it while that app\'s window is open. BentoBar uses it for a running timer or a meeting starting within 15 minutes.</string>
+    <string name="look_popups">Popups</string>
+    <string name="look_presenting_live">Presenting and Live Updates</string>
     <string name="look_backup">Backup</string>
+    <string name="look_your_settings">Your settings</string>
+    <string name="look_kept">A kept layout</string>
     <string name="look_clip_label">BentoBar settings</string>
     <string name="look_copied">Settings copied</string>
     <string name="look_copy">Copy settings</string>
