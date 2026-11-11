@@ -79,6 +79,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.round
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.text.format.DateFormat
@@ -415,13 +417,15 @@ internal fun whereRes(area: Position): Int = when (area) {
 @Composable
 private fun Head(name: String, where: String, modifier: Modifier, rule: Boolean = false, plus: Boolean = false, trailing: @Composable RowScope.() -> Unit) {
     val c = Bento.colors
+    // The dot stands between the two: from right to left the name is on the right, so the dot ends the words beside it.
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Column(modifier.fillMaxWidth()) {
         if (rule) Box(Modifier.fillMaxWidth().padding(Space.s).height(1.dp).background(c.line))
         Row(Modifier.fillMaxWidth().heightIn(min = if (plus) Target.control else 36.dp).padding(start = Space.xl, end = if (plus) Space.s else 14.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
                 Text(name, style = Bento.type.strong, color = c.ink, maxLines = lines())
-                Text(" · $where", style = Bento.type.help, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
+                Text(if (rtl) "$where · " else " · $where", style = Bento.type.help, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
             }
             trailing()
         }

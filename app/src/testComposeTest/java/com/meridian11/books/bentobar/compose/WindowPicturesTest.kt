@@ -120,7 +120,7 @@ class WindowPicturesTest {
 
     /**
      * Every text on screen that its place cuts off: a line lost to a height that doesn't grow, a line that ends in an
-     * ellipsis (both are "more lines than it may take"), or letters past the end of a single line. The preview is left
+     * ellipsis (both are "more lines than it may take"), or a line longer than its text is wide. The preview is left
      * out: it draws the bar as the bar draws itself, and what the bar shortens for want of room is the bar's own rule.
      */
     private fun cutOff(): List<String> =
@@ -128,7 +128,7 @@ class WindowPicturesTest {
             if (generateSequence(node) { it.parent }.any { it.config.getOrNull(SemanticsProperties.TestTag) == "preview" }) return@mapNotNull null
             val results = mutableListOf<TextLayoutResult>()
             node.config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action?.invoke(results)
-            results.firstOrNull()?.takeIf { r -> r.didOverflowHeight || (0 until r.lineCount).any { r.getLineRight(it) > r.size.width + 1f } }?.layoutInput?.text?.text
+            results.firstOrNull()?.takeIf { r -> r.didOverflowHeight || (0 until r.lineCount).any { r.getLineRight(it) - r.getLineLeft(it) > r.size.width + 1f } }?.layoutInput?.text?.text
         }
 
     private fun large(name: String) {
@@ -168,6 +168,22 @@ class WindowPicturesTest {
         Store.update { BarConfig(items = listOf(ItemConfig("clock", "clock", area = Position.RIGHT)), position = Position.RIGHT) }
         window(Page.LOOK) { LookPage() }
         large("large-look")
+    }
+
+    @Test fun fromRightToLeftTheBarPageIsMirroredAroundABarThatIsNot() {
+        direction = LayoutDirection.Rtl
+        bar(three = true, mode = HiddenMode.CLICK, select = "timer")
+        large("rtl-bar")
+        selected = null
+        large("rtl-library")
+    }
+
+    @Config(qualifiers = "w1180dp-h1600dp-mdpi")
+    @Test fun fromRightToLeftLookIsWhole() {
+        direction = LayoutDirection.Rtl
+        Store.update { BarConfig(items = listOf(ItemConfig("clock", "clock", area = Position.RIGHT)), position = Position.RIGHT) }
+        window(Page.LOOK) { LookPage() }
+        large("rtl-look")
     }
 
     @Config(qualifiers = "w1180dp-h1600dp-mdpi")

@@ -155,7 +155,7 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
             if (several) OptionRow(stringResource(R.string.areas_label), keys = AreaKeys.caps(res)) {
                 val areas = areaChoices()
                 Segment(areas.map { SegmentPart(it.second) }, areas.indexOfFirst { it.first == item.area }, { edit.area(item.id, areas[it].first) },
-                    Modifier.weight(1f).testTag("area"))
+                    Modifier.weight(1f).testTag("area"), sides = true)
             }
             Visibility(item, cfg, type, edit)
             OptionRow(stringResource(R.string.order_label),

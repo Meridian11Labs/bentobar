@@ -531,12 +531,14 @@ class SegmentPart(val label: String, val icon: String? = null, val enabled: Bool
  * A segmented choice: parts on a sunk track, the chosen one raised and heavier (never by color alone). The raised part
  * travels to the chosen one. [role] is a tab for the panel switch and a radio button for a choice of values; [chosen]
  * outside the parts raises none. The parts are [equal] in width, or each as wide as its words with the room left over
- * shared out evenly, so a long choice beside a short one is not cut short.
+ * shared out evenly, so a long choice beside a short one is not cut short. From right to left the parts are mirrored
+ * like any row, unless they are [sides] of the screen (Left, Middle, Right), which stand where they are in the bar.
  */
 @Composable
 fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modifier: Modifier = Modifier,
-            role: Role = Role.RadioButton, track: Color = Bento.colors.sunk, equal: Boolean = true) {
+            role: Role = Role.RadioButton, track: Color = Bento.colors.sunk, equal: Boolean = true, sides: Boolean = false) {
     val c = Bento.colors
+    val mirrored = !sides && LocalLayoutDirection.current == LayoutDirection.Rtl
     val type = Bento.type
     val at by animateFloatAsState(chosen.toFloat(), Motion.spec(tween(SEGMENT_MS)), label = "segment")
     // Where each part was placed and how wide, for the raised part that is drawn behind them.
@@ -564,8 +566,9 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
         val from = spans[at.toInt().coerceIn(parts.indices)]
         val to = spans[kotlin.math.ceil(at).toInt().coerceIn(parts.indices)]
         val f = at - at.toInt()
-        val x = from.first + (to.first - from.first) * f
         val w = from.second + (to.second - from.second) * f
+        // The parts' places are counted from the start: from right to left that is the right edge.
+        val x = (from.first + (to.first - from.first) * f).let { if (mirrored) size.width - it - w else it }
         val r = CornerRadius(Radius.small.toPx())
         // The contact shadow that lifts it off the track.
         drawRoundRect(Color.Black.copy(alpha = if (c.dark) 0.40f else 0.14f), Offset(x, 1.dp.toPx()), Size(w, size.height), r)
@@ -590,7 +593,7 @@ fun Segment(parts: List<SegmentPart>, chosen: Int, onChoose: (Int) -> Unit, modi
         val now = placed.map { p -> (x to p.width).also { x += p.width + gap } }
         if (now != spans) spans = now
         layout(room + gap * (n - 1).coerceAtLeast(0), height) {
-            placed.forEachIndexed { i, p -> p.placeRelative(now[i].first, (height - p.height) / 2) }
+            placed.forEachIndexed { i, p -> if (sides) p.place(now[i].first, (height - p.height) / 2) else p.placeRelative(now[i].first, (height - p.height) / 2) }
         }
     }
 }

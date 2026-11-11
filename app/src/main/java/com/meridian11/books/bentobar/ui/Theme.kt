@@ -18,8 +18,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,12 +117,15 @@ class Palette(
 
 /**
  * The settings window's text: six sizes, weights 400, 500 and 600, the system's font family (as the pages have it
- * today), no letter spacing, no italics, no capitals.
+ * today), no letter spacing, no italics, no capitals. In a window laid out from right to left ([rtl]) a text is set
+ * to the right and reads in its own words' direction: the app's words are English, and read as a right-to-left
+ * paragraph a sentence's full stop and the arrow's sign change sides ("‹ Behind", pointing the other way).
  */
 @Immutable
-class Type(private val family: FontFamily?) {
+class Type(private val family: FontFamily?, private val rtl: Boolean = false) {
     private fun style(size: Int, line: Int, weight: FontWeight) =
-        TextStyle(fontFamily = family, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight, letterSpacing = 0.sp)
+        TextStyle(fontFamily = family, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight, letterSpacing = 0.sp,
+            textDirection = if (rtl) TextDirection.Content else TextDirection.Unspecified, textAlign = if (rtl) TextAlign.Right else TextAlign.Unspecified)
 
     /** 26 / 600: the disclosure page's title. */
     val display = style(26, 32, FontWeight.SemiBold)
@@ -203,7 +210,8 @@ object Bento {
 fun SettingsTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val palette = if (dark) Palette.Dark else Palette.Light
     val typography = remember { typography() }
-    val type = remember(typography) { Type(typography.bodyMedium.fontFamily) }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val type = remember(typography, rtl) { Type(typography.bodyMedium.fontFamily, rtl) }
     CompositionLocalProvider(LocalPalette provides palette, LocalType provides type, LocalSettingsWindow provides true) {
         MaterialTheme(colorScheme = remember(palette) { palette.scheme() }, typography = typography, content = content)
     }

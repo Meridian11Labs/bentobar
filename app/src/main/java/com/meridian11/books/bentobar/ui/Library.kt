@@ -243,7 +243,7 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
             Text(label, Modifier.padding(start = Space.xs), style = Bento.type.small, color = c.ink2, maxLines = lines())
             Spacer(Modifier.width(Space.m))
             Segment(areas.map { SegmentPart(it.second, spoken = "$label ${it.second}") }, areas.indexOfFirst { it.first == to }, { edit.addTo = areas[it].first },
-                Modifier.weight(1f).testTag("add-to"))
+                Modifier.weight(1f).testTag("add-to"), sides = true)
         }
         Column(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { reorder.libraryView = it }.verticalScroll(scroll).padding(end = 10.dp, bottom = Space.m)) {
             ItemGroup.entries.forEach { group ->
