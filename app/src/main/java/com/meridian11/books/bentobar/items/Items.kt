@@ -24,12 +24,15 @@ object Items {
         DevicesItem,
         DisplaysItem,
         NoticesItem,
+        BrightnessItem,
+        KeyLightItem,
         // Time
         CalendarItem,
         EventItem,
         ClockItem,
         TimerItem,
         CountdownItem,
+        FocusItem,
         // Tools
         CaffeineItem,
         MediaItem,
