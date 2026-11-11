@@ -139,6 +139,23 @@ class DragTest {
         assertEquals(listOf("a", "b", "c"), order())
     }
 
+    @Test fun aRemovedRowsSlipStaysWhereItIsWhileAnotherRowIsCarried() {
+        page(null, *three)
+        drag(at("row:a").center, at("library").center)
+        val slip = at("slip")
+
+        // b is carried under c: the list shows another arrangement than the removal left, and the slip is still the Store's.
+        hold(grip("b"), Offset(at("row:c").center.x, at("row:c").bottom + 12f))
+        tag("drag-row").assertExists()
+        tag("slip").assertExists()
+        assertEquals("nothing under the pointer jumps a row", slip, at("slip"))
+        assertEquals("nothing is written before the drop", listOf("b", "c"), order())
+
+        letGo()
+        assertEquals(listOf("c", "b"), order())
+        tag("slip").assertDoesNotExist()
+    }
+
     @Test fun aRowDroppedOnAnotherItemsOptionsIsRemovedAndTheSelectionAndThePanelStay() {
         page("a", *three)
         tag("options").assertExists()

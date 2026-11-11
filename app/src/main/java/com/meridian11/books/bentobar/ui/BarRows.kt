@@ -322,9 +322,11 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     if (had[0] != lanes.on.size) { had[0] = lanes.on.size; travel.ms = Motion.AREA }
     LaunchedEffect(lanes.on.size) { delay(Motion.AREA.toLong()); travel.ms = Motion.NEIGHBOURS }
     SideEffect { travel.standing = true }
-    val entries = remember(shown, kept, dragging != null, lanes, abreast) {
+    val entries = remember(cfg, shown, kept, dragging != null, lanes, abreast) {
         // A lane that closed says so above the list; the removed row's own slip would stand in a lane that is gone.
-        listEntries(shown, slipOf(kept, shown).takeIf { lanes.fold == null }, dragging != null, lanes.on, abreast, lanes.fold, lanes.noRoom)
+        // The slip is asked of the Store's layout and stands in the list as shown: what is carried changes the
+        // arrangement on screen only, and a slip that left for that long would move every row under it by a row.
+        listEntries(shown, slipOf(kept, cfg).takeIf { lanes.fold == null }, dragging != null, lanes.on, abreast, lanes.fold, lanes.noRoom)
     }
     val order = remember(entries) { entries.mapNotNull { it.lane }.distinct() }
     val added = Undo.added(kept, cfg)?.id
