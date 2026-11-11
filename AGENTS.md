@@ -289,7 +289,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   Robolectric stays out of the fast tests in `app/src/test`. `MenuCompositionTest` composes every registered item's menu under
   each state in its type's `stages`; Compose has no error boundary, so this is what stands between a throwing menu and the service.
   `ShellPicturesTest` draws the settings window at each layout's width in light and dark and holds the grounds to the palette,
-  `BarPagePicturesTest` the Bar page in each of its states, `LookPageTest`, `SetupPageTest` and `OptionsPicturesTest` the other
+  `BarPagePicturesTest` the Bar page in each of its states (with the mock clock at one time, `LocalPreviewClock`: its width is the
+  areas' room, and at 640 dp an hour of two digits left Left none), `LookPageTest`, `SetupPageTest` and `OptionsPicturesTest` the other
   pages and an item's options (and `MenuCompositionTest` the right-click menu), `WindowPicturesTest` the Bar page at 1180, 960 and
   700 dp with one, two and three areas, the other pages and a first run, in light and dark, at twice the text size and from right
   to left, each holding that no text is cut off; nothing compares pictures, so a look beside the design is a person's;

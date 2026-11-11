@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -102,6 +103,12 @@ import com.meridian11.books.bentobar.items.Items
  * needs `false` here and nothing else.
  */
 internal fun barMirrored(direction: LayoutDirection): Boolean = direction == LayoutDirection.Rtl
+
+/**
+ * The time the mock clock shows: now. Its text is as wide as the hour and the day make it, and what is left is the
+ * areas' room, so a test of that room holds the time here.
+ */
+internal val LocalPreviewClock = staticCompositionLocalOf<() -> ZonedDateTime> { { ZonedDateTime.now() } }
 
 /**
  * A mock status bar with the real strips in it, one for each area the layout uses, standing where the bar has them;
@@ -199,7 +206,8 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
             // where the bar in a narrow window would have no room for them.
             val clockSize = with(LocalDensity.current) { 14.dp.toSp() }
             val iconsSize = with(LocalDensity.current) { 13.dp.toSp() }
-            val now = remember(tick) { ZonedDateTime.now() }
+            val clock = LocalPreviewClock.current
+            val now = remember(tick, clock) { clock() }
             // The system's 12/24-hour setting and the locale's own short date, like the real status bar.
             val h24 = android.text.format.DateFormat.is24HourFormat(LocalContext.current)
             val mirrored = barMirrored(LocalLayoutDirection.current)

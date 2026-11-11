@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -43,6 +44,7 @@ import com.meridian11.books.bentobar.data.fresh
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.ui.BarPage
+import com.meridian11.books.bentobar.ui.LocalPreviewClock
 import com.meridian11.books.bentobar.ui.Page
 import com.meridian11.books.bentobar.ui.Palette
 import com.meridian11.books.bentobar.ui.SettingsTheme
@@ -58,6 +60,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 /**
  * The Bar page as it is drawn, in the window, in light and dark: the list's card and the panel's are the palette's panel,
@@ -118,10 +122,13 @@ class BarPagePicturesTest {
         selected = select
         rule.setContent {
             view = LocalView.current
-            SettingsTheme(dark) {
-                Shell(Page.BAR, {}, running, enabled = true, status = if (running) BarStatus.SHOWN else BarStatus.STOPPED, onEnabled = {}, onTurnOn = {},
-                    insets = WindowInsets(top = 36.dp)) {
-                    BarPage(selected, onSelect = { selected = it }, running = running)
+            // The mock clock at one time: an hour of two digits is wider, and at 640 dp that is the room Left's strip has.
+            CompositionLocalProvider(LocalPreviewClock provides { MORNING }) {
+                SettingsTheme(dark) {
+                    Shell(Page.BAR, {}, running, enabled = true, status = if (running) BarStatus.SHOWN else BarStatus.STOPPED, onEnabled = {}, onTurnOn = {},
+                        insets = WindowInsets(top = 36.dp)) {
+                        BarPage(selected, onSelect = { selected = it }, running = running)
+                    }
                 }
             }
         }
@@ -129,6 +136,10 @@ class BarPagePicturesTest {
     }
 
     private fun bounds(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+
+    private companion object {
+        val MORNING: ZonedDateTime = ZonedDateTime.of(2026, 11, 10, 9, 41, 0, 0, ZoneId.systemDefault())
+    }
 
     @Test fun theListAndThePanelAreCardsOnThePagesGround() {
         window()
