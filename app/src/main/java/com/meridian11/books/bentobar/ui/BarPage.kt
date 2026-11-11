@@ -435,17 +435,18 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
      * Ctrl+Z, Undo in a removed row's place or in a closed lane's slip, and the library's Undo. A row that comes back, to
      * the bar or to its lane, is followed; the library's
      * Undo is gone with what it took back, so the keyboard, if it had it ([focus]), goes to the type's + after an add
-     * and to the line that is back after Forget.
+     * (to the item's line, if it was set up since and so waits there) and to the line that is back after Forget.
      */
     fun undo(focus: Boolean = false): Boolean {
         said = null
         val kept = Undo.last.value
         val back = kept?.removed ?: movedBy(kept)
         val row = focusedRow != null || slipFocused
-        val to = if (!focus) null else kept?.added?.let(::item)?.let { Seek.type(it.type) }
-            ?: Undo.forgotten(kept, Store.config.value)?.let { Seek.line(it.id) }
+        val added = kept?.added?.let(::item)
+        val forgotten = Undo.forgotten(kept, Store.config.value)
         if (!Undo.undo()) return false
         if (back != null) moved(back, row)
+        val to = if (!focus) null else added?.let { if (item(it.id) != null) Seek.line(it.id) else Seek.type(it.type) } ?: forgotten?.let { Seek.line(it.id) }
         if (to != null) seek = Seek(to, true, ++serial)
         return true
     }

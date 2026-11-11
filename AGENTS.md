@@ -121,7 +121,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     `Store.update { it.hide(id) }` and writes no section, rule or area of its own (`LayoutIntentsTest` holds them to it).
     The settings' list has its own steps there: `placed(id, area, part, index)` (a drop, and each step), `stepped(id, down)`
     (Move up and down: `Step.Moved`, `Step.Stays` with why, `Step.End`), `removed(id)` (Remove from the bar: an item that
-    carries a setup waits in Off, a bare one is gone) and `undone(before, after)` (the one Undo).
+    carries a setup waits in Off, a bare one is gone) and `undone(before, after)` (the one Undo; an item the change
+    brought in leaves as `removed` takes one out, so one that was set up since becomes a line and is never lost).
     `data/BarList.kt` is how the settings see a layout: each area's list in two parts (`parts`, `partOf`: in the bar, and
     under the line the items that wait for their rule, or with ‹ everything behind it), `canGoBelow`, `standing`, and
     what a setup is (`fresh`, `carriesSetup`: an item that differs from what the + makes, or one whose type keeps

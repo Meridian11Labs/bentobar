@@ -208,14 +208,18 @@ private fun BarConfig.arrangement(): Any = items.map { listOf(it.id, it.section,
 
 /**
  * Undo of one layout change that led from [before] to [after]: the items [before] had, in its order, each in its section
- * and area and with its rule as it was; an item the change took out comes back as it was, one it brought in goes. What
- * is not layout stays as it is now (an option changed since). Null when the layout was arranged otherwise since (the
- * bar's own menu, a pasted layout): there is nothing left to take back.
+ * and area and with its rule as it was; an item the change took out comes back as it was. One it brought in (the +, a
+ * drop from the library, Duplicate) leaves the bar as [removed] takes an item out: as the + made it, it goes; with a
+ * setup, which it may have been given since, it waits in Off, a line in the library, so Undo never loses one. What is
+ * not layout stays as it is now (an option changed since). Null when the layout was arranged otherwise since (the bar's
+ * own menu, a pasted layout): there is nothing left to take back.
  */
 fun BarConfig.undone(before: BarConfig, after: BarConfig): BarConfig? {
     if (arrangement() != after.arrangement()) return null
     val now = items.associateBy { it.id }
+    val had = before.items.mapTo(HashSet()) { it.id }
+    val lines = items.filter { it.id !in had }.fold(this) { c, new -> c.removed(new.id) }.items.filter { it.id !in had && it.section == Section.OFF }
     return copy(position = before.position, items = before.items.map { was ->
         now[was.id]?.copy(section = was.section, whenActive = was.whenActive, area = was.area) ?: was
-    })
+    } + lines)
 }

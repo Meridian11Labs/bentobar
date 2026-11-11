@@ -187,6 +187,26 @@ class BarLibraryTest {
         tag("added").assertDoesNotExist()
     }
 
+    @Test fun undoOfAnAddedItemThatWasSetUpSinceLeavesItAsALineAndNothingSaysAddedAnyMore() {
+        val layout = page(null, *bar)
+        click("add:clock")
+        val new = Store.config.value.items.single { it.type == "clock" }
+        // Set up in its options, which changes no order: the Undo is still offered.
+        Store.updateItem(new.id) { it.with("zone", "Asia/Tokyo") }
+        rule.waitForIdle()
+        rule.onNode(hasText(str(R.string.add_added)) and within("type:clock")).assertExists()
+        click("library-undo")
+        // Out of the bar, and not lost: a line under its type, with its city.
+        assertEquals(layout.items, Store.config.value.items.filter { it.section != Section.OFF })
+        assertEquals(Section.OFF, now(new.id)?.section)
+        assertEquals("Asia/Tokyo", now(new.id)?.options?.get("zone"))
+        tag("row:${new.id}").assertDoesNotExist()
+        rule.onNode(hasText("Tokyo") and within("line:${new.id}")).assertExists()
+        tag("added").assertDoesNotExist()
+        tag("library-undo").assertDoesNotExist()
+        rule.onNode(hasText(str(R.string.add_added))).assertDoesNotExist()
+    }
+
     @Test fun forgetRemovesTheLineAndUndoBringsItBack() {
         val layout = page(null, *bar, clockIn("k", "Asia/Tokyo", Section.OFF), clockIn("l", "Europe/London", Section.OFF))
         click("forget:k")

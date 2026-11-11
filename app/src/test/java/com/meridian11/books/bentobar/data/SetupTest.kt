@@ -170,6 +170,26 @@ class SetupTest {
         assertEquals(c, more.undone(c, more))
     }
 
+    @Test fun undoPutsAnItemTheChangeBroughtInInTheLibraryOnceItCarriesASetup() {
+        val c = layout(cpu, clock)
+        // The +, a type dropped into the bar: a fresh item, which is then set up. Undo takes it out of the bar and loses nothing.
+        val added = c.copy(items = listOf(fresh("timer")) + c.items)
+        val setUp = added.copy(items = added.items.map { if (it.id == "timer") it.with("label", "Tea").copy(display = Display.ICON) else it })
+        val back = setUp.undone(c, added)!!
+        assertEquals(c.items, back.items.filter { it.section != Section.OFF })
+        assertEquals(setUp.at("timer").copy(section = Section.OFF), back.at("timer"))
+        // Duplicate: the copy of an item that was set up carries that setup from the start.
+        val tokyo = layout(cpu, clock.with("zone", "Asia/Tokyo"))
+        val twice = tokyo.copy(items = tokyo.items + tokyo.at("clock").copy(id = "copy"))
+        val one = twice.undone(tokyo, twice)!!
+        assertEquals(tokyo.items, one.items.filter { it.section != Section.OFF })
+        assertEquals(Section.OFF, one.at("copy").section)
+        assertEquals("Asia/Tokyo", one.at("copy").options["zone"])
+        // What it leaves is a layout the Store keeps as it is, and the bar's own Remove would have left the same line.
+        assertEquals(back, back.withoutBareOff())
+        assertEquals(setUp.removed("timer").at("timer"), back.at("timer"))
+    }
+
     @Test fun offItemsThatCarryNoSetupAreDroppedAndNothingElseIs() {
         val bare = clock.copy(id = "bare", section = Section.OFF)
         val setUp = clock.copy(id = "set", section = Section.OFF).with("city", "Tokyo")
