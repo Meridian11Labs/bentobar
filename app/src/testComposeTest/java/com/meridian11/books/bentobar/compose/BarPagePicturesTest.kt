@@ -24,6 +24,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.R
+import com.meridian11.books.bentobar.bar.BarOverflow
 import com.meridian11.books.bentobar.bar.BarStatus
 import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.Display
@@ -69,7 +70,7 @@ class BarPagePicturesTest {
     private var selected by mutableStateOf<String?>(null)
 
     @Before fun env() { Env.init(app); before = Store.config.value; Undo.last.value = null }
-    @After fun forget() { Store.update { before }; Undo.last.value = null }
+    @After fun forget() { Store.update { before }; Undo.last.value = null; BarOverflow.ids.value = emptySet() }
 
     private fun picture(name: String): Bitmap {
         val bitmap = rule.runOnIdle { Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) } }
@@ -89,11 +90,23 @@ class BarPagePicturesTest {
     private fun window(mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null, vararg remembered: ItemConfig) {
         fun item(id: String, type: String, display: Display = Display.ICON_AND_TEXT) = ItemConfig(id, type, display = display, area = Position.RIGHT)
         fun waiting(id: String, type: String) = ItemConfig(id, type, Section.HIDDEN, whenActive = true, area = Position.RIGHT)
-        Store.update {
-            BarConfig(items = listOf(item("event", "event"), item("weather", "weather"), item("clock", "clock"), item("timer", "timer"),
-                item("network", "network", Display.TEXT), item("cpu", "cpu"), item("sound", "sound", Display.ICON),
-                waiting("media", "media"), waiting("devices", "devices")) + remembered, position = Position.RIGHT, hiddenMode = mode)
-        }
+        show(BarConfig(items = listOf(item("event", "event"), item("weather", "weather"), item("clock", "clock"), item("timer", "timer"),
+            item("network", "network", Display.TEXT), item("cpu", "cpu"), item("sound", "sound", Display.ICON),
+            waiting("media", "media"), waiting("devices", "devices")) + remembered, position = Position.RIGHT, hiddenMode = mode), select)
+    }
+
+    /** The same bar in areas: [left] after the clock, [middle] in the middle, the rest and the two that wait at the right. */
+    private fun areas(left: Set<String> = setOf("event", "weather", "clock"), middle: Set<String> = setOf("timer", "caffeine"), select: String? = null) {
+        fun item(id: String, display: Display = Display.ICON_AND_TEXT) = ItemConfig(id, id, display = display,
+            area = if (id in left) Position.LEFT else if (id in middle) Position.CENTER else Position.RIGHT)
+        fun waiting(id: String) = ItemConfig(id, id, Section.HIDDEN, whenActive = true, area = Position.RIGHT)
+        show(BarConfig(items = listOf(item("event"), item("weather"), item("clock"), item("timer"), item("caffeine", Display.ICON),
+            item("network", Display.TEXT), item("cpu"), item("memory"), item("sound", Display.ICON), item("clipboard"), item("tools"),
+            waiting("media"), waiting("devices")), position = Position.RIGHT), select)
+    }
+
+    private fun show(cfg: BarConfig, select: String?) {
+        Store.update { cfg }
         selected = select
         rule.setContent {
             view = LocalView.current
@@ -248,6 +261,94 @@ class BarPagePicturesTest {
         picture("narrow-library")
         click("add:countdown")
         picture("narrow-library-added")
+    }
+
+    // ---- Areas ----
+
+    private fun top(tag: String) = bounds(tag).top
+    private fun both(name: String, check: (Bitmap) -> Unit = {}) {
+        for (isDark in listOf(false, true)) {
+            dark = isDark
+            check(picture("$name-${if (isDark) "dark" else "light"}"))
+        }
+        dark = false
+    }
+
+    @Test fun threeAreasAreThreeLanesWithTheLowerPartsAtOneHeight() {
+        areas()
+        both("areas-three") { bitmap ->
+            val list = bounds("bar-list")
+            assertColor("the lanes stand on the list's card", palette().panel, bitmap, list.center.x.toInt(), list.bottom.toInt() - 24)
+        }
+        assertEquals("a lower part without rows starts where its neighbour's rows do", top("row:media"), top("blank:LEFT"))
+        assertEquals(top("blank:LEFT"), top("blank:CENTER"))
+        assertEquals("the lanes' first rows stand at one height", top("row:event"), top("row:timer"))
+        assertEquals(top("row:event"), top("row:network"))
+        assert(bounds("row:event").right <= bounds("row:timer").left) { "Left's rows end before the Middle's begin" }
+        assert(bounds("row:timer").right <= bounds("row:network").left) { "the Middle's rows end before Right's begin" }
+        assert(bounds("bracket:LEFT").right <= bounds("bracket:CENTER").left && bounds("bracket:CENTER").right <= bounds("bracket:RIGHT").left) { "one bracket for each strip, in the bar's order" }
+        // An item of one area selected: its bracket takes the accent, and Area is the first of its options.
+        rule.onNodeWithTag("row:timer").performClick()
+        rule.waitForIdle()
+        picture("areas-three-selected")
+    }
+
+    @Test fun twoAreasAreTwoLanesAndTheLastHeadEndsInAddAnArea() {
+        areas(middle = emptySet())
+        both("areas-two")
+        rule.onNodeWithTag("add-area").assertIsDisplayed()
+        assert(bounds("add-area").left > bounds("row:timer").left) { "\"Add an area\" stands at the end of the last lane's head" }
+    }
+
+    @Test fun anOpenedLaneIsEmptyBesideTheBarsRowsAndTheLibraryAddsToIt() {
+        window()
+        rule.onNodeWithTag("add-area").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("add-area:LEFT").performClick()
+        rule.waitForIdle()
+        both("areas-new")
+        assertEquals("the empty lane starts where the rows beside it do", top("row:event"), top("lane:LEFT"))
+        assertEquals("and is as tall as they are together", bounds("row:sound").bottom, bounds("lane:LEFT").bottom)
+        rule.onNodeWithTag("add-to").assertIsDisplayed()
+    }
+
+    @Test fun aLaneThatClosesIsSaidAcrossTheTopAndItsRowIsMarked() {
+        areas(middle = setOf("timer"), select = "timer")
+        rule.onNode(hasText(app.getString(R.string.areas_right)) and hasAnyAncestor(hasTestTag("area"))).performClick()
+        rule.waitForIdle()
+        both("areas-fold") { bitmap ->
+            val fold = bounds("fold")
+            assertColor("the slip stands on the sunk ground", palette().sunk, bitmap, fold.left.toInt() - 4, fold.center.y.toInt())
+        }
+        assert(bounds("fold").bottom <= top("row:event")) { "the slip stands above the lanes" }
+        rule.onNodeWithTag("moved-mark", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun anAreaWithoutRoomSaysSoOnceAndTheBarsPictureShowsWhoHasItsPlace() {
+        areas(select = "clock")
+        BarOverflow.ids.value = setOf("timer", "caffeine", "clock")
+        rule.waitForIdle()
+        both("areas-no-room") { bitmap ->
+            val notice = bounds("no-room")
+            assertColor("the notice stands on the warning ground", palette().warnGround, bitmap, notice.left.toInt() + 4, notice.center.y.toInt())
+        }
+        assertEquals("the notice stands above the Middle's rows", true, bounds("no-room").bottom <= top("row:timer"))
+    }
+
+    @Config(qualifiers = "w960dp-h780dp-mdpi")
+    @Test fun at960TheLanesStandInThePanelsFirstPart() {
+        areas()
+        picture("mid-areas")
+        assertEquals(top("row:event"), top("row:timer"))
+    }
+
+    @Config(qualifiers = "w640dp-h780dp-mdpi")
+    @Test fun at640TheAreasAreOneListWithAPlusOnEachHead() {
+        areas()
+        both("narrow-areas")
+        assert(bounds("row:event").bottom <= top("row:timer")) { "one column: the Middle's rows stand under Left's" }
+        rule.onNodeWithTag("add-to:LEFT").assertIsDisplayed()
+        rule.onNodeWithTag("bracket:LEFT").assertIsDisplayed()
     }
 
     @Config(qualifiers = "w640dp-h780dp-mdpi")
