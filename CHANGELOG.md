@@ -1,6 +1,8 @@
 # Changelog
 
-## 2.0.0 (not yet released)
+## 2.1.0 (2026-11-11)
+
+2.0.0 was only ever a test build; 2.1.0 is the release, without the Crypto and Clipboard items.
 
 - **Left, Middle and Right.** Every item has an area (layout version 4; a version 3 layout moves each item into the
   area the strip was in). The bar is one bar in up to three windows; room goes to Right first, then Left, then Middle,
