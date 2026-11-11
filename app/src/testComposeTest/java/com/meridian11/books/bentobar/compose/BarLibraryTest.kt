@@ -43,6 +43,7 @@ import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.fresh
+import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.ItemGroup
 import com.meridian11.books.bentobar.items.Items
@@ -403,6 +404,23 @@ class BarLibraryTest {
         switchPart(R.string.page_add).assertIsSelected()
         tag("line:s").assertIsDisplayed()
         rule.onNode(hasText(str(R.string.row_text_only)) and within("line:s")).assertIsDisplayed()
+    }
+
+    @Test fun anItemRemovedByTheBarsOwnMenuIsLetGoSoItsLinesPlusDoesNotTurnThePanel() {
+        page("k", *bar, clockIn("k", "Asia/Tokyo"))
+        tag("options").assertExists()
+        // The bar's right-click menu, while the settings show the item's options.
+        rule.runOnIdle { Store.update { it.removed("k") } }
+        rule.waitForIdle()
+        assertNull("only an item in the bar is selected", selected)
+        tag("options").assertDoesNotExist()
+        tag("line:k").assertExists()
+
+        click("add-line:k")
+        assertEquals(Section.SHOWN, now("k")?.section)
+        assertNull("a + never selects", selected)
+        tag("options").assertDoesNotExist()
+        tag("library").assertExists()
     }
 
     @Test fun belowTheWidthWithRoomForBothRemoveInOptionsTurnsToAddItemsAndTheLine() {

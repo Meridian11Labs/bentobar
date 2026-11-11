@@ -156,7 +156,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     between the library ("Add items") and the selected item's options, below that the list is the switch's first part.
     `BarEdit` holds every command once, for a click, a key and a screen reader's action alike, each one step of `Undo`
     (the library's + and Forget too); `BarKeys` takes a key no control took; Ctrl+F turns the panel to the library and
-    puts the keyboard in its filter, and Remove from the bar in the options turns there too, to the item's new line),
+    puts the keyboard in its filter, and Remove from the bar in the options turns there too, to the item's new line.
+    Only an item in the bar is selected: one the bar's own menu took out is let go, `BarEdit.left`, so its line's +
+    never turns the panel),
     `Library` (the panel's "Add items": the filter with its count, the types in their groups with +, and under a type
     the setups the app remembers, which are the Off items that carry a setup (a layout from 1.8 can hold a bare one
     until its first change drops it: that is no line, and no Forget, which `Undo.Kept.forgot` records, never the two

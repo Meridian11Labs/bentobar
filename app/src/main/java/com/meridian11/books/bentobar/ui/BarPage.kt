@@ -250,6 +250,16 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         side = home()
     }
 
+    /**
+     * The selected item is no longer in the bar, and not by this page's Remove (the bar's own menu took it out, or a
+     * pasted layout): nothing is selected any more, and a panel that was on its options is where it stands with no item.
+     * Left selected, it would turn the panel to its options by itself when its line's + brings it back.
+     */
+    fun left() {
+        onSelect(null)
+        if (side == PanelSide.OPTIONS) side = home()
+    }
+
     private fun several(kept: Undo.Kept): Boolean {
         judged?.let { if (it.first === kept) return it.second }
         return (lanesOnScreen(kept.before, opened).size > 1).also { judged = kept to it }
@@ -550,6 +560,9 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
         reorder.onDrop = edit::dropped
         edit.settle(kept, fold, lanes.on.size)
     }
+    // Only an item in the bar is selected.
+    val left = selected != null && item == null
+    LaunchedEffect(selected, left) { if (left) edit.left() }
     LaunchedEffect(turn) { if (turn > 0 && selected != null) edit.side = PanelSide.OPTIONS }
     // A reason is read, then the line is the preview's hint again.
     LaunchedEffect(edit.said) {
