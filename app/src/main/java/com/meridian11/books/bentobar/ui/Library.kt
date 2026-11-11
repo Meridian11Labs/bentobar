@@ -1,6 +1,9 @@
 package com.meridian11.books.bentobar.ui
 
 import android.content.res.Resources
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,10 +31,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
@@ -187,10 +193,12 @@ private fun sought(key: String, edit: BarEdit, height: Dp = 0.dp, above: Dp = 0.
  * The library, the panel's "Add items": the filter, and every type in its group with a +; under a type the setups
  * remembered of it, each a line with Forget and a + that brings it back. What a + did is said on the type's row, with
  * Undo. With several [lanes] on screen "Add to" stands under the filter, set to the area in use or the one just opened,
- * and every + says where it adds. Every change is one of [edit]'s commands.
+ * and every + says where it adds. Every change is one of [edit]'s commands. A type's row and a setup's line can be
+ * carried into the bar ([reorder]: they register where they stand; the one carried is dimmed meanwhile). While a row
+ * of the bar is carried the filter's place is the well that says a drop here removes it; nothing else moves.
  */
 @Composable
-internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, modifier: Modifier = Modifier) {
+internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reorder, modifier: Modifier = Modifier) {
     val c = Bento.colors
     val res = LocalResources.current
     val kept by Undo.last.collectAsState()
@@ -222,8 +230,10 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, modifier: Modi
         if (edit.seek == seek) edit.seek = null
     }
     Column(modifier.fillMaxSize().padding(start = Space.l, top = 14.dp, end = 6.dp).testTag("library")) {
-        FilterField(edit.filter, { edit.filter = it }, stringResource(R.string.library_filter),
-            Modifier.padding(end = 10.dp).testTag("filter"), field)
+        Box(Modifier.padding(end = 10.dp)) {
+            FilterField(edit.filter, { edit.filter = it }, stringResource(R.string.library_filter), Modifier.testTag("filter"), field)
+            DropWell(reorder, Modifier.matchParentSize())
+        }
         if (query.isNotBlank()) Text(stringResource(R.string.add_filter_count, shown.rows(), shelves.rows()),
             Modifier.padding(start = Space.xs, top = 10.dp, end = Space.xs).semantics { liveRegion = LiveRegionMode.Polite }.testTag("filter-count"),
             style = Bento.type.help, color = c.ink3)
@@ -235,15 +245,15 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, modifier: Modi
             Segment(areas.map { SegmentPart(it.second, spoken = "$label ${it.second}") }, areas.indexOfFirst { it.first == to }, { edit.addTo = areas[it].first },
                 Modifier.weight(1f).testTag("add-to"))
         }
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(end = 10.dp, bottom = Space.m)) {
+        Column(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { reorder.libraryView = it }.verticalScroll(scroll).padding(end = 10.dp, bottom = Space.m)) {
             ItemGroup.entries.forEach { group ->
                 val here = shown.filter { it.type.group == group }
                 if (here.isEmpty()) return@forEach
                 key(group) { GroupHead(group) }
                 here.forEach { shelf ->
-                    key(shelf.type.type) { TypeRow(shelf, cfg, added?.takeIf { it.type == shelf.type.type }, edit, toName) }
+                    key(shelf.type.type) { TypeRow(shelf, cfg, added?.takeIf { it.type == shelf.type.type }, edit, toName, reorder) }
                     shelf.lines.forEach { line ->
-                        key(line.item.id) { if (line.forgotten) ForgotRow(shelf, line, edit) else LineRow(shelf, line, edit, toName) }
+                        key(line.item.id) { if (line.forgotten) ForgotRow(shelf, line, edit) else LineRow(shelf, line, edit, toName, reorder) }
                     }
                 }
             }
@@ -251,10 +261,31 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, modifier: Modi
     }
 }
 
+/** A row of the library while it is carried into the bar: still in its place, dimmed. */
+private const val CARRIED_ALPHA = 0.4f
+
+/**
+ * The well: while a row of the bar is carried, what stands in the filter's place (and in the first row of an item's
+ * options) says that a drop here removes it. It lies over what it replaces, in exactly its bounds, so nothing moves;
+ * with the pointer over the panel it fills more.
+ */
+@Composable
+internal fun DropWell(reorder: Reorder, modifier: Modifier = Modifier) {
+    if (reorder.carried?.from != From.BAR || !reorder.live) return
+    val c = Bento.colors
+    val over = reorder.drop == Drop.Off
+    val shape = RoundedCornerShape(Radius.medium)
+    Box(modifier.background(c.panel, shape).background(c.accent.copy(alpha = if (over) 0.18f else 0.08f), shape)
+        .border(if (over) 2.dp else 1.5.dp, c.accent, shape).padding(horizontal = Space.m).testTag("well"), contentAlignment = Alignment.CenterStart) {
+        Text(stringResource(R.string.library_drop_off), style = Bento.type.small.copy(fontWeight = FontWeight.SemiBold), color = c.accent, maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
+    }
+}
+
 @Composable
 private fun GroupHead(group: ItemGroup) {
     val c = Bento.colors
-    Column(Modifier.fillMaxWidth().padding(start = Space.xs, top = Space.m, bottom = Space.xs)) {
+    Column(Modifier.fillMaxWidth().padding(start = Space.xs, top = Space.m, bottom = Space.xs).testTag("group:${group.name}")) {
         Text(stringResource(group.title), Modifier.semantics { heading() }, style = Bento.type.help.copy(fontWeight = FontWeight.SemiBold), color = c.ink3)
         group.caption?.let { Text(stringResource(it), style = Bento.type.help, color = c.ink3) }
     }
@@ -266,11 +297,14 @@ private fun GroupHead(group: ItemGroup) {
  * [to] is the area's name while "Add to" is on screen: the + and both lines then say it.
  */
 @Composable
-private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarEdit, to: String?) {
+private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarEdit, to: String?, reorder: Reorder) {
     val c = Bento.colors
     val type = shelf.type
     val (bring, plus) = sought(Seek.type(type.type), edit)
+    val source = From.TYPE to type.type
+    val carried = reorder.carried?.let { it.from == From.TYPE && it.type == type.type } == true
     Row(Modifier.bringIntoViewRequester(bring).testTag("type:${type.type}").fillMaxWidth().heightIn(min = TYPE_ROW)
+        .onGloballyPositioned { reorder.sources[source] = it }.alpha(if (carried) CARRIED_ALPHA else 1f)
         .padding(start = Space.xs, top = Space.xs, bottom = Space.xs), verticalAlignment = Alignment.CenterVertically) {
         SymIcon(type.icon, size = 18.sp, color = c.ink2)
         Spacer(Modifier.width(Space.m))
@@ -306,7 +340,7 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
                 }
             }
         }
-        Spacer(Modifier.width(Space.m))
+        Spacer(Modifier.width(Space.m).onGloballyPositioned { reorder.stops[source] = it })
         if (added != null) {
             LibraryUndo(edit)
             Spacer(Modifier.width(2.dp))
@@ -318,7 +352,7 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
 
 /** A remembered setup: its words, Forget, and the + that brings it back as it was. No glyph: it stands under its type's. */
 @Composable
-private fun LineRow(shelf: Shelf, line: Line, edit: BarEdit, to: String?) {
+private fun LineRow(shelf: Shelf, line: Line, edit: BarEdit, to: String?, reorder: Reorder) {
     val c = Bento.colors
     val id = line.item.id
     val (bring, plus) = sought(Seek.line(id), edit, height = Target.row, above = TYPE_ROW)
@@ -333,12 +367,15 @@ private fun LineRow(shelf: Shelf, line: Line, edit: BarEdit, to: String?) {
         listOf(CustomAccessibilityAction(addAction) { edit.addSetup(id, focus = false); true },
             CustomAccessibilityAction(forgetAction) { edit.forget(id, focus = false); true })
     }
-    Row(Modifier.bringIntoViewRequester(bring).testTag("line:$id").fillMaxWidth().height(Target.row).padding(start = LINE_INDENT),
+    val source = From.LINE to id
+    val carried = reorder.carried?.let { it.from == From.LINE && it.id == id } == true
+    Row(Modifier.bringIntoViewRequester(bring).testTag("line:$id").fillMaxWidth().height(Target.row)
+        .onGloballyPositioned { reorder.sources[source] = it }.alpha(if (carried) CARRIED_ALPHA else 1f).padding(start = LINE_INDENT),
         verticalAlignment = Alignment.CenterVertically) {
         Text(line.words, Modifier.weight(1f).semantics { contentDescription = spoken; customActions = actions },
             style = Bento.type.body, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
         BentoButton(stringResource(R.string.library_forget), { edit.forget(id, onForget) },
-            Modifier.onFocusChanged { onForget = it.isFocused }.semantics { contentDescription = forget }.testTag("forget:$id"), kind = ButtonKind.QUIET)
+            Modifier.onGloballyPositioned { reorder.stops[source] = it }.onFocusChanged { onForget = it.isFocused }.semantics { contentDescription = forget }.testTag("forget:$id"), kind = ButtonKind.QUIET)
         Spacer(Modifier.width(Space.xs))
         BentoIconButton(Sym.ADD, add, { edit.addSetup(id, onPlus) }, Modifier.focusRequester(plus).onFocusChanged { onPlus = it.isFocused }.testTag("add-line:$id"))
     }

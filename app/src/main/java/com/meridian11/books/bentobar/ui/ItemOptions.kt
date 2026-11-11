@@ -119,20 +119,25 @@ fun orderWords(res: Resources, cfg: BarConfig, item: ItemConfig, several: Boolea
  * screen-reader actions use.
  */
 @Composable
-internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, edit: BarEdit, several: Boolean, modifier: Modifier = Modifier) {
+internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, edit: BarEdit, several: Boolean, modifier: Modifier = Modifier,
+                         reorder: Reorder? = null) {
     val c = Bento.colors
     val res = androidx.compose.ui.platform.LocalResources.current
     val type = Items.of(item.type)
     Column(modifier.fillMaxSize().testTag("options")) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = Space.s)) {
-            Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
-                SymIcon(type?.icon ?: Sym.UPDATE, size = 20.sp, color = c.ink)
-                Spacer(Modifier.width(10.dp))
-                Text(itemName(res, item), Modifier.weight(1f, fill = false), style = Bento.type.title, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                state?.text?.takeIf { it.isNotBlank() && type != null }?.let {
-                    Spacer(Modifier.width(Space.s))
-                    Text(it, style = Bento.type.small.tabular, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // While a row of the bar is carried, this first row is the well in its own place: a drop on the card removes the row.
+            Box {
+                Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }.testTag("options-head"), verticalAlignment = Alignment.CenterVertically) {
+                    SymIcon(type?.icon ?: Sym.UPDATE, size = 20.sp, color = c.ink)
+                    Spacer(Modifier.width(10.dp))
+                    Text(itemName(res, item), Modifier.weight(1f, fill = false), style = Bento.type.title, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    state?.text?.takeIf { it.isNotBlank() && type != null }?.let {
+                        Spacer(Modifier.width(Space.s))
+                        Text(it, style = Bento.type.small.tabular, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
+                if (reorder != null) DropWell(reorder, Modifier.matchParentSize())
             }
             Spacer(Modifier.height(Space.s))
             if (type != null) Needs(type)

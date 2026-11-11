@@ -34,6 +34,7 @@ class BarRowsTest {
             is Entry.Blank -> "nothing ${it.area}"
             is Entry.Fold -> "fold ${it.area}"
             is Entry.NoRoom -> "no room ${it.area}"
+            is Entry.Room -> if (it.zone.part == Part.LOWER) "room below" else "room"
         }
     }
     private fun lines(cfg: BarConfig, slip: Slip? = null, dragging: Boolean = false) = words(listEntries(cfg, slip, dragging))
@@ -56,8 +57,20 @@ class BarRowsTest {
     @Test fun withSeveralAreasEachHasItsNameLeftFirstAndALineOnlyWhereSomethingWaits() {
         val cfg = BarConfig(items = listOf(item("r"), item("l", Position.LEFT), item("w", Position.LEFT, Section.HIDDEN, rule = true), item("m", Position.CENTER)))
         assertEquals(listOf("area LEFT first", "l", "line", "w below", "area CENTER", "m", "area RIGHT", "r"), lines(cfg))
-        // While a row is carried every area shows where its lower part is.
-        assertEquals(listOf("area LEFT first", "l", "line", "w below", "area CENTER", "m", "line", "area RIGHT", "r", "line"), lines(cfg, dragging = true))
+        // While a row is carried every area shows where its lower part is, and every part ends in room to drop into.
+        assertEquals(listOf("area LEFT first", "l", "room", "line", "w below", "room below", "area CENTER", "m", "room", "line", "room below",
+            "area RIGHT", "r", "room", "line", "room below"), lines(cfg, dragging = true))
+    }
+
+    @Test fun whileSomethingIsCarriedAPartEndsInRoomUnlessWordsStandThere() {
+        val one = BarConfig(items = listOf(item("a"), item("w", section = Section.HIDDEN, rule = true)))
+        assertEquals(listOf("head RIGHT", "a", "room", "line", "w below", "room below"), lines(one, dragging = true))
+        assertEquals("nothing grows before a pickup", listOf("head RIGHT", "a", "line", "w below"), lines(one))
+        // Side by side an opened lane's words and "Nothing here" are the room: nothing is added to them.
+        val cfg = BarConfig(items = listOf(item("r"), item("l", Position.LEFT)))
+        assertEquals(listOf("area LEFT first", "l", "room", "one line", "nothing LEFT", "area CENTER", "lane CENTER", "nothing CENTER",
+            "area RIGHT", "r", "room", "nothing RIGHT"),
+            words(listEntries(cfg, null, dragging = true, lanes = lanesOnScreen(cfg, setOf(Position.CENTER)), abreast = true)))
     }
 
     @Test fun sideBySideTheLanesShareOneLineAndALowerPartWithoutRowsSaysSo() {

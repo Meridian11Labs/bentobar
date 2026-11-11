@@ -74,18 +74,38 @@ import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
 import java.time.ZonedDateTime
 import kotlin.math.roundToInt
+import android.content.res.Resources
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.platform.LocalResources
+import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.HiddenMode
+import com.meridian11.books.bentobar.data.Part
+import com.meridian11.books.bentobar.items.Items
 
 /**
  * A mock status bar with the real strips in it, one for each area the layout uses, standing where the bar has them;
  * clicking an item selects it. With several areas in use each strip has its area's name on a bracket under it, the
  * selected item's in the accent; an area the bar has [noRoom] for right now has neither, and the Middle's place then
  * says who has it. Under it one quiet line: what the preview is, or [said], what a key just could not do.
+ *
+ * While something is carried ([reorder]) the line says what a drop would do, in the strong color; an insertion bar
+ * stands where the item would, and a carried row's own chip is dimmed. Nothing else moves: the strips are the Store's
+ * until the drop. The three areas show as drop zones with their names under them, from the pickup with several lanes
+ * on screen ([lanesSeveral]), else only while the pointer is over the bar; the room for the names is kept under the
+ * line, so the preview is as tall with them as without.
  * Internal for its test.
  */
 @Composable
 internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said: String? = null, noRoom: Set<Position> = emptySet(),
-                        onSelect: (String?) -> Unit) {
+                        reorder: Reorder? = null, lanesSeveral: Boolean = false, onSelect: (String?) -> Unit) {
     val cfg by Store.config.collectAsState()
+    val res = LocalResources.current
+    val density = LocalDensity.current
     val tick by Ticker.tick.collectAsState()
     var expanded by remember { mutableStateOf(false) }
     // The preview is narrower than a status bar: what it has no room for is said under it, or an item
@@ -121,6 +141,15 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         else -> Brush.horizontalGradient(listOf(Color(0xFFDDE6F3), Color(0xFFD5E8E6), Color(0xFFE3EEE9)))
     }
     val select by androidx.compose.runtime.rememberUpdatedState(onSelect)
+    val drags by androidx.compose.runtime.rememberUpdatedState(reorder)
+    SideEffect {
+        reorder?.look = look
+        // The chip a carried row becomes stands on one plain color of the bar.
+        reorder?.ground = if (bar.opaque) bar.background else if (bar.barDark) Color(0xFF3F6F73) else Color(0xFFD5E8E6)
+    }
+    val carried = reorder?.carried
+    val target = (reorder?.drop as? Drop.At)?.spot?.zone?.area?.takeIf { carried != null }
+    val zonesUp = reorder != null && carried != null && reorder.live && (lanesSeveral || reorder.inPreview)
     // One object for the page's life, as the bar's own events are: rebuilt each time, every item would redraw on every tick.
     val events = remember { object : StripEvents {
         override fun click(item: ItemConfig, at: Rect) = select(item.id)
@@ -134,11 +163,13 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         override fun chevron(at: Rect) { expanded = !expanded }
         override fun chevronContext(at: Rect) { expanded = !expanded }
         override fun hover(inside: Boolean) {}
-        override fun placed(id: String, at: Rect) {}
+        // Where each chip stands, for the insertion bar of a drag.
+        override fun placed(id: String, at: Rect) { drags?.chips?.put(id, at) }
+        override fun gone(id: String) { drags?.chips?.remove(id) }
     } }
     Column {
         BoxWithConstraints(
-            Modifier.fillMaxWidth().height(52.dp).onGloballyPositioned { barAt[0] = it }.clip(RoundedCornerShape(Radius.large))
+            Modifier.fillMaxWidth().height(52.dp).onGloballyPositioned { barAt[0] = it; reorder?.previewBar = it }.clip(RoundedCornerShape(Radius.large))
                 .background(barBrush),
         ) {
             // The strip may take what the mock clock and system icons leave (about 380 dp go to them and the gaps).
@@ -147,7 +178,7 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
             // The system's 12/24-hour setting and the locale's own short date, like the real status bar.
             val h24 = android.text.format.DateFormat.is24HourFormat(LocalContext.current)
             Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(Dates.format(Dates.timeSkeleton(h24), now) + "   " + Dates.format("EEEMMMd", now), color = look.fg,
+                Text(Dates.format(Dates.timeSkeleton(h24), now) + "   " + Dates.format("EEEMMMd", now), Modifier.onGloballyPositioned { reorder?.clock = it }, color = look.fg,
                     fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = 14.sp)
                 // One area's strip, as the bar composes each of its own: the area's plan, its ‹ on the area's side, and what
                 // it has no room for kept as the area's. [budget] is what its items may take.
@@ -155,10 +186,13 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
                 // is composed once more before then, with this layout: there is no plan for it, and it composes nothing.
                 val strip: @Composable (Position, Int) -> Unit = { area, budget ->
                     plans[area]?.let { plan ->
-                        Strip(entries(plan.visible), entries(plan.revealed), plan.chevron,
-                            chevronAlways = plan.chevronAlways, chevronReservePx = 0, expanded = plan.open,
-                            chevronOnLeft = area != Position.LEFT, look = look, maxWidthPx = budget, heightDp = 52.dp, events = events,
-                            onOverflow = { dropped[area] = it })
+                        // One node, as the strip is: a drag asks it where the area stands.
+                        Box(Modifier.onGloballyPositioned { reorder?.strips?.put(area, it) }) {
+                            Strip(entries(plan.visible), entries(plan.revealed), plan.chevron,
+                                chevronAlways = plan.chevronAlways, chevronReservePx = 0, expanded = plan.open,
+                                chevronOnLeft = area != Position.LEFT, look = look, maxWidthPx = budget, heightDp = 52.dp, events = events,
+                                onOverflow = { dropped[area] = it })
+                        }
                     }
                 }
                 val only = areas.singleOrNull()
@@ -179,22 +213,135 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
                     val pill: (@Composable () -> Unit)? = if (Position.CENTER in noRoom && Position.CENTER in wanted) { { SystemPill(look.fg) } } else null
                     PreviewAreas(areas, drawing, maxPx, Modifier.weight(1f).onGloballyPositioned { at ->
                         barAt[0]?.takeIf { it.isAttached }?.let { origin = it.localPositionOf(at, Offset.Zero).x.roundToInt() }
-                    }, pill, { if (spans != it) spans = it }, strip)
+                    }, pill, {
+                        if (spans != it) spans = it
+                        // A strip that was not placed has no place to ask about.
+                        reorder?.strips?.keys?.retainAll(it.keys)
+                    }, strip)
                 }
                 Spacer(Modifier.width(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.onGloballyPositioned { reorder?.icons = it }, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("US", color = look.fg, fontFamily = Fonts.bar, fontWeight = Fonts.barWeight, fontSize = 13.sp)
                     SymIcon(Sym.NOTIFICATIONS, size = 18.sp, color = look.fg)
                     SymIcon(Sym.WIFI, size = 18.sp, color = look.fg)
                     SymIcon(Sym.BATTERY_FULL, size = 18.sp, color = look.fg)
                 }
             }
+            if (reorder != null && carried != null) {
+                if (zonesUp) Zones(reorder.areas, cfg.areasInUse(), target, look.fg, Modifier.matchParentSize())
+                val gap = with(density) { cfg.spacingDp.dp.toPx() }
+                Box(Modifier.matchParentSize().drawBehind {
+                    val here = barAt[0]?.takeIf { it.isAttached } ?: return@drawBehind
+                    fun stretch(r: Rect) = here.windowToLocal(Offset(r.left.toFloat(), r.top.toFloat())).let { it.x..it.x + r.width() }
+                    // A carried row's own chip stays where it is until the drop, dimmed.
+                    if (carried.from == From.BAR) reorder.chips[carried.id]?.let { r ->
+                        val at = stretch(r)
+                        clipRect(at.start, 0f, at.endInclusive, size.height) { drawRect(barBrush, alpha = 0.65f) }
+                    }
+                    reorder.insertion = null
+                    val drop = reorder.drop as? Drop.At ?: return@drawBehind
+                    val area = drop.spot.zone.area
+                    val zone = reorder.areas[area] ?: return@drawBehind
+                    // The area as the bar would draw it after the drop: the bar stands before the item's next neighbour that has a chip.
+                    val plan = cfg.dropped(carried, drop).stripPlan(area, { item -> states[item.id]?.active == true }, expanded, false)
+                    val order = (if (area == Position.LEFT) plan.visible + plan.revealed else plan.revealed + plan.visible).map { it.id }
+                    if (carried.id !in order) return@drawBehind
+                    val chips = buildMap { order.forEach { id -> if (id != carried.id) reorder.chips[id]?.let { put(id, stretch(it)) } } }
+                    val x = insertionX(order, carried.id, chips, zone, area, gap)
+                    val tall = 24.dp.toPx()
+                    drawRoundRect(look.fg, Offset(x - 1.dp.toPx(), (size.height - tall) / 2), Size(2.dp.toPx(), tall), CornerRadius(1.dp.toPx()))
+                    reorder.container?.takeIf { it.isAttached }?.let { root ->
+                        reorder.insertion = root.windowToLocal(here.localToWindow(Offset(x + 2.dp.toPx(), (size.height - CHIP_HEIGHT.toPx()) / 2)))
+                    }
+                }.testTag("insertion"))
+            }
         }
-        if (several) Brackets(spans.filterKeys { it in areas }, origin, cfg.items.firstOrNull { it.id == selected }?.area)
+        if (zonesUp) Brackets(reorder.areas.mapValues { (_, r) -> r.start.roundToInt()..r.endInclusive.roundToInt() }, 0, target)
+        else if (several) Brackets(spans.filterKeys { it in areas }, origin, cfg.items.firstOrNull { it.id == selected }?.area)
         val hint = stringResource(if (plans.values.any { it.hidden.isNotEmpty() }) R.string.bar_preview_hint_hidden else R.string.bar_preview_hint)
-        Text(said ?: if (more.isEmpty()) hint else hint + " " + pluralStringResource(R.plurals.bar_preview_more, more.size, more.size),
-            style = Bento.type.help, color = Bento.colors.ink2, maxLines = 2,
-            modifier = Modifier.padding(start = 4.dp, top = if (several) 0.dp else 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
+        val words = if (reorder != null && carried != null) dropWords(res, cfg, carried, reorder.drop, lanesSeveral, reorder.touch) else null
+        Text(words ?: said ?: if (more.isEmpty()) hint else hint + " " + pluralStringResource(R.plurals.bar_preview_more, more.size, more.size),
+            style = if (words != null) Bento.type.help.copy(fontWeight = FontWeight.SemiBold) else Bento.type.help,
+            color = if (words != null) Bento.colors.ink else Bento.colors.ink2, maxLines = 2,
+            modifier = Modifier.padding(start = 4.dp, top = if (several || zonesUp) 0.dp else 6.dp).semantics { liveRegion = LiveRegionMode.Polite }
+                .testTag("preview-line"))
+        // The room the areas' names take while a drag shows them: kept, so that nothing under the preview moves then.
+        if (!several && !zonesUp) Spacer(Modifier.height(BRACKETS - 6.dp))
+    }
+}
+
+/** The height of the chip a carried row becomes over the preview, and of the brackets' line under it. */
+internal val CHIP_HEIGHT = 36.dp
+private val BRACKETS = 20.dp
+
+/**
+ * The areas as drop zones over the preview's bar: an area in use has a hairline around its strip, one that is not a
+ * dashed box where it would start, and the [target] of the drop a strong outline on a light tint. [areas] are their
+ * stretches along the bar.
+ */
+@Composable
+private fun Zones(areas: Map<Position, ClosedFloatingPointRange<Float>>, inUse: Set<Position>, target: Position?, fg: Color, modifier: Modifier) {
+    val order = BAR_ORDER.filter { it in areas }
+    Layout({
+        order.forEach { area ->
+            Box(Modifier.testTag("zone:$area").drawBehind {
+                val round = CornerRadius(Radius.medium.toPx())
+                if (area == target) {
+                    drawRoundRect(fg.copy(alpha = 0.12f), cornerRadius = round)
+                    drawRoundRect(fg, cornerRadius = round, style = Stroke(1.5.dp.toPx()))
+                } else drawRoundRect(fg.copy(alpha = 0.5f), cornerRadius = round,
+                    style = Stroke(1.dp.toPx(), pathEffect = if (area in inUse) null else PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))))
+            })
+        }
+    }, modifier) { measurables, cs ->
+        val tall = 40.dp.roundToPx()
+        val placed = measurables.mapIndexed { i, m ->
+            val at = areas.getValue(order[i])
+            // A strip's outline stands a little off its items.
+            val reach = if (order[i] in inUse) 4.dp.roundToPx() else 0
+            m.measure(Constraints.fixed((at.endInclusive - at.start).roundToInt().coerceAtLeast(0) + 2 * reach, tall)) to at.start.roundToInt() - reach
+        }
+        layout(cs.maxWidth, cs.maxHeight) { placed.forEach { (p, x) -> p.place(x, (cs.maxHeight - tall) / 2) } }
+    }
+}
+
+/**
+ * The line under the preview while [c] is carried: what letting go right now would do ([drop]), naming the row it would
+ * stand beside, and with [several] lanes on screen the area. A finger is told how it cancels ([touch]).
+ */
+internal fun dropWords(res: Resources, cfg: BarConfig, c: Carried, drop: Drop, several: Boolean, touch: Boolean): String {
+    val item = cfg.items.firstOrNull { it.id == c.id }
+    val name = if (c.from == From.TYPE || item == null) Items.of(c.type)?.let { res.getString(it.titleRes) }.orEmpty() else itemName(res, item)
+    val line = cfg.dropLine(c, drop, several)
+    fun area(of: Position) = res.getString(areaRes(of))
+    fun text(pointer: Int, finger: Int, vararg args: Any) = res.getString(if (touch) finger else pointer, *args)
+    val beside = line.beside?.let { id -> cfg.items.firstOrNull { it.id == id } }?.let { itemName(res, it) }.orEmpty()
+    val there = if (line.area != null && line.beside != null) res.getString(R.string.areas_drop_in, beside, area(line.area)) else beside
+    return when (line.says) {
+        Says.MOVE_AFTER -> text(R.string.bar_drop_move, R.string.bar_drop_move_touch, name, there)
+        Says.MOVE_BEFORE -> text(R.string.bar_drop_move_first, R.string.bar_drop_move_first_touch, name, there)
+        Says.ADD_AFTER -> text(R.string.bar_drop_add, R.string.bar_drop_add_touch, name, there)
+        Says.ADD_BEFORE -> text(R.string.bar_drop_add_first, R.string.bar_drop_add_first_touch, name, there)
+        Says.MOVE_TO, Says.ADD_TO -> {
+            val add = line.says == Says.ADD_TO
+            val to = line.area ?: cfg.homeArea()
+            when {
+                line.part == Part.LOWER -> {
+                    val who = if (several) res.getString(R.string.areas_drop_in, name, area(to)) else name
+                    if (cfg.hiddenMode == HiddenMode.SHOW_ALL) text(R.string.bar_drop_when_active, R.string.bar_drop_when_active_touch, who)
+                    else text(R.string.bar_drop_behind, R.string.bar_drop_behind_touch, who)
+                }
+                several -> if (add) text(R.string.areas_drop_add_to, R.string.areas_drop_add_to_touch, name, area(to))
+                    else text(R.string.areas_drop_move_to, R.string.areas_drop_move_to_touch, name, area(to))
+                add -> text(R.string.bar_drop_add_to_bar, R.string.bar_drop_add_to_bar_touch, name)
+                else -> text(R.string.bar_drop_always, R.string.bar_drop_always_touch, name)
+            }
+        }
+        Says.STARTS -> text(R.string.areas_drop_starts, R.string.areas_drop_starts_touch, name, area(line.area ?: cfg.homeArea()))
+        Says.OFF -> text(R.string.bar_drop_off, R.string.bar_drop_off_touch, name)
+        Says.NO_RULE -> res.getString(R.string.visibility_no_rule_drop, name)
+        Says.NO_RULE_ADD -> res.getString(R.string.bar_drop_no_rule_add, name)
+        Says.NONE -> res.getString(R.string.bar_drop_none)
     }
 }
 

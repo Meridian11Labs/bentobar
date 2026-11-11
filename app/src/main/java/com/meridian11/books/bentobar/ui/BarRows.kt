@@ -30,23 +30,26 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
@@ -71,7 +74,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meridian11.books.bentobar.R
@@ -97,6 +101,15 @@ import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import com.meridian11.books.bentobar.data.Pill
+import com.meridian11.books.bentobar.bar.Strip
+import com.meridian11.books.bentobar.bar.StripEntry
+import com.meridian11.books.bentobar.bar.StripEvents
+import com.meridian11.books.bentobar.data.fresh
+import com.meridian11.books.bentobar.data.homeArea
+import com.meridian11.books.bentobar.items.Ticker
 import kotlin.math.roundToInt
 
 /** A removed row's place, held open with Undo in it: the item as it was, the zone it stood in and its place there. */
@@ -143,6 +156,8 @@ sealed interface Entry {
     data class Fold(val area: Position) : Entry { override val key: Any get() = "fold" to area; override val lane: Position? get() = null }
     /** The bar has no room for this area right now. */
     data class NoRoom(val area: Position) : Entry { override val key: Any get() = "noroom" to area; override val lane get() = area }
+    /** Room at the end of a part while something is dragged: half a row in the one column, a row in a lane, so an empty part can be dropped into. */
+    data class Room(val zone: Zone) : Entry { override val key: Any get() = "room" to zone; override val lane get() = zone.area }
 }
 
 /**
@@ -151,7 +166,8 @@ sealed interface Entry {
  * it there). With several in one column ([abreast] false, the narrow window) a lane has its line only for a lower part
  * that has rows, or while a row is [dragging]; side by side there is one line for all, and a lower part without rows
  * says so. A [slip] stands where its row stood, and keeps its area on screen. A lane with nothing in it says what it
- * is for; [fold], the area that just closed, is said first; an area in [noRoom] says so under its head.
+ * is for; [fold], the area that just closed, is said first; an area in [noRoom] says so under its head. While a row is
+ * [dragging] every part ends in room to drop into, unless words already stand there (an empty lane's, "Nothing here").
  */
 fun listEntries(cfg: BarConfig, slip: Slip?, dragging: Boolean, lanes: List<Position> = lanesOnScreen(cfg, emptySet()), abreast: Boolean = false,
                 fold: Position? = null, noRoom: Set<Position> = emptySet()): List<Entry> {
@@ -180,6 +196,8 @@ fun listEntries(cfg: BarConfig, slip: Slip?, dragging: Boolean, lanes: List<Posi
                 }
                 if (here == null) addAll(rows)
                 else addAll(rows.toMutableList().apply { add(here.index.coerceIn(0, size), Entry.Removed(here)) })
+                val worded = if (part == Part.UPPER) bare else several && abreast && rows.isEmpty() && here == null
+                if (dragging && !worded) add(Entry.Room(zone))
             }
         }
     }
@@ -189,6 +207,8 @@ private val ROW_SHAPE = RoundedCornerShape(Radius.medium)
 private val ROW_INSET = 12.dp
 
 private val LANE_GAP = 8.dp
+/** What a part grows by in the one column while something is dragged. */
+private val ROOM = 24.dp
 
 private enum class Band { TOP, HEAD, UPPER, LINE, LOWER }
 
@@ -209,6 +229,7 @@ private fun slotOf(e: Entry, order: List<Position>): Slot {
         is Entry.PartLine, is Entry.Blank -> Slot(lane, Band.LOWER)
         is Entry.Row -> Slot(lane, if (e.zone.part == Part.UPPER) Band.UPPER else Band.LOWER)
         is Entry.Removed -> Slot(lane, if (e.slip.zone.part == Part.UPPER) Band.UPPER else Band.LOWER)
+        is Entry.Room -> Slot(lane, if (e.zone.part == Part.UPPER) Band.UPPER else Band.LOWER)
     }
 }
 
@@ -260,7 +281,8 @@ private fun Lines(abreast: Int, content: @Composable () -> Unit) {
 /**
  * The bar's card: the one list, or with several [lanes] on screen in a window with the room, the lanes side by side.
  * A click selects a row, a click on the card's empty part lets the selection go, and a row is dragged to a new place by
- * [reorder] (the gesture is on the container, a copy of the row floats above it).
+ * [reorder] (the gesture and the copy that floats are the page's): the list shows the opening where the row would land,
+ * room at the end of each part, and the part under it tinted.
  */
 @Composable
 internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: String?, edit: BarEdit, reorder: Reorder, lanes: Lanes,
@@ -268,16 +290,14 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     val c = Bento.colors
     val density = LocalDensity.current
     val scroll = rememberScrollState()
-    val scope = rememberCoroutineScope()
     val kept by Undo.last.collectAsState()
     val setup by Setup.state.collectAsState()
     val overflow by BarOverflow.ids.collectAsState()
     val narrow = LocalWindowLayout.current.kind == WindowClass.NARROW
     val several = lanes.several
     val abreast = several && !narrow
-    SideEffect { reorder.config = cfg; reorder.abreast = abreast }
     // The Store has caught up with the drop: the row is where it landed.
-    LaunchedEffect(cfg) { reorder.pending = null }
+    LaunchedEffect(cfg) { reorder.arrived() }
     AutoScroll(reorder, scroll)
     val shown = reorder.preview(cfg)
     val dragging = reorder.dragging
@@ -291,8 +311,18 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     val grabbing = remember { PointerIcon(android.view.PointerIcon.TYPE_GRABBING) }
     Column(modifier.clip(RoundedCornerShape(Radius.large)).background(c.panel)
         .pointerInput(edit) { detectTapGestures { edit.letGo() } }
+        .onGloballyPositioned { reorder.viewport = it }
         .verticalScroll(scroll).padding(vertical = Space.m).testTag("bar-list")) {
-        Box(Modifier.fillMaxWidth().onGloballyPositioned { reorder.container = it }.reorderable(reorder, scope)
+        val tint = c.accent
+        Box(Modifier.fillMaxWidth().onGloballyPositioned { reorder.content = it }
+            // The part a drop would land in, from under its heading to its end.
+            .drawBehind {
+                val zone = (reorder.drop as? Drop.At)?.spot?.zone?.takeIf { reorder.live } ?: return@drawBehind
+                val at = reorder.rowsOf(zone)?.deflate(6.dp.toPx())?.takeIf { it.width > 0f && it.height > 0f } ?: return@drawBehind
+                val round = CornerRadius(12.dp.toPx())
+                drawRoundRect(tint.copy(alpha = 0.05f), at.topLeft, at.size, round)
+                drawRoundRect(tint.copy(alpha = 0.45f), at.topLeft, at.size, round, style = Stroke(1.dp.toPx()))
+            }
             .pointerHoverIcon(if (dragging != null) grabbing else PointerIcon.Default, overrideDescendants = dragging != null)) {
             Lines(if (abreast) order.size else 1) {
                 // One call site for every line: a row that moves to another part or area keeps its node, and its focus.
@@ -328,15 +358,10 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
                                 contentAlignment = Alignment.CenterStart) { Text(stringResource(R.string.areas_nothing), style = Bento.type.help, color = c.ink3) }
                             is Entry.Fold -> FoldSlip(e.area, edit, slot)
                             is Entry.NoRoom -> NoRoom(e.area, cfg, slot)
+                            is Entry.Room -> Spacer(slot.fillMaxWidth().height(if (abreast) Target.row else ROOM))
                         }
                     }
                 }
-            }
-            val lifted = dragging?.let { id -> cfg.items.firstOrNull { it.id == id } }
-            if (lifted != null) Box(Modifier.offset { IntOffset(reorder.rowLeft.roundToInt(), reorder.ghostTop.roundToInt()) }
-                .width(with(density) { reorder.rowWidth.toDp() }).clearAndSetSemantics { }) {
-                RowBody(lifted, states[lifted.id], lifted.id in overflow && !several, null, setup.calendar, cfg,
-                    Modifier.padding(horizontal = ROW_INSET).shadow(8.dp, ROW_SHAPE).clip(ROW_SHAPE).background(c.raised), stacked = narrow || abreast, grip = { Grip(c.accent) })
             }
         }
     }
@@ -661,5 +686,60 @@ private fun Detail(text: String, warn: Boolean, modifier: Modifier = Modifier, l
     Row(modifier, verticalAlignment = if (lines > 1) Alignment.Top else Alignment.CenterVertically) {
         if (warn) { SymIcon(Sym.WARNING, size = 14.sp, color = c.warnInk); Spacer(Modifier.width(Space.xs)) }
         Text(text, style = Bento.type.small.tabular, color = if (warn) c.warnInk else c.ink2, maxLines = lines, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A strip that only draws: the chip the dragged row becomes over the preview. */
+private object ChipOnly : StripEvents {
+    override fun click(item: ItemConfig, at: android.graphics.Rect) {}
+    override fun context(item: ItemConfig, at: android.graphics.Rect) {}
+    override fun scroll(item: ItemConfig, steps: Int) {}
+    override fun chevron(at: android.graphics.Rect) {}
+    override fun chevronContext(at: android.graphics.Rect) {}
+    override fun hover(inside: Boolean) {}
+    override fun placed(id: String, at: android.graphics.Rect) {}
+    override val slidable get() = false
+    override val draggable get() = false
+}
+
+/**
+ * What is carried, drawn over the whole page under the pointer: the row as the list draws it, raised, and over the
+ * preview the item's chip as the strip draws it. It turns from one into the other by its size and its shape in 120 ms,
+ * never by a fade: one of the two is drawn at a time, cut to the shape between them.
+ */
+@Composable
+internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, ItemState>, several: Boolean) {
+    val carried = reorder.carried ?: return
+    val c = Bento.colors
+    val item = remember(carried, cfg) {
+        if (carried.from == From.TYPE) Items.of(carried.type)?.fresh(carried.id, cfg.homeArea()) else cfg.items.firstOrNull { it.id == carried.id }
+    } ?: return
+    val state = states[item.id] ?: remember(item) { Ticker.placeholder(item) }
+    val setup by Setup.state.collectAsState()
+    val narrow = LocalWindowLayout.current.kind == WindowClass.NARROW
+    val look = reorder.look
+    val chip by animateFloatAsState(if (reorder.inPreview && look != null) 1f else 0f, Motion.spec(tween(120)), label = "chip")
+    var up by remember(carried) { mutableStateOf(false) }
+    LaunchedEffect(carried) { up = true }
+    val raised by animateFloatAsState(if (up) 1f else 0f, Motion.spec(tween(120)), label = "raised")
+    val ground = if (reorder.ground == Color.Unspecified) c.raised else reorder.ground
+    Layout({
+        RowBody(item, state, false, null, setup.calendar, cfg, Modifier, stacked = narrow || several, grip = { Grip(c.accent) })
+        Box(Modifier.padding(horizontal = 10.dp).testTag("chip")) {
+            if (look != null) Strip(listOf(StripEntry(item, state)), emptyList(), showChevron = false, chevronAlways = false, chevronReservePx = 0,
+                expanded = false, chevronOnLeft = false, look = look.copy(pill = Pill.NONE), maxWidthPx = 4000, heightDp = 36.dp, events = ChipOnly)
+        }
+    }, Modifier.offset { reorder.copyAt(chip).round() }
+        .graphicsLayer {
+            shadowElevation = 8.dp.toPx() * raised
+            shape = RoundedCornerShape(lerp(Radius.medium, (size.height / 2).toDp(), chip))
+            clip = true
+        }
+        .background(lerp(c.raised, ground, chip)).clearAndSetSemantics { }.testTag("drag-copy")) { measurables, _ ->
+        val row = measurables[0].measure(Constraints.fixedWidth(reorder.copyWidth.roundToInt().coerceAtLeast(1)))
+        val pill = measurables[1].measure(Constraints())
+        val w = (row.width + (pill.width - row.width) * chip).roundToInt()
+        val h = (row.height + (pill.height - row.height) * chip).roundToInt()
+        layout(w, h) { if (chip < 0.5f) row.place(0, 0) else pill.place((w - pill.width) / 2, (h - pill.height) / 2) }
     }
 }

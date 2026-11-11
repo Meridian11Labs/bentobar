@@ -9,6 +9,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -45,6 +47,7 @@ import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
@@ -305,10 +308,31 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         }
     }
 
-    /** A dragged row was carried under a line it can't go under. */
-    fun refused(id: String) {
-        val item = item(id) ?: return
-        said = res.getString(R.string.visibility_no_rule_drop, itemName(res, item))
+    /**
+     * A drag was let go. Into the bar: the row at its new place, or the library's type or line in the bar where it was
+     * dropped. On the library: the row removed, as Remove does it. One change and one step of Undo each; the same place
+     * again changes nothing and keeps nothing. Under a line the item can't go under, the page says why. True if the
+     * layout changed.
+     */
+    fun dropped(c: Carried, drop: Drop): Boolean = when (drop) {
+        is Drop.At -> {
+            said = null
+            val changed = Undo.change(added = c.id.takeIf { c.from != From.BAR }) { it.dropped(c, drop) }
+            if (changed) moved(c.id, focus = false)
+            changed
+        }
+        Drop.Off -> {
+            val before = Store.config.value
+            remove(c.id)
+            Store.config.value !== before
+        }
+        is Drop.Refused -> {
+            val item = item(c.id)
+            said = if (c.from == From.BAR && item != null) res.getString(R.string.visibility_no_rule_drop, itemName(res, item))
+            else Items.of(c.type)?.let { res.getString(R.string.bar_drop_no_rule_add, res.getString(it.titleRes)) }
+            false
+        }
+        Drop.None -> false
     }
 
     /**
@@ -440,6 +464,8 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
     val filter = rememberSaveable { mutableStateOf("") }
     val edit = remember { BarEdit(res, sideState, filter) }
     val reorder = remember { Reorder() }
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current.density
     val item = cfg.items.firstOrNull { it.id == selected && it.section != Section.OFF }
     val kept by Undo.last.collectAsState()
     val overflow by BarOverflow.ids.collectAsState()
@@ -455,7 +481,12 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
         edit.wide = wide
         edit.selected = item?.id
         edit.showing = side
-        reorder.onRefused = edit::refused
+        reorder.config = cfg
+        reorder.density = density
+        reorder.scope = scope
+        // A row carried onto the panel is removed there, while the panel is the library or an item's options.
+        reorder.shelfOn = side != PanelSide.BAR
+        reorder.onDrop = edit::dropped
         edit.settle(kept, fold, lanes.on.size)
     }
     LaunchedEffect(turn) { if (turn > 0 && selected != null) edit.side = PanelSide.OPTIONS }
@@ -469,25 +500,29 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
         BarKeys.handler = { native -> edit.key(KeyEvent(native), view.onCheckIsTextEditor(), reorder) }
         onDispose { BarKeys.handler = null }
     }
-    Column(Modifier.fillMaxSize().onKeyEvent { edit.key(it, view.onCheckIsTextEditor(), reorder) }
-        .padding(start = layout.marginDp.dp, end = layout.marginDp.dp, top = Space.m, bottom = Space.xl)) {
-        BarPreview(states, item?.id, edit.said, lanes.noRoom) { id -> if (id != null) edit.select(id) }
-        // What a change came to, for a screen reader; the page draws nothing for it.
-        Box(Modifier.size(1.dp).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = edit.announced })
-        Spacer(Modifier.height(Space.m))
-        if (wide) Row(Modifier.weight(1f)) {
-            BarList(cfg, states, item?.id, edit, reorder, lanes, Modifier.weight(1f).fillMaxHeight())
-            Spacer(Modifier.width(Space.xl))
-            Column(Modifier.width(layout.panelDp.dp)) {
+    // The one drag of the page: its gesture is here, over the preview, the bar's card and the panel, and so is the copy it carries.
+    Box(Modifier.fillMaxSize().onGloballyPositioned { reorder.container = it }.drags(reorder)) {
+        Column(Modifier.fillMaxSize().onKeyEvent { edit.key(it, view.onCheckIsTextEditor(), reorder) }
+            .padding(start = layout.marginDp.dp, end = layout.marginDp.dp, top = Space.m, bottom = Space.xl)) {
+            BarPreview(states, item?.id, edit.said, lanes.noRoom, reorder, lanes.several) { id -> if (id != null) edit.select(id) }
+            // What a change came to, for a screen reader; the page draws nothing for it.
+            Box(Modifier.size(1.dp).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = edit.announced })
+            Spacer(Modifier.height(Space.m))
+            if (wide) Row(Modifier.weight(1f)) {
+                BarList(cfg, states, item?.id, edit, reorder, lanes, Modifier.weight(1f).fillMaxHeight())
+                Spacer(Modifier.width(Space.xl))
+                Column(Modifier.width(layout.panelDp.dp)) {
+                    PanelSwitch(side, item, wide, edit)
+                    Spacer(Modifier.height(10.dp))
+                    Panel(side, item, cfg, states, edit, reorder, lanes, Modifier.weight(1f))
+                }
+            } else {
                 PanelSwitch(side, item, wide, edit)
                 Spacer(Modifier.height(10.dp))
                 Panel(side, item, cfg, states, edit, reorder, lanes, Modifier.weight(1f))
             }
-        } else {
-            PanelSwitch(side, item, wide, edit)
-            Spacer(Modifier.height(10.dp))
-            Panel(side, item, cfg, states, edit, reorder, lanes, Modifier.weight(1f))
         }
+        DragCopy(reorder, cfg, states, lanes.several)
     }
 }
 
@@ -525,7 +560,11 @@ private fun Panel(side: PanelSide, item: ItemConfig?, cfg: BarConfig, states: Ma
     // The options on their way out are still the item's that was let go.
     val last = remember { object { var item: ItemConfig? = null } }
     if (item != null) last.item = item
-    Box(modifier.fillMaxWidth().clip(CARD).background(Bento.colors.panel)) {
+    // While a row of the bar is carried the whole card takes it: dropped here it is removed.
+    val takes = reorder.carried?.from == From.BAR && reorder.live && side != PanelSide.BAR
+    val over = takes && reorder.drop == Drop.Off
+    Box(modifier.fillMaxWidth().onGloballyPositioned { reorder.shelf = it }.clip(CARD).background(Bento.colors.panel)
+        .then(if (takes) Modifier.border(if (over) 2.dp else 1.5.dp, Bento.colors.accent, CARD) else Modifier).testTag("panel")) {
         AnimatedContent(side, transitionSpec = {
             val way = if (targetState.ordinal > initialState.ordinal) 1 else -1
             (slideInHorizontally(Motion.spec(tween(TURN_MS))) { way * shift } + fadeIn(Motion.spec(tween(TURN_MS)))) togetherWith
@@ -533,8 +572,8 @@ private fun Panel(side: PanelSide, item: ItemConfig?, cfg: BarConfig, states: Ma
         }, label = "panel") { shown ->
             when (shown) {
                 PanelSide.BAR -> BarList(cfg, states, item?.id, edit, reorder, lanes, Modifier.fillMaxSize())
-                PanelSide.ADD -> Library(cfg, edit, lanes)
-                PanelSide.OPTIONS -> (item ?: last.item)?.let { of -> key(of.id) { ItemOptions(of, cfg, states[of.id], edit, lanes.several) } }
+                PanelSide.ADD -> Library(cfg, edit, lanes, reorder)
+                PanelSide.OPTIONS -> (item ?: last.item)?.let { of -> key(of.id) { ItemOptions(of, cfg, states[of.id], edit, lanes.several, reorder = reorder) } }
             }
         }
     }

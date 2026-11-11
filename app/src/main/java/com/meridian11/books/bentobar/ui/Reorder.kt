@@ -17,10 +17,14 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
@@ -33,13 +37,15 @@ import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.round
+import com.meridian11.books.bentobar.bar.StripLook
+import com.meridian11.books.bentobar.data.BAR_ORDER
 import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
-import com.meridian11.books.bentobar.data.canGoBelow
+import com.meridian11.books.bentobar.data.Section
+import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
-import com.meridian11.books.bentobar.data.placed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -70,181 +76,356 @@ fun dropSpot(
     return DropSpot(zone, rows[zone].orEmpty().count { it < y })
 }
 
+/** What a press picked up: a row of the bar's list ([key] its id), a type's row in the library (its type) or a setup's line (its id). */
+class Picked(val from: From, val key: String, val at: LayoutCoordinates)
+
 /**
- * Drag to reorder within the bar's list and across the line between its parts. The gesture lives on the
- * container (a row that changes part is drawn anew, which would cancel a gesture on the row itself). While
- * dragging, the row's place shows an opening ([dragging] in [preview]), a copy of the row follows the pointer above
- * the list, and the layout changes once, on the drop, by [placed]: the one step a drop is, with its rules (a type
- * without a rule is not put under the line in the default mode: its opening stays where it was).
+ * The Bar page's one drag. The gesture is on the page's root, over the preview, the bar's card and the panel (a row
+ * that changes part is drawn anew, which would cancel a gesture on the row itself), and everything it asks is asked in
+ * the root's coordinates: the page's parts register here where they stand, [measure] makes a [DropMap] of them on every
+ * move, and [dropAt] says what letting go would do ([drop]). While something is [carried] the list shows an opening
+ * where it would land ([preview]), a copy of it follows the pointer in the root's overlay, and nothing is written: the
+ * layout changes once, on the drop, through [onDrop]. Esc, or letting go over nothing, puts everything back.
  */
 @Stable
 class Reorder {
-    /** The row being dragged, or null. */
-    var dragging by mutableStateOf<String?>(null)
+    /** What is being dragged, or null. It stays until its copy has settled or travelled back. */
+    var carried by mutableStateOf<Carried?>(null)
         private set
-    var spot by mutableStateOf<DropSpot?>(null)
+    /** The carried thing's id: a row's, or the one a type gets if it is dropped in the bar. */
+    val dragging: String? get() = carried?.id
+    /** What letting go right now would do. */
+    var drop by mutableStateOf<Drop>(Drop.None)
+        private set
+    /** A finger carries it: the line under the preview says how a finger cancels. */
+    var touch by mutableStateOf(false)
+        private set
+    /** The pointer is over the preview's bar: the copy is the item's chip there. */
+    var inPreview by mutableStateOf(false)
+        private set
+    /** The stretch of each area along the preview's bar, in the bar's own x: a strip's, or the zone of an area not in use. */
+    var areas by mutableStateOf<Map<Position, ClosedFloatingPointRange<Float>>>(emptyMap())
+        private set
+    /** The copy's width and height as a row. */
+    var copyWidth by mutableFloatStateOf(0f)
+        private set
+    var rowHeight by mutableFloatStateOf(0f)
         private set
     /** A drop on its way to the Store (whose flow delivers it a frame later), so the row doesn't jump back. */
-    var pending by mutableStateOf<Pair<String, DropSpot>?>(null)
-    /** The pointer, in the container's coordinates. */
-    private var pointerY by mutableFloatStateOf(0f)
+    private var pending by mutableStateOf<Pending?>(null)
+    /** The pointer, in the root's coordinates. */
+    private var pointer by mutableStateOf(Offset.Zero)
     private var pointerInWindow = Offset.Zero
-    private var grabY = 0f
-    private var settleTop by mutableStateOf<Float?>(null)
-    var rowLeft = 0f
-        private set
-    var rowWidth = 0f
-        private set
-    var rowHeight = 0f
-        private set
+    private var grab = Offset.Zero
+    /** The copy's corner while it glides by itself: into its place, or back where it came from. */
+    private var settle by mutableStateOf<Offset?>(null)
+    private var lift: Lift? = null
+    private var source: LayoutCoordinates? = null
 
-    /** The layout, as the Store has it (set by the composable). */
+    /** The layout, as the Store has it (set by the page). */
     var config: BarConfig = BarConfig()
+    var density = 1f
+    /** The page's root: every rectangle here is in its coordinates. */
     var container: LayoutCoordinates? = null
-    /** Each row's bounds (the opening registers under the dragged id), its draggable area and its handle. */
+    /** The list's card as it shows, and its content, which scrolls in it. */
+    var viewport: LayoutCoordinates? = null
+    var content: LayoutCoordinates? = null
+    /** Each row's bounds (the opening registers under the carried id), its draggable area and its handle. */
     val rows = HashMap<String, LayoutCoordinates>()
     val grabAreas = HashMap<String, LayoutCoordinates>()
     val handles = HashMap<String, LayoutCoordinates>()
     /** Each zone's heading: a zone runs from its heading to the next one's, the last to the list's end. */
     val headings = HashMap<Zone, LayoutCoordinates>()
-    /**
-     * The areas stand side by side, each in its lane. A zone's place is told by height alone, so a row is carried up and
-     * down its own lane; a drag across lanes needs the pointer's x here too.
-     */
-    var abreast = false
-    /** Told when the dragged row is carried under a line it can't go under (its type has no rule): the page says why. */
-    var onRefused: (String) -> Unit = {}
+    /** The library's rows that can be carried into the bar, the card they scroll in, and where each row's buttons start. */
+    val sources = HashMap<Pair<From, String>, LayoutCoordinates>()
+    val stops = HashMap<Pair<From, String>, LayoutCoordinates>()
+    var libraryView: LayoutCoordinates? = null
+    /** The panel's card, and whether it shows the library or an item's options: then a row dropped on it is removed. */
+    var shelf: LayoutCoordinates? = null
+    var shelfOn = false
+    /** The preview: its bar, the mock clock and system icons in it, each area's strip, and each item's chip as the strip reports it (in the window). */
+    var previewBar: LayoutCoordinates? = null
+    var clock: LayoutCoordinates? = null
+    var icons: LayoutCoordinates? = null
+    val strips = HashMap<Position, LayoutCoordinates>()
+    val chips = HashMap<String, android.graphics.Rect>()
+    /** Where the preview's insertion bar stands, in the root: a chip let go over the preview glides there. */
+    var insertion: Offset? = null
+    /** The strip's look in the preview and a plain color of its bar, for the chip. */
+    var look: StripLook? = null
+    var ground: Color = Color.Unspecified
+    var scope: CoroutineScope? = null
+    /** The drop: the page writes it, in one step of Undo. True if the layout changed. */
+    var onDrop: (Carried, Drop) -> Boolean = { _, _ -> false }
 
-    val busy: Boolean get() = dragging != null || settleTop != null
+    private class Pending(val carried: Carried, val drop: Drop, val config: BarConfig)
 
-    /** The layout to list: with the dragged row where it would land while dragging, else the Store's. */
+    val busy: Boolean get() = carried != null
+    /** Something is carried and still follows the pointer. */
+    val live: Boolean get() = carried != null && settle == null
+
+    /** The layout to list: with the carried thing where it would land while dragging, else the Store's. */
     fun preview(config: BarConfig): BarConfig {
-        val id = dragging
-        val s = spot
+        val c = carried
         val p = pending
         return when {
-            id != null && s != null -> config.placed(id, s.zone.area, s.zone.part, s.index)
-            p != null -> config.placed(p.first, p.second.zone.area, p.second.zone.part, p.second.index)
+            c != null -> config.showing(c, drop)
+            p != null && p.config === config -> config.showing(p.carried, p.drop)
             else -> config
         }
     }
 
-    /** The floating copy's top, in the container's coordinates. */
-    val ghostTop: Float
-        get() {
-            settleTop?.let { return it }
-            val max = ((container?.size?.height ?: 0) - rowHeight).coerceAtLeast(0f)
-            return (pointerY - grabY).coerceIn(0f, max)
+    /** The Store has caught up with the drop: the row is where it landed. */
+    fun arrived() { pending = null }
+
+    /**
+     * The copy's corner, in the root. As a row it hangs from the pointer where it was grabbed; as a chip ([chip] 1) it
+     * stands below the pointer, to its right, so that it hides neither the zone nor the insertion bar.
+     */
+    fun copyAt(chip: Float): Offset = settle ?: (pointer + lerp(-grab, Offset(10f, 12f) * density, chip))
+
+    private fun bounds(c: LayoutCoordinates?, clip: Boolean = false) =
+        container?.takeIf { it.isAttached }?.let { root -> c?.takeIf { it.isAttached }?.let { root.localBoundingBoxOf(it, clipBounds = clip) } }
+
+    /**
+     * What is under [pos]. In the bar's list: a row, anywhere on it for a mouse or pen, only its handle for touch (so
+     * fingers still scroll). In the library: a type's row or a setup's line, left of its buttons.
+     */
+    fun hit(pos: Offset, touch: Boolean): Picked? {
+        if (bounds(viewport, clip = true)?.contains(pos) == true) {
+            val id = (if (touch) handles else grabAreas).entries.firstOrNull { (_, c) -> bounds(c)?.contains(pos) == true }?.key ?: return null
+            return rows[id]?.let { Picked(From.BAR, id, it) }
         }
+        if (bounds(libraryView, clip = true)?.contains(pos) != true) return null
+        return sources.entries.firstOrNull { (key, c) ->
+            val b = bounds(c) ?: return@firstOrNull false
+            b.contains(pos) && pos.x < (bounds(stops[key])?.left ?: b.right)
+        }?.let { Picked(it.key.first, it.key.second, it.value) }
+    }
 
-    private fun bounds(c: LayoutCoordinates?) =
-        container?.takeIf { it.isAttached }?.let { root -> c?.takeIf { it.isAttached }?.let { root.localBoundingBoxOf(it) } }
-
-    /** The row under [pos]: anywhere on it for a mouse or pen, only the handle for touch (so fingers still scroll). */
-    fun hit(pos: Offset, touch: Boolean): String? =
-        (if (touch) handles else grabAreas).entries.firstOrNull { (_, c) -> bounds(c)?.contains(pos) == true }?.key
-
-    fun start(id: String, down: Offset) {
-        val item = config.items.firstOrNull { it.id == id } ?: return
-        val part = config.partOf(item) ?: return
-        val b = bounds(rows[id]) ?: return
-        rowLeft = b.left; rowWidth = b.width; rowHeight = b.height
-        grabY = down.y - b.top
-        pointerY = down.y
-        container?.let { pointerInWindow = it.localToWindow(down) }
+    /** Picks [p] up with the pointer at [down]. False for something that is no longer there. */
+    fun start(p: Picked, down: Offset, touch: Boolean): Boolean {
+        val root = container?.takeIf { it.isAttached } ?: return false
+        val b = bounds(p.at) ?: return false
+        val item = config.items.firstOrNull { it.id == p.key }
+        val c = when (p.from) {
+            From.BAR -> item?.takeIf { config.partOf(it) != null }?.let { Carried(it.id, From.BAR, it.type) }
+            From.TYPE -> Carried(Store.newId(), From.TYPE, p.key)
+            From.LINE -> item?.takeIf { it.section == Section.OFF }?.let { Carried(it.id, From.LINE, it.type) }
+        } ?: return false
+        // A row of the list is drawn inside its line's insets; a line of the library is as wide as it is.
+        val inset = if (p.from == From.BAR) ROW_INSET_DP * density else 0f
+        val wide = (b.width - 2 * inset).coerceAtLeast(1f)
+        copyWidth = minOf(wide, COPY_MAX_DP * density)
+        rowHeight = if (p.from == From.BAR) b.height else ROW_DP * density
+        grab = Offset(((down.x - b.left - inset) * copyWidth / wide).coerceIn(0f, copyWidth), (down.y - b.top).coerceIn(0f, rowHeight))
+        pointer = down
+        pointerInWindow = root.localToWindow(down)
+        source = p.at
         pending = null
-        spot = DropSpot(Zone(item.area, part), config.parts(item.area)[part].indexOfFirst { it.id == id })
-        dragging = id
+        settle = null
+        this.touch = touch
+        lift = config.lift(c)
+        drop = lift?.own?.let { own -> Drop.At(DropSpot(own, config.parts(own.area)[own.part].indexOfFirst { it.id == c.id })) } ?: Drop.None
+        carried = c
+        sync()
+        return true
     }
 
     fun pointerAt(local: Offset) {
-        val c = container?.takeIf { it.isAttached } ?: return
-        pointerInWindow = c.localToWindow(local)
+        val root = container?.takeIf { it.isAttached } ?: return
+        pointerInWindow = root.localToWindow(local)
         sync()
     }
 
-    /** Follows the pointer again after the content moved under it (auto-scroll, mouse wheel). */
+    /** Follows the pointer, also after the content moved under it (auto-scroll, mouse wheel). */
     fun sync() {
-        val id = dragging ?: return
-        val c = container?.takeIf { it.isAttached } ?: return
-        if (settleTop != null) return
-        pointerY = c.windowToLocal(pointerInWindow).y
-        val current = spot ?: return
-        val preview = preview(config)
-        val tops = headings.filterKeys { !abreast || it.area == current.zone.area }.mapNotNull { (zone, h) -> bounds(h)?.let { zone to it.top } }.sortedBy { it.second }
-        val spans = tops.mapIndexed { i, (zone, top) -> zone to top..(tops.getOrNull(i + 1)?.second ?: c.size.height.toFloat()) }
-        val middles = tops.associate { (zone, _) ->
-            zone to preview.parts(zone.area)[zone.part].filter { it.id != id }.mapNotNull { bounds(rows[it.id])?.center?.y }
-        }
-        val next = dropSpot(ghostTop + rowHeight / 2, spans, middles, current)
-        if (next == current) return
-        spot = next
-        if (next.zone.part == Part.LOWER && next.zone != current.zone && config.items.firstOrNull { it.id == id }?.let { !config.canGoBelow(it) } == true) onRefused(id)
+        val c = carried ?: return
+        val root = container?.takeIf { it.isAttached } ?: return
+        if (settle != null) return
+        pointer = root.windowToLocal(pointerInWindow)
+        val map = measure(c)
+        inPreview = map.preview?.contains(pointer) == true
+        val next = dropAt(pointer, pointer.y - grab.y + rowHeight / 2, map, lift ?: config.lift(c), drop)
+        if (next != drop) drop = next
     }
 
-    /** Pixels to scroll this frame: faster the closer the pointer is to the visible edge. */
+    private fun heads(space: LayoutCoordinates?): Map<Zone, Rect> {
+        val s = space?.takeIf { it.isAttached } ?: return emptyMap()
+        val all = buildMap { headings.forEach { (zone, h) -> if (h.isAttached) put(zone, s.localBoundingBoxOf(h, clipBounds = false)) } }
+        // A line shared by the lanes may still name a lane that has left.
+        return all.filterKeys { Zone(it.area, Part.UPPER) in all }
+    }
+
+    /** The page as the drag sees it right now. */
+    private fun measure(c: Carried): DropMap {
+        val shown = preview(config)
+        val zones = zoneRects(heads(container), bounds(content)?.bottom ?: 0f)
+        val middles = zones.associate { (zone, _) ->
+            zone to shown.parts(zone.area)[zone.part].filter { it.id != c.id }.mapNotNull { bounds(rows[it.id])?.center?.y }
+        }
+        val bar = bounds(previewBar)
+        val along = previewAreas()
+        if (along != areas) areas = along
+        val root = container
+        fun chipX(id: String) = chips[id]?.let { r -> root?.takeIf { it.isAttached }?.windowToLocal(Offset(r.exactCenterX(), r.exactCenterY()))?.x }
+        val chipsAt = buildMap {
+            for (area in along.keys) for (part in Part.entries) put(Zone(area, part), config.parts(area)[part].filter { it.id != c.id }.map { chipX(it.id) })
+        }
+        return DropMap(
+            list = bounds(viewport, clip = true), zones = zones, rows = middles,
+            preview = bar, areas = if (bar == null) emptyMap() else along.mapValues { (_, r) -> (bar.left + r.start)..(bar.left + r.endInclusive) }, chips = chipsAt,
+            shelf = bounds(shelf, clip = true)?.takeIf { shelfOn && c.from == From.BAR },
+        )
+    }
+
+    /** Each area's stretch along the preview's bar: its strip's, or for an area not in use the zone [previewZones] gives it. */
+    private fun previewAreas(): Map<Position, ClosedFloatingPointRange<Float>> {
+        val bar = previewBar?.takeIf { it.isAttached } ?: return emptyMap()
+        fun within(c: LayoutCoordinates?) = c?.takeIf { it.isAttached }?.let { bar.localBoundingBoxOf(it, clipBounds = false) }
+        val inUse = buildMap { BAR_ORDER.forEach { area -> within(strips[area])?.takeIf { it.width > 0f }?.let { put(area, it.left..it.right) } } }
+        val lo = (within(clock)?.right ?: 0f) + 16 * density
+        val hi = (within(icons)?.left ?: bar.size.width.toFloat()) - 12 * density
+        return previewZones(lo, hi, inUse, wide = 96 * density, gap = 8 * density, least = 40 * density)
+    }
+
+    /** The stretch of [zone]'s rows in the list's content, under its heading: what is tinted while it is the target. */
+    fun rowsOf(zone: Zone): Rect? {
+        val heads = heads(content)
+        val head = heads[zone] ?: return null
+        val all = zoneRects(heads, content?.size?.height?.toFloat() ?: 0f).firstOrNull { it.first == zone }?.second ?: return null
+        return Rect(all.left, minOf(head.bottom, all.bottom), all.right, all.bottom)
+    }
+
+    /** Pixels to scroll the list this frame: faster the closer the pointer is to its upper or lower edge, while it is over the list. */
     fun edgeSpeed(edge: Float, max: Float): Float {
-        if (settleTop != null) return 0f
-        val c = container?.takeIf { it.isAttached } ?: return 0f
-        val visible = c.boundsInWindow()
-        val y = pointerInWindow.y
+        if (!live) return 0f
+        val visible = viewport?.takeIf { it.isAttached }?.boundsInWindow() ?: return 0f
+        val p = pointerInWindow
+        if (!visible.contains(p)) return 0f
         return when {
-            y < visible.top + edge -> -max * ((visible.top + edge - y) / edge).coerceAtMost(1f)
-            y > visible.bottom - edge -> max * ((y - (visible.bottom - edge)) / edge).coerceAtMost(1f)
+            p.y < visible.top + edge -> -max * ((visible.top + edge - p.y) / edge).coerceAtMost(1f)
+            p.y > visible.bottom - edge -> max * ((p.y - (visible.bottom - edge)) / edge).coerceAtMost(1f)
             else -> 0f
         }
     }
 
-    /** Glides the copy into the opening, then saves the new place. */
-    suspend fun drop() {
-        val id = dragging ?: return
-        val s = spot ?: return cancel()
-        val target = bounds(rows[id])?.top
-        if (target != null) {
-            val from = ghostTop
-            settleTop = from
-            animate(from, target, animationSpec = Motion.spec(tween(140))) { v, _ -> settleTop = v }
+    /**
+     * Let go. Into the bar: the copy glides into the opening (over the preview, to the insertion bar), then the page
+     * writes the drop. On the library the row is removed at once. Over nothing, or a part that refuses it, it travels back.
+     */
+    suspend fun release() {
+        val c = carried ?: return
+        val d = drop
+        if (d !is Drop.At && d != Drop.Off) return back(told = d)
+        try {
+            if (d is Drop.At) {
+                val to = if (inPreview) insertion else bounds(rows[c.id])?.let { Offset(it.left + (if (it.width > copyWidth) ROW_INSET_DP * density else 0f), it.top) }
+                if (to != null) glide(to, 180)
+            }
+            pending = Pending(c, d, config)
+            // Nothing changed (the same place): nothing is on its way.
+            if (!onDrop(c, d)) pending = null
+        } finally {
+            clear()
         }
-        pending = id to s
-        // Nothing changed (the same place, or a place its type can't take): nothing is on its way.
-        if (!Undo.change { it.placed(id, s.zone.area, s.zone.part, s.index) }) pending = null
-        dragging = null
-        spot = null
-        settleTop = null
     }
 
+    /** Esc: everything back, nothing written. */
     fun cancel() {
-        dragging = null
-        spot = null
-        settleTop = null
+        if (!live) return
+        scope?.launch { back(told = null) } ?: clear()
+    }
+
+    /** The copy travels back where it came from; the page hears of a part that refused it, to say why a little longer. */
+    private suspend fun back(told: Drop?) {
+        val c = carried ?: return
+        try {
+            val from = copyAt(if (inPreview) 1f else 0f)
+            inPreview = false
+            drop = lift?.own?.let { own -> Drop.At(DropSpot(own, config.parts(own.area)[own.part].indexOfFirst { it.id == c.id })) } ?: Drop.None
+            settle = from
+            // The opening is back in the row's own place a frame later.
+            withFrameNanos { }
+            val home = bounds(if (c.from == From.BAR) rows[c.id] else source)
+            if (home != null) glide(Offset(home.left + (if (c.from == From.BAR) ROW_INSET_DP * density else 0f), home.top), 200)
+            if (told is Drop.Refused) onDrop(c, told)
+        } finally {
+            clear()
+        }
+    }
+
+    private suspend fun glide(to: Offset, ms: Int) {
+        val from = settle ?: copyAt(if (inPreview) 1f else 0f)
+        settle = from
+        animate(Offset.VectorConverter, from, to, animationSpec = Motion.spec(tween(ms))) { v, _ -> settle = v }
+    }
+
+    private fun clear() {
+        carried = null
+        drop = Drop.None
+        settle = null
+        inPreview = false
+        lift = null
+        source = null
+    }
+
+    private companion object {
+        const val ROW_INSET_DP = 12f
+        const val ROW_DP = 48f
+        /** A row of a wide list is carried at this width, not across half the window. */
+        const val COPY_MAX_DP = 440f
     }
 }
 
 /**
- * The drag gesture, on the container. It watches the Initial pass so that, once a press has moved
- * the full touch slop, it can consume the movement before the row's click sees it (no click after a
- * drag). Compose's own mouse slop is about 1 dp, which would turn slightly shaky clicks into drags.
+ * The drag gesture, on the page's root. It watches the Initial pass so that, once a press has moved the full touch
+ * slop, it can consume the movement before the row's click sees it (no click after a drag). Compose's own mouse slop is
+ * about 1 dp, which would turn slightly shaky clicks into drags. A mouse or pen picks a row up as soon as it has moved
+ * that far; a finger picks a row of the list up by its handle the same way, and a line of the library by holding it
+ * still for a long press (a finger that moves first scrolls, one that lifts first taps).
  */
-fun Modifier.reorderable(r: Reorder, scope: CoroutineScope): Modifier = pointerInput(r) {
+fun Modifier.drags(r: Reorder): Modifier = pointerInput(r) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         if (r.busy) return@awaitEachGesture
         // Right and middle presses are for menus; touchpads may report no button at all, so those count.
         val buttons = currentEvent.buttons
         if (down.type == PointerType.Mouse && (buttons.isSecondaryPressed || buttons.isTertiaryPressed)) return@awaitEachGesture
-        val id = r.hit(down.position, touch = down.type == PointerType.Touch) ?: return@awaitEachGesture
+        val touch = down.type == PointerType.Touch
+        val picked = r.hit(down.position, touch) ?: return@awaitEachGesture
         val slop = viewConfiguration.touchSlop
-        var travel = Offset.Zero
-        while (true) {
-            val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
-            if (!change.pressed || change.isConsumed) return@awaitEachGesture
-            travel += change.position - change.previousPosition
-            if (travel.getDistance() > slop) {
-                change.consume()
-                break
+        var at = down.position
+        if (touch && picked.from != From.BAR) {
+            val early = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                var travel = Offset.Zero
+                var over = false
+                while (!over) {
+                    val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id }
+                    if (change == null || !change.pressed || change.isConsumed) over = true
+                    else {
+                        travel += change.position - change.previousPosition
+                        if (travel.getDistance() > slop) over = true
+                    }
+                }
+                true
+            }
+            if (early != null) return@awaitEachGesture
+        } else {
+            var travel = Offset.Zero
+            while (true) {
+                val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                if (!change.pressed || change.isConsumed) return@awaitEachGesture
+                travel += change.position - change.previousPosition
+                at = change.position
+                if (travel.getDistance() > slop) {
+                    change.consume()
+                    break
+                }
             }
         }
-        r.start(id, down.position)
+        if (!r.start(picked, down.position, touch)) return@awaitEachGesture
+        r.pointerAt(at)
         try {
             while (true) {
                 val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -255,8 +436,8 @@ fun Modifier.reorderable(r: Reorder, scope: CoroutineScope): Modifier = pointerI
                 r.pointerAt(change.position)
             }
         } finally {
-            // Released, lost or interrupted: the row lands where the opening is.
-            if (r.dragging != null) scope.launch { r.drop() }
+            // Released, lost or interrupted: it lands where it would, or goes back.
+            if (r.live) r.scope?.launch { r.release() }
         }
     }
 }
