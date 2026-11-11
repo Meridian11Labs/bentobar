@@ -40,6 +40,7 @@ object Items {
         AppItem,
         TextItem,
         SpacerItem,
+        PrompterItem,
         // Online
         WeatherItem,
         AirItem,
