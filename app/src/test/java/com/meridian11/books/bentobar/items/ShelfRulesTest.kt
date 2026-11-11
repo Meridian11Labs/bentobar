@@ -1,5 +1,6 @@
 package com.meridian11.books.bentobar.items
 
+import com.meridian11.books.bentobar.SourceScan
 import com.meridian11.books.bentobar.items.ShelfRules.Entry
 import com.meridian11.books.bentobar.items.ShelfRules.Kind
 import com.meridian11.books.bentobar.items.ShelfRules.Part
@@ -92,6 +93,15 @@ class ShelfRulesTest {
         val read = ShelfRules.decode(written)
         assertEquals(read.map { it.text }.distinct(), read.map { it.text })
         assertTrue(read.size <= ShelfRules.MOST && read.none { it.text.isBlank() })
+    }
+
+    @Test fun theBarHandsADropToItsTypeOnlyBehindTheGuardAndOnlyText() {
+        // A type's own code runs behind one guard (ItemGuard): a drop is input from another app, as a click is from the user.
+        val bar = SourceScan.code(java.io.File("src/main/java/com/meridian11/books/bentobar/bar/BarUi.kt"))
+        val calls = bar.lines().filter { ".onDrop(" in it }
+        assertEquals(1, calls.size)
+        for (line in calls) assertTrue(line, "Ticker.guarded(" in line)
+        assertTrue("only a drag that carries text is taken up", "\"text/*\"" in bar && "takesDrops" in bar)
     }
 
     @Test fun anEntryCanBeTakenOff() {

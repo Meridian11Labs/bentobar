@@ -118,7 +118,7 @@ class PrivateTextTest {
         assertEquals(files.map { it.name }.toString(), 6, files.size)
         for (f in files) {
             val code = SourceScan.code(f)
-            for (call in listOf("Log.", "println(", "printStackTrace(")) assertFalse("${f.name} calls $call", call in code)
+            for (call in listOf("Log.", "println(", "printStackTrace", "System.out", "System.err")) assertFalse("${f.name} calls $call", call in code)
         }
     }
 
