@@ -250,6 +250,8 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
             Segment(areas.map { SegmentPart(it.second, spoken = "$label ${it.second}") }, areas.indexOfFirst { it.first == to }, { edit.addTo = areas[it].first },
                 Modifier.weight(1f).testTag("add-to"), sides = true)
         }
+        // That row is pinned and has its edge: the list scrolls under a line.
+        if (to != null) Box(Modifier.padding(top = 10.dp, end = 10.dp).fillMaxWidth().height(1.dp).background(c.line).testTag("library-edge"))
         Column(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { reorder.libraryView = it }.scrollThumb(scroll, c.thumb).verticalScroll(scroll).padding(end = 10.dp, bottom = Space.m)) {
             ItemGroup.entries.forEach { group ->
                 val here = shown.filter { it.type.group == group }

@@ -183,6 +183,25 @@ class AreasTest {
         assertEquals(Position.RIGHT, Store.config.value.items.single { it.type == "storage" }.area)
     }
 
+    @Test fun theLibraryScrollsUnderAHairlineBelowAddToAndWithOneLaneThereIsNeither() {
+        page(null, *three)
+        toLibrary()
+        rule.onNodeWithTag("library-edge").assertDoesNotExist()
+        rule.runOnIdle { onBar = false }
+        rule.runOnIdle { onBar = true }
+        open(Position.LEFT)
+        toLibrary()
+        fun box(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        val edge = box("library-edge")
+        assertEquals("a hairline", 1f, edge.height, 0.01f)
+        assertTrue("under Add to, with air", edge.top >= box("add-to").bottom + 8f)
+        // The list begins at the line: a row scrolled up is cut there, under an edge.
+        val list = rule.onNode(androidx.compose.ui.test.hasScrollAction() and hasAnyAncestor(hasTestTag("library"))).fetchSemanticsNode().boundsInRoot
+        assertEquals(edge.bottom, list.top, 0.5f)
+        assertEquals("as wide as the filter above it", box("filter").left, edge.left, 0.5f)
+        assertEquals(box("filter").right, edge.right, 0.5f)
+    }
+
     @Test fun aLaneClosesWhenItsLastItemMovesAwayAndUndoRestoresTheItemAndTheLane() {
         val layout = page("a", item("a", "clock", Position.LEFT), item("b", "memory"), item("c", "battery"))
         assertEquals(listOf(1, 0, 1), heads())

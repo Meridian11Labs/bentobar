@@ -197,7 +197,9 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = Space.s, top = Space.s, bottom = Space.l), verticalAlignment = Alignment.CenterVertically) {
+        // The foot is pinned and has its edge: the options scroll under a line, so a row is never cut off by nothing.
+        Box(Modifier.fillMaxWidth().height(1.dp).background(c.line).testTag("options-edge"))
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = Space.s, top = Space.m, bottom = Space.l), verticalAlignment = Alignment.CenterVertically) {
             if (type != null) {
                 BentoButton(stringResource(R.string.detail_duplicate), { edit.duplicate(item.id) })
                 Spacer(Modifier.width(Space.s))

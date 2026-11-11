@@ -248,6 +248,21 @@ class ItemOptionsTest {
         rule.onNodeWithTag("show-as").assertDoesNotExist()
     }
 
+    @Test fun theFootHasAHairlineAcrossThePanelAndTheOptionsScrollUnderIt() {
+        page("a", HiddenMode.SHOW_ALL, item("a", "clock"), item("c", "memory"))
+        fun box(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        val panel = box("options")
+        val edge = box("options-edge")
+        assertEquals("a hairline", 1f, edge.height, 0.01f)
+        assertEquals("from the panel's one side", panel.left, edge.left, 0.5f)
+        assertEquals("to the other", panel.right, edge.right, 0.5f)
+        // What scrolls ends at the line, and the buttons stand under it with air.
+        val scrolls = rule.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange) and inTag("options")).fetchSemanticsNode().boundsInRoot
+        assertEquals(edge.top, scrolls.bottom, 0.5f)
+        val remove = rule.onNode(hasText(str(R.string.detail_remove)) and hasClickAction() and inTag("options")).fetchSemanticsNode().boundsInRoot
+        assertTrue(remove.top >= edge.bottom + 8f)
+    }
+
     @Test fun duplicatePutsACopyRightAfterTheItemAndSelectsIt() {
         page("a", HiddenMode.SHOW_ALL, item("a", "memory"), item("c", "clock"))
         rule.onNode(hasText(str(R.string.detail_duplicate)) and hasClickAction()).performClick()
