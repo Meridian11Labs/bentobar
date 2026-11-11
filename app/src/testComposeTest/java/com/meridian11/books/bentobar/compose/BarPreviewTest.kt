@@ -100,6 +100,39 @@ class BarPreviewTest {
     /** The room on the two sides of a strip from [first] to [last] between the clock and the 12 dp before the icons. */
     private fun sides(first: String, last: String) = (at(first).left - end - clock().right) to (icons().left - 12.dp - (at(last).right + end))
 
+    // ---- The first frame. ----
+
+    /** What [view] draws right now. */
+    private fun drawn(view: android.view.View): android.graphics.Bitmap = rule.runOnUiThread<android.graphics.Bitmap> {
+        android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888).also { view.draw(android.graphics.Canvas(it)) }
+    }
+    /** The pixels of [box] in [picture]; mdpi, so a dp is a pixel. */
+    private fun pixels(picture: android.graphics.Bitmap, box: DpRect): List<Int> {
+        val l = box.left.value.toInt(); val t = box.top.value.toInt()
+        val w = box.right.value.toInt() - l; val h = box.bottom.value.toInt() - t
+        return IntArray(w * h).also { picture.getPixels(it, 0, w, l, t, w, h) }.toList()
+    }
+
+    @Test fun theItemsStandInThePicturesFirstFrameAndNeverFadeIn() {
+        // The window's second frame can be seconds behind its first while the page is still being put together: an item
+        // that comes in with the strip's fade is not in the picture until then. So no frame passes here before the first look.
+        rule.mainClock.autoAdvance = false
+        lateinit var view: android.view.View
+        val items = listOf(item("a", Position.LEFT), item("b", Position.CENTER), item("c", Position.RIGHT))
+        Store.update { BarConfig(items = items) }
+        rule.setContent {
+            view = androidx.compose.ui.platform.LocalView.current
+            Box(Modifier.requiredWidth(1000.dp)) { BarPreview(items.associate { it.id to ItemState(icon = "X", text = it.id, desc = "${it.id} desc") }, null) {} }
+        }
+        val first = drawn(view)
+        val boxes = items.map { at(it.id) }
+        rule.mainClock.advanceTimeBy(1000)
+        val later = drawn(view)
+        boxes.forEachIndexed { i, box ->
+            assertTrue("${items[i].id} is in the first frame as it is a second later", pixels(first, box) == pixels(later, box))
+        }
+    }
+
     // ---- One area: where the one strip always stood. These numbers were taken from the preview before it knew areas. ----
 
     @Test fun aLayoutOnTheRightEndsTwelveDpBeforeTheSystemIconsAsItAlwaysDid() {

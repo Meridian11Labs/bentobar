@@ -561,7 +561,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   not beside another area's items (`StripContent.drawn`).
   The settings preview draws a strip for each area the bar wants one for (`BarRules.wantedAreas`, which `arrange` asks
   too) by the same `BarRules.lane` and `middleLeft` (`PreviewAreas` in `ui/BarPreview.kt`), and a layout in one area as it
-  always did; `BarPreviewTest` pins both.
+  always did; `BarPreviewTest` pins both. Its items don't come in with the strip's fade (`StripEvents.appearing`): an
+  item that starts invisible is drawn only in the window's second frame, which came seconds after the first while a
+  debug build was still putting the page together, and the picture stood empty meanwhile.
 - **Keyboard:** the "BentoBar menu" launcher entry (`ui/BarMenuActivity`, no window) opens the ‹ menu
   listing every item, focused, under the first strip; an item chosen there opens its menu under the item, in whichever
   strip drew it (`PopupRules.itemMenuStrip`). A focusable accessibility overlay does take key focus after the

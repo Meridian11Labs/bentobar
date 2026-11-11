@@ -220,6 +220,12 @@ interface StripEvents {
     val slidable: Boolean get() = true
     /** Whether an item can be picked up in this strip. In the settings preview it can't: a drag there would spring back doing nothing. */
     val draggable: Boolean get() = true
+    /**
+     * Whether an item comes in with its fade and slide. In the settings preview it doesn't: the picture is whole in the window's
+     * first frame, however late the second one is (an item that starts invisible waits for it, and a window still being put
+     * together can take seconds over it).
+     */
+    val appearing: Boolean get() = true
 }
 
 /**
@@ -602,9 +608,9 @@ private fun ItemView(entry: StripEntry, look: StripLook, events: StripEvents, gl
     // Appearing (the strip starting, an item popping out, ‹ revealing hidden items) fades and slides
     // in instead of popping. Drawn in the graphics layer only: no relayout, so the window doesn't
     // resize per frame.
-    val appear = remember { androidx.compose.animation.core.Animatable(0f) }
+    val appear = remember { androidx.compose.animation.core.Animatable(if (events.appearing) 0f else 1f) }
     LaunchedEffect(Unit) {
-        appear.animateTo(1f, Motion.spec(androidx.compose.animation.core.tween(180,
+        if (events.appearing) appear.animateTo(1f, Motion.spec(androidx.compose.animation.core.tween(180,
             easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))))
     }
     val alert = StripContent.capsule(s)

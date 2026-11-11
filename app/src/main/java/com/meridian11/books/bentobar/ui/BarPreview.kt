@@ -188,6 +188,8 @@ internal fun BarPreview(states: Map<String, ItemState>, selected: String?, said:
         override val slidable: Boolean get() = false
         // Nor can an item be picked up: Sections' rows are where the order changes.
         override val draggable: Boolean get() = false
+        // Nor does an item fade in: the picture is whole in the window's first frame, and an item added later is simply there.
+        override val appearing: Boolean get() = false
         override fun chevron(at: Rect) { expanded = !expanded }
         override fun chevronContext(at: Rect) { expanded = !expanded }
         override fun hover(inside: Boolean) {}
