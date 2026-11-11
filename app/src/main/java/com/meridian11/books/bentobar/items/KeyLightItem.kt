@@ -95,7 +95,7 @@ object KeyLightItem : ItemType("keylight", R.string.item_keylight_title, Sym.BAC
         Ticker.refresh(type)
     }
 
-    override val menu: @Composable (ItemConfig, MenuHost) -> Unit = { _, host ->
+    override val menu: @Composable (ItemConfig, MenuHost) -> Unit = { _, _ ->
         rememberTick()
         val level = level()
         val says = says()
