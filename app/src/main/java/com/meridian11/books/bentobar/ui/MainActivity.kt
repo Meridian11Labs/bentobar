@@ -132,12 +132,16 @@ class MainActivity : ComponentActivity() {
 
     private fun handle(intent: Intent?) {
         intent ?: return
-        intent.getStringExtra(EXTRA_ITEM)?.let { selected = it; page = Page.BAR; turn++ }
-        if (intent.getBooleanExtra(EXTRA_EDIT, false)) page = Page.BAR
+        // The disclosure is up: it stays the page, under Setup, with its two buttons and no Turn on in the header. The
+        // page an intent names (the launcher's "BentoBar menu", a long press on the tile, any app) is dropped, not kept
+        // for after the answer: Setup is what the answer leaves, as on first opening.
+        val turns = !disclosure
+        if (turns) intent.getStringExtra(EXTRA_ITEM)?.let { selected = it; page = Page.BAR; turn++ }
+        if (turns && intent.getBooleanExtra(EXTRA_EDIT, false)) page = Page.BAR
         // A permission's prompt is asked for in this process ([requestPermission]), never named by an intent: this activity is
         // exported, so any app could send one, and the prompt would be BentoBar's.
         takeAsked()?.let { perm -> if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(perm), 1) }
-        if (intent.action == "android.service.quicksettings.action.QS_TILE_PREFERENCES") page = Page.LOOK
+        if (turns && intent.action == "android.service.quicksettings.action.QS_TILE_PREFERENCES") page = Page.LOOK
     }
 
     // A key no control took (nothing in the window has the focus): the Bar page's keys still act on the selected item.

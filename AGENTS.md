@@ -410,8 +410,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   button, a switch or closing the dialog don't count. `ui/Disclosure.kt` is that screen, a page of the settings
   window with exactly those two buttons; the system's Accessibility settings open only after Agree. It comes up
   on first opening and from Turn on (Setup's and the header's) until the answer is Agree (`Store.consent`, kept outside
-  the layout so Copy settings can't carry it). The video in Play's Accessibility declaration has to
-  show it.
+  the layout so Copy settings can't carry it). While it is up it is under the Setup tab, and an intent that names
+  another page turns none (`MainActivity.handle`): the header would show its Turn on, a third button. The video in
+  Play's Accessibility declaration has to show it.
 - **Settings state is observed, not read while drawing** (`ui/SetupState.kt`, `bar/BarStatus.kt`).
   In desktop windowing, Settings opens in its own window and BentoBar's stays resumed, so onResume
   alone misses changes; and with strong skipping (Kotlin 2.x) a composable reading Android state

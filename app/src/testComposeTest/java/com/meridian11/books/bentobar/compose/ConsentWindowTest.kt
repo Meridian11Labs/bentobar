@@ -131,6 +131,50 @@ class ConsentWindowTest {
         assertNull(opened())
     }
 
+    /**
+     * The window is asked to come up again, as the bar's menu or a long press on the tile ask it. The scenario knows its
+     * window by the intent it was started with, so that one is put back: with another it would wait for ever to close it.
+     */
+    private fun asked(intent: Intent) {
+        window.onActivity {
+            val started = it.intent
+            ReflectionHelpers.callInstanceMethod<Unit>(it, "onNewIntent", ReflectionHelpers.ClassParameter.from(Intent::class.java, intent))
+            it.intent = started
+        }
+        rule.waitForIdle()
+    }
+
+    @Test fun googlePlayWantsAProminentDisclosureWithConsent_anIntentThatNamesAnotherPageLeavesItUpUnderSetupWithItsTwoButtons() {
+        val buttons = rule.onAllNodes(button).fetchSemanticsNodes().size
+        val asks = listOf(
+            Intent(app, MainActivity::class.java).putExtra(MainActivity.EXTRA_EDIT, true),
+            Intent(app, MainActivity::class.java).putExtra(MainActivity.EXTRA_ITEM, "someone"),
+            Intent(app, MainActivity::class.java).setAction("android.service.quicksettings.action.QS_TILE_PREFERENCES"),
+        )
+        for (ask in asks) {
+            asked(ask)
+            rule.onNode(hasTestTag("disclosure")).assertExists()
+            rule.onNode(tab(R.string.nav_setup)).assertIsSelected()
+            // Agree and No thanks, and no Turn on beside them in the header.
+            rule.onNode(hasTestTag("disclosure-agree")).assertExists()
+            rule.onNode(hasTestTag("disclosure-decline")).assertExists()
+            rule.onNode(hasText(str(R.string.setup_turn_on)) and button).assertDoesNotExist()
+            assertEquals(buttons, rule.onAllNodes(button).fetchSemanticsNodes().size)
+            assertEquals(Consent.NOT_ASKED, Store.consent.value)
+            assertNull(opened())
+        }
+        // The answer leaves the window where the disclosure stood: on Setup, which says so.
+        rule.onNode(hasTestTag("disclosure-decline")).performClick()
+        rule.waitForIdle()
+        assertEquals(Consent.DECLINED, Store.consent.value)
+        rule.onNode(tab(R.string.nav_setup)).assertIsSelected()
+        rule.onNode(hasText(str(R.string.setup_declined))).assertExists()
+        assertNull(opened())
+        // With no disclosure up, the same intent turns the page as it always did.
+        asked(asks[0])
+        rule.onNode(tab(R.string.nav_bar)).assertIsSelected()
+    }
+
     @Test fun onceAgreedTurnOnOpensAccessibilitySettingsWithoutAskingAgain() {
         rule.onNode(hasTestTag("disclosure-agree")).performClick()
         rule.waitForIdle()
