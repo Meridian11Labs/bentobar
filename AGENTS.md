@@ -82,7 +82,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   - `items/`: `ItemType` + `ItemState`, `Items` registry + `Ticker` (1 Hz while anything is
     visible, `Ticker` being the pure `TickLoop` on the app's `Wiring`; `Ticker.guarded`, on the pure `ItemGuard`, is the one
     way a type's own code is run for input or sampling). A new item is one file and one line in `Items.all`: the type states
-    its `group` (Add lists it), whether it `holds` and `presents` and what it `samples`, and `ItemCatalogTest` fails for
+    its `group` (the library lists it there), whether it `holds` and `presents` and what it `samples`, and `ItemCatalogTest` fails for
     whatever else was forgotten (a `Setup` row, a line in About). `TimerClock` is the timer's rules, pure, likewise, and
     `Timers` runs it on Android. `Env` (samplers, launch helpers), `Timers`, `Calendar`, `Notify` (channels,
     glyph icons, `Chips` for the Live Update chip), `TextRules` (text from a layout or a reply as one line,
@@ -125,7 +125,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     `data/BarList.kt` is how the settings see a layout: each area's list in two parts (`parts`, `partOf`: in the bar, and
     under the line the items that wait for their rule, or with ‹ everything behind it), `canGoBelow`, `standing`, and
     what a setup is (`fresh`, `carriesSetup`). `Store.update` keeps no Off item that carries none (`withoutBareOff`), so
-    Off holds only what Add can bring back as it was; a debug `add TYPE off` of a fresh item is therefore gone at once.
+    Off holds only what the library can bring back as it was (its lines); a debug `add TYPE off` of a fresh item is therefore gone at once.
     `stripPlan` (in `Model.kt`) is the one choice of what an area's strip and the settings preview show (`StripPlanTest`).
   - `data/`: `Model.kt` (`BarConfig`, `ItemConfig`, `Section`…) and `Store` (JSON in
     SharedPreferences, a process-wide StateFlow shared by the service and settings; `Store.open` takes a `Prefs`, so a test
@@ -148,13 +148,19 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     760 dp the header takes two rows. `windowLayout(widthDp)` is the one window model, pure: from 1100 a list and one
     panel, 760 to 1099 one pane, never two panels; a page reads it from `LocalWindowLayout`. `statusLine` words the
     status), `BarPage` (the Bar page: `BarPreview` above; from 1100 dp the list beside a panel whose switch turns
-    between adding and the selected item's options, below that the list is the switch's first part. `BarEdit` holds
-    every command once, for a click, a key and a screen reader's action alike, each one step of `Undo`; `BarKeys` takes
-    a key no control took), `BarRows` (the list: one row per item, the line between its two parts, a head per area while
-    several are in use, Undo in a removed row's place; `listEntries` is what it draws, pure), `ItemOptions` (the panel's
+    between the library ("Add items") and the selected item's options, below that the list is the switch's first part.
+    `BarEdit` holds every command once, for a click, a key and a screen reader's action alike, each one step of `Undo`
+    (the library's + and Forget too); `BarKeys` takes a key no control took; Ctrl+F turns the panel to the library and
+    puts the keyboard in its filter, and Remove from the bar in the options turns there too, to the item's new line),
+    `Library` (the panel's "Add items": the filter with its count, the types in their groups with +, and under a type
+    the setups the app remembers, which are exactly the Off items, each a line with its own words, Forget and +. A
+    type's + always adds a fresh item, a line's + brings that item back (`broughtBack`), both into `homeArea()`; a type
+    that comes waiting on its rule says where its + puts it. `shelvesOf`, `matching` and `setupWords` are the pure part:
+    what is listed, what a filter leaves, and a line's words, which `removedName` uses for the slip too), `BarRows`
+    (the list: one row per item, the line between its two parts, a head per area while several are in use, Undo in a removed row's place; `listEntries` is what it draws, pure), `ItemOptions` (the panel's
     options: Visibility with only what the chosen part needs, Order, Area, Show as, then the type's own), `Reorder` (drag
     and drop in the list: the gesture sits on the container, a copy of the row floats above, the Store changes once on
-    the drop; a press let go without moving selects, a pickup never does), `Pages` (Add, Look, Setup, About),
+    the drop; a press let go without moving selects, a pickup never does), `Pages` (Look, Setup, About),
     `Disclosure` (the accessibility disclosure and consent Google Play requires, and the one list of
     what the service does that Setup shows too; `ConsentRules` says when it comes up), `Theme`, `MenuKit` and
     `Controls` (shared UI pieces).
@@ -162,7 +168,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     read as `Bento.colors` and `Bento.type`, with `Space`, `Radius` and `Target`; Material's roles are set from the same
     palette for the pages not yet moved over), and `PaletteContrastTest` holds its pairs to the contrast they need. The
     bar's popups keep the device's colors (`BentoBarTheme`). The settings window's own controls are in `Controls`
-    (`Segment`, equal parts or each as wide as its words; `SwitchMark`, `BentoButton`, `Keycap`) and `Notice`
+    (`Segment`, equal parts or each as wide as its words; `SwitchMark`, `BentoButton`, `FilterField`, `Keycap`) and `Notice`
     (`NoticeLine`; an amber notice's one button is `ButtonKind.WARN`), beside the rows the item menus share.
     Areas in Settings: an item's options have the Area chooser; the list has a head per area only while more than one is
     in use (`listAreas`); Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
