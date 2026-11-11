@@ -209,6 +209,22 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     while they all are in it (`oneArea`); while they are in several, and only then, a line under its title says what a
     choice does. `listAreas` and `oneArea` count an item of a type this version doesn't know, which `areasInUse` does
     not: Settings has its row, the bar nothing of it. `Controls.areaChoices` is the one order and wording; `AreaChoosersTest`.
+    What holds in every size, language and setting: `windowLayout(widthDp, fontScale)` counts the window's width in text
+    sizes above the standard one (at 200% a wide window is laid out as the narrow one), a text of one line may wrap there
+    (`lines`) and a fixed height is a minimum; nothing is fine-tuned for it, nothing is cut. The arrow's sign (‹ or ›) is
+    never read out: `ArrowWords.spoken` puts it in words wherever a text holds it (`arrowInWords`, `Modifier.said`).
+    From right to left the page is mirrored and what stands for the bar is not: the lanes, the brackets, the preview and
+    a `Segment(sides = true)` keep Left on the left, so Alt with an arrow moves a row the way the arrow points; the
+    words are English and read from left to right, set to the right. A key of the Bar page is a `Binding`, declared once
+    in `BarKeys` or `AreaKeys`: the handler, the keycaps and `MainActivity.onProvideKeyboardShortcuts` (the group "Your
+    bar", `BarKeys.listed()`: only what does something now) read the same one; Shift held too never counts. A `Keycap`
+    of arrows draws the window's own symbols, left to right in every language, and says its text (`arrowSymbols`).
+    Every time is named in `ui/Motion.kt` (120 lift, 160 neighbours, 180 settle, 200 back and an area) and runs
+    through `Motion.spec`, which "No animations" and the system's animator scale set to nothing; rows travel to their
+    places (`animatePlacement`, 200 ms while the lanes change: `ListTravel`), and a row the library's + added opens
+    downwards. What scrolls (the list, the library, the options) has a thin thumb while it has more than fits
+    (`Modifier.scrollThumb`, `thumbOf` pure, `Palette.thumb`). The right-click menu's head has its symbol on the card's
+    own ground (`MenuCard(plain = true)`); the other popups keep the tinted one.
   - "Show when…": a type's `trigger` (in `ItemType.kt`) words its pop-out rule, and its `Threshold`
     is the one source of the option key and default for both `state()` and the settings slider.
     The settings say it as Visibility ("Always", "Only when active", and with ‹ "Behind ‹" with a "Pops out when active"
@@ -259,10 +275,15 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   each state in its type's `stages`; Compose has no error boundary, so this is what stands between a throwing menu and the service.
   `ShellPicturesTest` draws the settings window at each layout's width in light and dark and holds the grounds to the palette,
   `BarPagePicturesTest` the Bar page in each of its states, `LookPageTest`, `SetupPageTest` and `OptionsPicturesTest` the other
-  pages and an item's options (and `MenuCompositionTest` the right-click menu);
+  pages and an item's options (and `MenuCompositionTest` the right-click menu), `WindowPicturesTest` the Bar page at 1180, 960 and
+  700 dp with one, two and three areas, the other pages and a first run, in light and dark, at twice the text size and from right
+  to left, each holding that no text is cut off; nothing compares pictures, so a look beside the design is a person's;
   with `BENTOBAR_PICTURES=<directory>` (and `--rerun`) they write the pictures there as PNGs, to look at beside a design. It asks
   the view to draw into a bitmap; `captureToImage` came out one change behind, or blank, when every Compose test ran. A test
   of keys asks for the keyboard first (`LocalInputModeManager`): in touch mode nothing that takes a click takes the focus.
+  `ScreenReaderTest` sweeps the window for a sign read as a sign and holds what a row, a lane and the panel's switch say;
+  `RtlTest` the sides from right to left; `ShortcutListTest` that every press the system's list shows is one the window takes;
+  `ListMotionTest` and `SystemMotionTest` the times, with the clock held.
 - Editing the manifest or a string re-runs the tests that read them; a green run that says UP-TO-DATE after such an
   edit is wrong, so look.
 - Anything only hardware shows (colours after an unlock, full screen, the empty strip, a bar in several areas, Play
