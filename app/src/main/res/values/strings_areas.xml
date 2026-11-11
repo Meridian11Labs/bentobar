@@ -6,6 +6,8 @@
     <string name="areas_middle">Middle</string>
     <string name="areas_right">Right</string>
     <string name="areas_look_several">Items are in several areas. Choosing one moves them all there.</string>
+    <!-- Under that control after a press moved items, beside an Undo: "Moved every item to Middle." -->
+    <string name="areas_moved_all">Moved every item to %1$s.</string>
     <!-- The Bar page with areas. "Add an area" opens a menu of the areas not on screen, each with where it stands in the bar. -->
     <string name="areas_add">Add an area</string>
     <string name="areas_left_where">After the clock</string>

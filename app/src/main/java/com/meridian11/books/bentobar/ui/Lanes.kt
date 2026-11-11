@@ -44,18 +44,22 @@ internal fun leadsRight(lanes: List<Position>, area: Position): Boolean {
  * after, and the bar still has some. The page says so in a slip with Undo above the list. [several]: more than one
  * lane was on screen before the change, which the page knows (an opened lane is its own). With one lane nothing
  * closes: the bar's last row keeps its place with its own slip, and an item that takes the one area with it to another
- * has only moved the list.
+ * has only moved the list. Nor does Look's command close one here ([Undo.Kept.allTo]): it emptied every other area on
+ * purpose and says so itself, on Look.
  */
 internal fun foldOf(kept: Undo.Kept?, now: BarConfig, several: Boolean): Position? {
-    if (!several || kept == null || !Undo.offered(kept, now)) return null
+    if (!several || kept == null || kept.allTo != null || !Undo.offered(kept, now)) return null
     val after = rowAreas(kept.after)
     if (after.isEmpty()) return null
     return rowAreas(kept.before).singleOrNull { it !in after }
 }
 
-/** The item the last change moved to another area, or null: the row the page marks "Moved" while a lane's closing is said. */
+/**
+ * The item the last change moved to another area, or null: the row the page marks "Moved" while a lane's closing is said.
+ * Look's command moved them all, even where only one stood elsewhere: no row is its own.
+ */
 internal fun movedBy(kept: Undo.Kept?): String? {
-    kept ?: return null
+    if (kept == null || kept.allTo != null) return null
     val was = kept.before.items.associate { it.id to it.area }
     return kept.after.items.singleOrNull { it.section != Section.OFF && was[it.id] != null && was[it.id] != it.area }?.id
 }

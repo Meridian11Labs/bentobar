@@ -146,19 +146,31 @@ class MainActivity : ComponentActivity() {
 
     // A key no control took (nothing in the window has the focus): the Bar page's keys still act on the selected item.
     // Escape leaves the disclosure as Back does: a platform's key map need not turn the one into the other.
+    // On Look, Undo's key takes back what Look itself did ("Where BentoBar sits"), which that page shows; a change of the
+    // Bar page's, which Look doesn't show, stays for that page.
     override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean = when {
         disclosure && keyCode == android.view.KeyEvent.KEYCODE_ESCAPE -> { disclosure = false; true }
+        page == Page.LOOK && lookUndo() && BarKeys.UNDO.pressed(androidx.compose.ui.input.key.KeyEvent(event)) -> Undo.undo()
         else -> (page == Page.BAR && BarKeys.handler?.invoke(event) == true) || super.onKeyDown(keyCode, event)
     }
 
+    /** Whether the last change is Look's command and can still be taken back. */
+    private fun lookUndo() = Undo.allTo(Undo.last.value, Store.config.value) != null
+
     /**
      * The system's list of shortcuts: the Bar page's bindings themselves ([BarKeys.listed]), while that page is shown,
-     * so the list and what the window does with a key cannot disagree.
+     * and on Look its Undo while that has something to take back, so the list and what the window does with a key
+     * cannot disagree.
      */
     override fun onProvideKeyboardShortcuts(data: MutableList<KeyboardShortcutGroup>, menu: Menu?, deviceId: Int) {
         super.onProvideKeyboardShortcuts(data, menu, deviceId)
-        val keys = BarKeys.listed().takeIf { page == Page.BAR && it.isNotEmpty() } ?: return
-        data += KeyboardShortcutGroup(getString(R.string.page_bar), keys.map { KeyboardShortcutInfo(getString(it.does), it.keycode, it.modifiers) })
+        val keys = when {
+            page == Page.BAR -> BarKeys.listed()
+            page == Page.LOOK && lookUndo() -> listOf(BarKeys.UNDO)
+            else -> emptyList()
+        }
+        if (keys.isEmpty()) return
+        data += KeyboardShortcutGroup(getString(page.title), keys.map { KeyboardShortcutInfo(getString(it.does), it.keycode, it.modifiers) })
     }
 
     override fun onDestroy() {

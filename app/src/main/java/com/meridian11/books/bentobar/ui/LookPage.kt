@@ -2,11 +2,14 @@ package com.meridian11.books.bentobar.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.bar.SliderMath
@@ -61,8 +65,11 @@ fun LookPage() {
             val one = cfg.oneArea()
             ChoiceSetting<Position?>(stringResource(R.string.look_position), areaChoices(), one,
                 help = stringResource(if (one == null) R.string.areas_look_several else R.string.look_position_help)) { area ->
-                if (area != null) Store.update { it.putAllIn(area) }
+                if (area != null) Undo.change(allTo = area) { it.putAllIn(area) }
             }
+            // The press moved things the page doesn't show: it says so, with the way back, while that is the window's last change.
+            val kept by Undo.last.collectAsState()
+            Undo.allTo(kept, cfg)?.let { MovedAll(it) }
             RowLine()
             Spacing(cfg.spacingDp) { v -> Store.update { it.copy(spacing = v) } }
             RowLine()
@@ -164,6 +171,21 @@ private fun SaidLine(said: Said?) {
             Spacer(Modifier.width(Space.xs))
         }
         Text(stringResource(said.text), style = Bento.type.small, color = if (said.good) c.accent else c.warnInk)
+    }
+}
+
+/**
+ * What "Where BentoBar sits" just did, under it, with the Undo that takes it back (the window's one [Undo], so Ctrl+Z here and
+ * on the Bar page is the same step): the Bar page's slip for a closed lane, on Look.
+ */
+@Composable
+private fun MovedAll(area: Position) {
+    val c = Bento.colors
+    Row(Modifier.fillMaxWidth().padding(bottom = Space.m).heightIn(min = Target.row).background(c.sunk, RoundedCornerShape(Radius.medium))
+        .padding(start = 14.dp, end = Space.xs).testTag("look-moved"), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.areas_moved_all, stringResource(areaRes(area))), Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+            style = Bento.type.small, color = c.ink2)
+        BentoButton(stringResource(R.string.bar_undo), { Undo.undo() }, kind = ButtonKind.TEXT)
     }
 }
 

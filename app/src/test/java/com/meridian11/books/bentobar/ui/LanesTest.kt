@@ -5,6 +5,7 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.landedIn
+import com.meridian11.books.bentobar.data.putAllIn
 import com.meridian11.books.bentobar.data.removed
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -50,6 +51,15 @@ class LanesTest {
         assertEquals("the Middle from Right", false, leadsRight(listOf(middle, right), middle))
         assertEquals("the Middle from Left", true, leadsRight(listOf(left, middle), middle))
         assertEquals("between two, from the side the bar fills first", false, leadsRight(listOf(left, middle, right), middle))
+    }
+
+    @Test fun looksCommandClosesLanesWithoutASlipAndMarksNoRow() {
+        // Left's one item goes to Right with it: a lane closed and one row moved, which a move on the Bar page would say.
+        val two = layout(item("l", left), item("r1", right), item("r2", right))
+        val all = two.putAllIn(right)
+        assertEquals(left, foldOf(Undo.Kept(two, all), all, several = true))
+        assertNull("Look says it itself", foldOf(Undo.Kept(two, all, allTo = right), all, several = true))
+        assertNull(movedBy(Undo.Kept(two, all, allTo = right)))
     }
 
     @Test fun aLaneClosesWhenItsLastItemMovesAwayOrIsRemovedAndOnlyThen() {

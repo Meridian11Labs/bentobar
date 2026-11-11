@@ -31,11 +31,14 @@ import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.data.oneArea
+import com.meridian11.books.bentobar.data.putAllIn
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.ui.LookPage
 import com.meridian11.books.bentobar.ui.Page
 import com.meridian11.books.bentobar.ui.SettingsTheme
+import com.meridian11.books.bentobar.ui.Undo
 import com.meridian11.books.bentobar.ui.Shell
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -64,8 +67,8 @@ class LookPageTest {
     private lateinit var view: View
     private var dark by mutableStateOf(false)
 
-    @Before fun env() { Env.init(app); before = Store.config.value }
-    @After fun forget() = Store.update { before }
+    @Before fun env() { Env.init(app); before = Store.config.value; Undo.last.value = null }
+    @After fun forget() { Store.update { before }; Undo.last.value = null }
 
     private fun str(id: Int, vararg args: Any) = app.getString(id, *args)
     private fun role(role: Role) = SemanticsMatcher.expectValue(SemanticsProperties.Role, role)
@@ -135,6 +138,36 @@ class LookPageTest {
         dark = true
         rule.waitForIdle()
         picture("look-whole-dark")
+    }
+
+    @Test fun whereBentoBarSitsSaysWhatItMovedAndItsUndoPutsEveryItemBack() {
+        val three = BarConfig(items = listOf(ItemConfig("a", "clock", area = Position.LEFT), ItemConfig("b", "memory", area = Position.RIGHT),
+            ItemConfig("c", "battery", area = Position.LEFT)), position = Position.RIGHT)
+        show(three)
+        val line = hasTestTag("look-moved")
+        rule.onNode(line).assertDoesNotExist()
+        rule.onNode(hasText(str(R.string.areas_middle)) and role(Role.RadioButton)).performClick()
+        rule.waitForIdle()
+        assertEquals(Position.CENTER, Store.config.value.oneArea())
+        // Under the control, in the card: what the press did, and the way back.
+        rule.onNode(hasText(str(R.string.areas_moved_all, str(R.string.areas_middle))) and hasAnyAncestor(line)).assertExists()
+        val said = rule.onNode(line).fetchSemanticsNode().boundsInRoot
+        assertTrue(said.top >= bounds(str(R.string.areas_right)).bottom)
+        assertTrue(said.bottom <= bounds(str(R.string.look_spacing)).top)
+        picture("look-moved")
+        // Another setting leaves it there; the Undo takes the areas back and the line goes with it.
+        Store.update { it.copy(spacing = 14) }
+        rule.waitForIdle()
+        rule.onNode(hasText(str(R.string.bar_undo)) and hasAnyAncestor(line)).performClick()
+        rule.waitForIdle()
+        assertEquals(three.copy(spacing = 14), Store.config.value)
+        rule.onNode(line).assertDoesNotExist()
+        // A press on the area everything is in already moves nothing and says nothing.
+        Store.update { it.putAllIn(Position.RIGHT) }
+        rule.waitForIdle()
+        rule.onNode(hasText(str(R.string.areas_right)) and role(Role.RadioButton)).performClick()
+        rule.waitForIdle()
+        rule.onNode(line).assertDoesNotExist()
     }
 
     @Test fun copyAndPasteAnswerInTheirOwnRow() {

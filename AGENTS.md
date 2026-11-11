@@ -219,7 +219,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     once in its lane (`noRoomAreas`, from what the bar reports in `BarOverflow`), and the preview shows who has its place.
     Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
     while they all are in it (`oneArea`); while they are in several, and only then, a line under its title says what a
-    choice does. `listAreas` and `oneArea` count an item of a type this version doesn't know, which `areasInUse` does
+    choice does. It is one step of `Undo` too (`Undo.Kept.allTo`): a line under the control says what it moved, with
+    Undo, Ctrl+Z takes it back on Look (`MainActivity.onKeyDown`, which leaves a Bar page change alone there) and on
+    the Bar page, and no slip says a lane closed (`foldOf`, `movedBy`). `listAreas` and `oneArea` count an item of a type this version doesn't know, which `areasInUse` does
     not: Settings has its row, the bar nothing of it. `Controls.areaChoices` is the one order and wording; `AreaChoosersTest`.
     What holds in every size, language and setting: `windowLayout(widthDp, fontScale)` counts the window's width in text
     sizes above the standard one (at 200% a wide window is laid out as the narrow one), a text of one line may wrap there

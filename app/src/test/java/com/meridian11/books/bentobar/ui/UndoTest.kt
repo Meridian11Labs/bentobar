@@ -9,6 +9,8 @@ import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.hide
 import com.meridian11.books.bentobar.data.layoutJson
 import com.meridian11.books.bentobar.data.moved
+import com.meridian11.books.bentobar.data.oneArea
+import com.meridian11.books.bentobar.data.putAllIn
 import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.show
 import com.meridian11.books.bentobar.data.without
@@ -42,6 +44,26 @@ class UndoTest {
         assertEquals(layout, Store.config.value)
         assertFalse(Undo.undo())
         assertEquals(layout, Store.config.value)
+    }
+
+    @Test fun looksCommandIsOneChangeTakenBackInOneStepWithAreasAndOrderAsTheyWere() {
+        val three = BarConfig(items = listOf(a.copy(area = Position.LEFT), b.copy(area = Position.CENTER), c.copy(area = Position.RIGHT)), position = Position.RIGHT)
+        Store.update { three }
+        assertTrue(Undo.change(allTo = Position.CENTER) { it.putAllIn(Position.CENTER) })
+        assertEquals(Position.CENTER, Store.config.value.oneArea())
+        assertEquals("the command says where it put them", Position.CENTER, Undo.allTo(Undo.last.value, Store.config.value))
+        // A setting changed since is no other arrangement: it stays, and the areas come back.
+        Store.update { it.copy(spacing = 14) }
+        assertEquals(Position.CENTER, Undo.allTo(Undo.last.value, Store.config.value))
+        assertTrue(Undo.undo())
+        assertEquals(three.copy(spacing = 14), Store.config.value)
+        assertNull(Undo.allTo(Undo.last.value, Store.config.value))
+        // Another change is not Look's, and one arranged otherwise since is offered no more.
+        assertTrue(Undo.change { it.hide("a") })
+        assertNull(Undo.allTo(Undo.last.value, Store.config.value))
+        assertTrue(Undo.change(allTo = Position.LEFT) { it.putAllIn(Position.LEFT) })
+        Store.update { it.show("c") }
+        assertNull(Undo.allTo(Undo.last.value, Store.config.value))
     }
 
     @Test fun aChangeThatChangesNothingIsNotKeptAndTheOneBeforeItStaysToBeUndone() {
