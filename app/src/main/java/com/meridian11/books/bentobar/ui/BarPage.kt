@@ -323,7 +323,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     fun forget(id: String, focus: Boolean) {
         said = null
         val item = item(id)?.takeIf { it.section == Section.OFF } ?: return
-        if (!Undo.change { it.without(id) }) return
+        if (!Undo.change(forgot = id) { it.without(id) }) return
         if (focus) seek = Seek(Seek.UNDO, true, ++serial)
         announced = res.getString(R.string.library_forgot, removedName(res, item))
     }

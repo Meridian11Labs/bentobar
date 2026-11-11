@@ -96,6 +96,16 @@ class LibraryTest {
         assertEquals(listOf("c1" to true, "c2" to false), lines.map { it.item.id to it.forgotten })
     }
 
+    @Test fun onlyAnOffItemThatCarriesASetupIsALine() {
+        // A layout from 1.8, before its first change here: any item could be turned off there, also one as it came.
+        val tea = fresh("timer", "t1").with("label", "Tea").copy(section = Section.OFF)
+        val cfg = BarConfig(items = listOf(fresh("cpu"), fresh("timer", "t0").copy(section = Section.OFF), tea, fresh("storage").copy(section = Section.OFF)))
+        val by = shelvesOf(cfg, { "" }, { "" }) { item, _ -> item.id }.associateBy { it.type.type }
+        assertEquals(listOf(tea), by.getValue("timer").lines.map { it.item })
+        assertTrue(by.getValue("storage").lines.isEmpty())
+        assertTrue("and it is not in the bar either", !by.getValue("storage").inBar)
+    }
+
     @Test fun noFilterShowsEverything() {
         assertSame(shelves, shelves.matching(""))
         assertSame(shelves, shelves.matching("   "))

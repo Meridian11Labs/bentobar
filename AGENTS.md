@@ -157,7 +157,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     (the library's + and Forget too); `BarKeys` takes a key no control took; Ctrl+F turns the panel to the library and
     puts the keyboard in its filter, and Remove from the bar in the options turns there too, to the item's new line),
     `Library` (the panel's "Add items": the filter with its count, the types in their groups with +, and under a type
-    the setups the app remembers, which are exactly the Off items, each a line with its own words, Forget and +. A
+    the setups the app remembers, which are the Off items that carry a setup (a layout from 1.8 can hold a bare one
+    until its first change drops it: that is no line, and no Forget, which `Undo.Kept.forgot` records, never the two
+    layouts' difference), each a line with its own words, Forget and +. A
     type's + always adds a fresh item, a line's + brings that item back (`broughtBack`), both into `homeArea()`, or with several lanes on screen into the one "Add to" names; a type
     that comes waiting on its rule says where its + puts it. `shelvesOf`, `matching` and `setupWords` are the pure part:
     what is listed, what a filter leaves, and a line's words, which `removedName` uses for the slip too), `BarRows`

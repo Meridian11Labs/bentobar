@@ -62,6 +62,7 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
+import com.meridian11.books.bentobar.data.carriesSetup
 import com.meridian11.books.bentobar.data.fresh
 import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.partOf
@@ -131,16 +132,18 @@ data class Line(val item: ItemConfig, val words: String, val forgotten: Boolean 
 data class Shelf(val type: ItemType, val name: String, val blurb: String, val inBar: Boolean, val lines: List<Line>)
 
 /**
- * The library's list for [cfg]: every type, group by group, each with its remembered setups (the Off items of its type,
- * in the layout's order). An Off item of a type this version doesn't know has no row to stand under and is left alone.
- * [forgotten] is the id of a line to mark so.
+ * The library's list for [cfg]: every type, group by group, each with its remembered setups (the Off items of its type
+ * that [carry a setup][carriesSetup], in the layout's order). An Off item as it came, which a layout from 1.8 can hold
+ * until its first change here drops it, is no line: there is nothing to bring back that the + doesn't make. An Off item
+ * of a type this version doesn't know has no row to stand under and is left alone. [forgotten] is the id of a line to
+ * mark so.
  */
 fun shelvesOf(cfg: BarConfig, name: (ItemType) -> String, blurb: (ItemType) -> String, forgotten: String? = null,
               words: (ItemConfig, ItemType) -> String): List<Shelf> =
     ItemGroup.entries.flatMap { Items.inGroup(it) }.map { type ->
         val mine = cfg.items.filter { it.type == type.type }
         Shelf(type, name(type), blurb(type), inBar = mine.any { it.section != Section.OFF },
-            lines = mine.filter { it.section == Section.OFF }.map { Line(it, words(it, type), forgotten = it.id == forgotten) })
+            lines = mine.filter { it.section == Section.OFF && it.carriesSetup(type) }.map { Line(it, words(it, type), forgotten = it.id == forgotten) })
     }
 
 /**

@@ -7,6 +7,7 @@ import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.hide
+import com.meridian11.books.bentobar.data.layoutJson
 import com.meridian11.books.bentobar.data.moved
 import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.show
@@ -106,12 +107,27 @@ class UndoTest {
         val setUp = ItemConfig("s", "nope", Section.OFF, options = mapOf("k" to "1"))
         Store.update { it.copy(items = it.items + setUp) }
         assertNull("a removal forgets nothing", Undo.forgotten(Undo.Kept(layout, layout.removed("b")), layout.removed("b")))
-        assertTrue(Undo.change { it.without("s") })
+        assertNull("nor does a change that Forget did not make", Undo.forgotten(Undo.Kept(Store.config.value, layout), layout))
+        assertTrue(Undo.change(forgot = "s") { it.without("s") })
         assertEquals(setUp, Undo.forgotten(Undo.last.value, Store.config.value))
         // Arranged otherwise since: there is nothing to offer.
         Store.update { it.hide("a") }
         assertNull(Undo.forgotten(Undo.last.value, Store.config.value))
         assertNull(Undo.forgotten(null, Store.config.value))
+    }
+
+    @Test fun anOffItemAChangeDroppedBecauseItCarriedNoSetupWasNotForgotten() {
+        // A layout from 1.8 as it is opened: an Off item as it came is there until the first change, which drops it.
+        val bare = Items.of("timer")!!.fresh("t", Position.RIGHT).copy(section = Section.OFF)
+        val stored = layout.copy(items = layout.items + bare)
+        Store.open(MapPrefs(mapOf("bar" to layoutJson.encodeToString(BarConfig.serializer(), stored)))) { }
+        assertEquals(stored, Store.config.value)
+        assertTrue(Undo.change { it.hide("a") })
+        assertEquals(listOf("a", "b", "c"), ids())
+        assertNull("nobody pressed Forget", Undo.forgotten(Undo.last.value, Store.config.value))
+        // The change is taken back, and what carried nothing stays gone.
+        assertTrue(Undo.undo())
+        assertEquals(layout, Store.config.value)
     }
 
     @Test fun whatTheStoreDidItselfIsNotedAndTakenBack() {
