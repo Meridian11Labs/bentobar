@@ -18,10 +18,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -853,10 +853,12 @@ private object ChipOnly : StripEvents {
 /**
  * What is carried, drawn over the whole page under the pointer: the row as the list draws it, raised, and over the
  * preview the item's chip as the strip draws it. It turns from one into the other by its size and its shape in 120 ms,
- * never by a fade: one of the two is drawn at a time, cut to the shape between them.
+ * never by a fade: one of the two is drawn at a time, cut to the shape between them. Its corner is a place in the root
+ * ([Reorder.copyAt]), so [modifier] stands it at the root's physical top left and the offset is absolute: from right to
+ * left a start corner and `offset` would each mirror it across the window.
  */
 @Composable
-internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, ItemState>, several: Boolean) {
+internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, ItemState>, several: Boolean, modifier: Modifier = Modifier) {
     val carried = reorder.carried ?: return
     val c = Bento.colors
     // As it would be where it hangs: the copy says nothing of a place that is not so there.
@@ -882,7 +884,7 @@ internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, Item
             if (look != null) Strip(listOf(StripEntry(item, state)), emptyList(), showChevron = false, chevronAlways = false, chevronReservePx = 0,
                 expanded = false, chevronOnLeft = false, look = look.copy(pill = Pill.NONE), maxWidthPx = 4000, heightDp = 36.dp, events = ChipOnly)
         }
-    }, Modifier.offset { reorder.copyAt(chip).round() }.testTag(if (chip < 0.5f) "drag-row" else "drag-chip")
+    }, modifier.absoluteOffset { reorder.copyAt(chip).round() }.testTag(if (chip < 0.5f) "drag-row" else "drag-chip")
         .graphicsLayer {
             shadowElevation = 8.dp.toPx() * raised
             shape = RoundedCornerShape(lerp(Radius.medium, (size.height / 2).toDp(), chip))

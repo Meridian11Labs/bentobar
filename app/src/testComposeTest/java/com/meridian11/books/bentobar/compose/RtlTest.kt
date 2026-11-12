@@ -209,6 +209,9 @@ class RtlTest {
         val from = bounds("row:m").center
         rule.onRoot().performMouseInput { moveTo(from); press(); for (i in 1..6) moveBy(Offset(0f, 5f)) }
         rule.waitForIdle()
+        // The copy hangs from the pointer, on the pointer's side of the window.
+        val pointer = from + Offset(0f, 30f)
+        assertTrue("the carried row is under the pointer at $pointer: ${bounds("drag-row")}", bounds("drag-row").contains(pointer))
         val trash = bounds("trash")
         assertEquals("as wide as the list's card", card.left to card.right, trash.left to trash.right)
         assertEquals(card.bottom, trash.bottom)

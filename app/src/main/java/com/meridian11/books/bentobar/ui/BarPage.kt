@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.key.Key
@@ -598,7 +599,7 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
                 Panel(side, item, cfg, states, edit, reorder, lanes, Modifier.weight(1f))
             }
         }
-        DragCopy(reorder, cfg, states, lanes.several)
+        DragCopy(reorder, cfg, states, lanes.several, Modifier.align(AbsoluteAlignment.TopLeft))
     }
 }
 
