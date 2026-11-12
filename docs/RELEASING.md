@@ -119,7 +119,9 @@ learned the hard way" says why. Run it again on every new draft.
   it back. Let go beside the strip (on the panel, on the page's ground) or press Esc over it: nothing changes and the
   strip sinks. The same by finger, by a row's handle: the strip is easy to hit and the copy under the finger does not
   hide that it is red. With more rows than fit, hold a row just above the strip: the list scrolls; over the strip it
-  rests. Pick up one of the last rows of a full list, where the strip comes up under the pointer, and let go without
+  rests. Scroll that way to the list's end and drop the row there: the list comes down into the strip's room as the
+  strip sinks, in one even move (a test holds that it takes several frames; whether it looks even is for the eye),
+  and the row lands in its place. Pick up one of the last rows of a full list, where the strip comes up under the pointer, and let go without
   moving away: nothing is removed; move off the strip and back, and it takes the row. Drag a type out of Add items:
   no strip. In a narrow window and with three areas the strip spans the list's card. With "No animations" it is
   simply there and gone.

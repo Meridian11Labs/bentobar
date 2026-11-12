@@ -46,6 +46,7 @@ import com.meridian11.books.bentobar.ui.windowLayout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -412,6 +413,48 @@ class DragTest {
         says(str(R.string.bar_drop_none))
         letGo()
         assertEquals("let go over the library, a type is not added", listOf("a", "b", "c"), order())
+    }
+
+    /**
+     * The trash's room is the list's again when the drag is over, and a list that was scrolled into that room during
+     * the drag (held at its lower edge until it ended) has to come back by it. It comes back as the room closes, frame
+     * by frame, and never in one step.
+     */
+    @Test fun aListScrolledToItsEndDuringADragComesBackAsTheTrashsRoomClosesAndDoesNotJump() {
+        val many = Items.all.take(24).mapIndexed { i, type -> item("i$i", type.type) }
+        page(null, *many.toTypedArray())
+        hold(grip("i3"), at("bar-list").center)
+        val list = at("bar-list")
+        val room = at("trash").height
+        fun top() = tag("row:i20").fetchSemanticsNode().positionInRoot.y
+        rule.mainClock.autoAdvance = false
+        rule.onRoot().performMouseInput { moveTo(Offset(list.center.x, list.bottom - 4f)) }
+        var last = top()
+        var still = 0
+        for (i in 1..600) { rule.mainClock.advanceTimeByFrame(); val y = top(); if (y == last) still++ else still = 0; last = y; if (still > 20) break }
+        assertTrue("the list came to its end", still > 20)
+        // Off the edge, so the list rests, and let go in the list: the row lands at a place of it.
+        rule.onRoot().performMouseInput { moveTo(Offset(list.center.x, list.bottom - 80f)) }
+        repeat(20) { rule.mainClock.advanceTimeByFrame() }
+        last = top()
+        var edge = at("bar-list").bottom
+        rule.onRoot().performMouseInput { release() }
+        val rows = ArrayList<Float>()
+        val edges = ArrayList<Float>()
+        repeat(60) {
+            rule.mainClock.advanceTimeByFrame()
+            val y = top(); rows += y - last; last = y
+            val e = at("bar-list").bottom; edges += e - edge; edge = e
+        }
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        tag("trash").assertDoesNotExist()
+        assertNotEquals("the drop was written", many[3], now("i3"))
+        assertEquals("the list has the trash's room again: $edges", room, edges.sum(), 0.5f)
+        assertTrue("its lower edge takes the room back over the frames of the sink, never half of it in one: $edges", edges.max() <= room / 2)
+        // The rows follow that edge: what a drag adds under each part's rows leaves in one frame at the end, as ever.
+        assertTrue("the rows came back by the room: $rows", rows.sum() >= room - 0.5f)
+        assertTrue("and over several frames: $rows", rows.count { it > 0f } >= 4)
     }
 
     @Test fun theTrashRisesIntoItsRoomAndSinksWhenTheDragEnds() {

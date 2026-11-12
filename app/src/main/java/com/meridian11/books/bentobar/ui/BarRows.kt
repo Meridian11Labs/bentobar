@@ -65,6 +65,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalResources
@@ -426,9 +427,12 @@ internal const val TRASH_VEIL = 0.10f
 /**
  * The trash: while a row of the bar is carried (never a type of the library), a strip along the card's lower edge,
  * under the list and not scrolled with it. A drop on it removes the row, as Remove does. Its room is the card's from
- * the pickup, the strip rises into it and sinks when the drag ends ([Motion.LIFT]; with no animations it is simply
- * there). With the row over it, it is in the danger colour. It takes no click and no focus and says nothing: Remove is
- * a row's action and a key.
+ * the pickup and the strip rises into it ([Motion.LIFT]; with no animations it is simply there): a room that grew
+ * under the pointer would be one the pointer was outside at the pickup, and so armed at once ([Reorder.trash]). When
+ * the drag ends the room itself closes, in height, and the strip sinks with it: the list gets it back frame by frame,
+ * and one that was scrolled into it during the drag comes back with it and does not jump when the strip is gone. With
+ * the row over it, it is in the danger colour. It takes no click and no focus and says nothing: Remove is a row's
+ * action and a key.
  */
 @Composable
 private fun Trash(reorder: Reorder) {
@@ -440,8 +444,12 @@ private fun Trash(reorder: Reorder) {
     val over = on && reorder.drop == Drop.Off
     val ink = if (over) c.danger else c.ink2
     val shape = RoundedCornerShape(Radius.medium)
-    Box(Modifier.fillMaxWidth().onGloballyPositioned { reorder.trash = it }.clipToBounds().testTag("trash")) {
-        Row(Modifier.fillMaxWidth().graphicsLayer { translationY = (1f - risen) * size.height }
+    Box(Modifier.fillMaxWidth().onGloballyPositioned { reorder.trash = it }.clipToBounds()
+        .layout { measurable, constraints ->
+            val strip = measurable.measure(constraints)
+            layout(strip.width, if (on) strip.height else (strip.height * risen).roundToInt()) { strip.place(0, 0) }
+        }.testTag("trash")) {
+        Row(Modifier.fillMaxWidth().graphicsLayer { translationY = if (on) (1f - risen) * size.height else 0f }
             .padding(start = ROW_INSET, end = ROW_INSET, bottom = Space.m).heightIn(min = Target.row)
             .background(if (over) c.danger.copy(alpha = TRASH_VEIL) else c.sunk, shape)
             .then(if (over) Modifier.border(1.5.dp, c.danger, shape) else Modifier)

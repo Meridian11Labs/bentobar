@@ -206,8 +206,10 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     there only while a row of the bar is carried (never for a type from the library): a trash and "Drop here to
     remove", in the danger colours while the row is over it (`TRASH_VEIL` of red and a red border, at once), when the
     line under the preview says what a drop does. Its room (a `Target.row` and the card's foot) is taken from the list
-    at the pickup, so no row moves, and it rises into it and sinks by `Motion` (with animations off it is simply
-    there). The list's viewport ends above it, so the scrolling zone at the list's lower edge does too and over the
+    at the pickup, so no row moves, and it rises into it by `Motion` (with animations off it is simply there). When
+    the drag ends the room closes in height and the strip sinks with it, so the list gets it back frame by frame: a
+    list scrolled into that room during the drag would else jump by it in one frame when the strip left (`DragTest`
+    steps through it). The room does not grow in height at the pickup, since `Reorder.armed` reads it then. The list's viewport ends above it, so the scrolling zone at the list's lower edge does too and over the
     trash nothing scrolls. A row picked up where the trash then comes up is not on it until the pointer has left it
     once (`Reorder.armed`): standing still never removes. The strip has no semantics and takes no focus: Remove is a
     row's action and a key. The panel takes no drop: over the library or an item's options nothing would change, and
