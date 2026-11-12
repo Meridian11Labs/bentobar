@@ -24,7 +24,7 @@ class RetiredTest {
         val text = layoutJson.encodeToString(BarConfig.serializer(), BarConfig(items = listOf(
             ItemConfig("a1", "clock"),
             ItemConfig("c1", "clipboard", options = mapOf("pins" to pins, "bar" to "count", "pasteOnClick" to "true")),
-            ItemConfig("b2", "shelf", Section.HIDDEN, whenActive = true),
+            ItemConfig("b2", "cpu", Section.HIDDEN, whenActive = true),
             ItemConfig("c2", "clipboard", Section.OFF, options = mapOf("pins" to pins)),
         )))
         val read = read(text)
@@ -56,6 +56,30 @@ class RetiredTest {
         assertTrue("so the stored layout is written again without it", read.changed)
         val again = readLayout(layoutJson.encodeToString(BarConfig.serializer(), read.config))
         assertEquals(LayoutRead.Ok(read.config, changed = false), again)
+    }
+
+    @Test fun aLayoutWithAShelfAndAValueFromAUrlLoadsWithoutThemAndIsSavedAgain() {
+        // As 2.1 wrote it: a Shelf and a Value from a URL with its options among others, in two areas.
+        val text = """{"version":4,"items":[
+            {"id":"a1","type":"clock","area":"RIGHT"},
+            {"id":"s1","type":"shelf","section":"SHOWN","area":"LEFT","display":"ICON"},
+            {"id":"w1","type":"webvalue","section":"HIDDEN","area":"RIGHT","options":{"label":"Build","unit":"%","every":"5","path":"status.value"}},
+            {"id":"b2","type":"cpu","section":"HIDDEN","area":"RIGHT"}]}"""
+        val read = read(text)
+        assertEquals(listOf("a1", "b2"), read.config.items.map { it.id })
+        assertTrue("so the stored layout is written again without them", read.changed)
+        val saved = layoutJson.encodeToString(BarConfig.serializer(), read.config)
+        for (gone in listOf("shelf", "webvalue", "status.value", "Build")) assertFalse(gone, gone in saved)
+        assertEquals(LayoutRead.Ok(read.config, changed = false), readLayout(saved))
+    }
+
+    @Test fun theRetiredServicesAndFoldersAreTheOnesTheRetiredTypesHad() {
+        assertEquals(setOf("clipboard", "crypto", "shelf", "webvalue"), Retired.types)
+        assertEquals(setOf("kraken", "own"), Retired.services)
+        assertEquals(setOf("shelf", "webvalue"), Retired.kept)
+        // No service of this version has a retired one's id, and no type keeps its own under a retired folder's name.
+        for (service in Online.Service.entries) assertFalse(service.id, service.id in Retired.services)
+        for (type in Items.all) assertFalse(type.type, type.type in Retired.kept)
     }
 
     @Test fun aLayoutWithNothingRetiredIsTheSameLayout() {

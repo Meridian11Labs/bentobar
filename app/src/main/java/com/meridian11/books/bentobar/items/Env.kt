@@ -87,13 +87,11 @@ object Env {
      * When BentoBar may ask an online service, in one place. A request goes out only if all of this
      * holds: the service is switched on for this install (the user set its item up here), an item of
      * a type that uses the service is outside Off, and something that shows items is on screen. And
-     * never from the main thread, and not at all without a network. An address the user typed (Value
-     * from a URL) is held to the same rule, by its own switch, "Your own addresses".
+     * never from the main thread, and not at all without a network.
      */
     private fun wireOnline() {
         fun mayAsk(service: Online.Service) = Online.mayAsk(service, Ticker.running, Store.config.value.items) { Items.of(it)?.online }
         Http.allowed = { host -> mayAsk(Online.serviceOf(host)) }
-        Http.ownAllowed = { mayAsk(Online.Service.OWN) }
         Http.clock = Now::elapsed
         // The one read of a key for a request: the transport adds it, so no item's code ever holds one.
         Http.key = { host -> Online.key(Online.serviceOf(host)).ifEmpty { null } }

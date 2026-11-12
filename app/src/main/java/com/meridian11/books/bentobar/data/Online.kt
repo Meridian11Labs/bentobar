@@ -9,9 +9,9 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
- * Whether BentoBar may ask an online service, and the user's own key for one that needs it. Six
- * items go online, Weather, Air quality, Exchange rates, Flight, Stocks and Value from a URL, and each only
- * after the user set it up on this install: that is what [turnOn] and [saveKey] record, and [turnOff] takes back.
+ * Whether BentoBar may ask an online service, and the user's own key for one that needs it. Five
+ * items go online, Weather, Air quality, Exchange rates, Flight and Stocks, and each only after the user
+ * set it up on this install: that is what [turnOn] and [saveKey] record, and [turnOff] takes back.
  *
  * All of it belongs to this install and never travels. It is kept in one small file in Android's
  * no-backup directory, beside the layout but no part of it: a pasted layout, a restored backup and a
@@ -19,14 +19,12 @@ import java.io.File
  * [key], for the one request that needs it; it is in no state, no log and no string.
  */
 object Online {
-    /** The services, each with the hosts it stands for (see [Host]); "Your own addresses" stands for none. */
+    /** The services, each with the hosts it stands for (see [Host]). */
     enum class Service(val id: String, val hosts: Set<Host>, val needsKey: Boolean) {
         OPEN_METEO("openMeteo", setOf(Host.OPEN_METEO, Host.OPEN_METEO_AIR, Host.OPEN_METEO_GEOCODING), needsKey = false),
         AIRLABS("airLabs", setOf(Host.AIRLABS), needsKey = true),
         FINNHUB("finnhub", setOf(Host.FINNHUB), needsKey = true),
         FRANKFURTER("frankfurter", setOf(Host.FRANKFURTER), needsKey = false),
-        /** "Your own addresses": what Value from a URL asks is an address the user typed (`net.OwnAddress`), not a [Host]. */
-        OWN("own", emptySet(), needsKey = false),
     }
 
     /**
@@ -63,10 +61,13 @@ object Online {
         } catch (e: Exception) {
             null
         } ?: Saved()
-        // A service only a retired item asked (Crypto's Kraken) is no service any more: its switch is read as nothing and
-        // the file is written again without it. The directory of what it sent, if there is one, is deleted.
+        // A service only a retired item asked (Crypto's Kraken, Value from a URL's "Your own addresses") is no service any
+        // more: its switch is read as nothing and the file is written again without it. The directory of what it sent, if
+        // there is one, is deleted, and so is what a retired type kept for its items (a Shelf's texts, the addresses of
+        // Value from a URL): no code is left that would read or delete them.
         val retired = Retired.services.filter { it in saved.on || it in saved.setUp || it in saved.keys }
         for (id in Retired.services) runCatching { File(noBackupDir, "fetched/$id").deleteRecursively() }
+        for (name in Retired.kept) runCatching { File(noBackupDir, "kept/$name").deleteRecursively() }
         fun services(ids: List<String>) = Service.entries.filterTo(HashSet()) { it.id in ids }
         for (s in Service.entries) saved.keys[s.id]?.trim()?.takeIf { it.isNotEmpty() }?.let { keys[s] = it }
         val keyed = keys.keys.toSet()
@@ -92,7 +93,7 @@ object Online {
     /**
      * Whether [service] may be asked right now: it is switched on for this install, something that shows items is on
      * screen ([running]), and an item of a type that asks it ([asks], by the item's type) is outside Off. The one rule
-     * behind `Http.allowed` and `Http.ownAllowed`, which the app wires to it.
+     * behind `Http.allowed`, which the app wires to it.
      */
     fun mayAsk(service: Service, running: Boolean, items: List<ItemConfig>, asks: (type: String) -> Service?): Boolean =
         on(service) && running && items.any { it.section != Section.OFF && asks(it.type) == service }

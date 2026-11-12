@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Shelf and Value from a URL are gone.** A layout that has one is read without it, and what they kept on the device
+  (a Shelf's texts and links, the addresses) is deleted at the first start. Five items go online again, each to a
+  service named in the code: no request can go to an address that isn't written there, Setup › Online services has no
+  "Your own addresses", and the strip takes no drops from other apps.
+
 ## 2.1.0 (2026-11-11)
 
 2.0.0 was only ever a test build; 2.1.0 is the release, without the Crypto and Clipboard items.

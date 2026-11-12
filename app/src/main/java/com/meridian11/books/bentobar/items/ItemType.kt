@@ -353,12 +353,6 @@ abstract class ItemType(
      */
     open val staysOpen: Boolean = false
 
-    /** Text or links dragged onto it in the bar are handed to [onDrop]. */
-    open val takesDrops: Boolean = false
-
-    /** [clip] was dropped on [item] in the bar: true if anything was taken. Main thread, behind `Ticker.guarded`; never throws. */
-    open fun onDrop(item: ItemConfig, clip: android.content.ClipData): Boolean = false
-
     /**
      * Types that are kept live ([onLive], [sample], [onIdle]) while [item] is sampled, though no item of theirs is. [state]
      * is NOT run for them: what they have to say reaches [item]'s type through [liveNow].

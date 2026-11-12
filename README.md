@@ -18,7 +18,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Googlebook_OS-Android_17-133F43" alt="Googlebook OS, Android 17">
-  <img src="https://img.shields.io/badge/goes_online-only_for_six_items_you_set_up-2E7D32" alt="Goes online only for six items you set up">
+  <img src="https://img.shields.io/badge/goes_online-only_for_five_items_you_set_up-2E7D32" alt="Goes online only for five items you set up">
   <img src="https://img.shields.io/badge/license-MIT-555555" alt="MIT license">
   <img src="https://img.shields.io/badge/developed_on-a_Googlebook-1F6F66" alt="Developed on a Googlebook">
 </p>
@@ -83,13 +83,11 @@ hides when an app goes full screen or the screen locks.
 | **Flight** *(online)* | a line with the plane where the flight is, a countdown to departure with the gate, then to landing, and delays | times at both airports, terminal, gate, baggage belt; a choice where a number flies more than once a day. From AirLabs, with a free key of your own |
 | **US stocks** *(online)* | US stocks you pick, one at a time (`AAPL 227.52 ▲1.2%`) for 3 seconds to a minute each, as you choose; can pop out on a big move | each stock's price, day change and range, and the market's hours. From [Finnhub](https://finnhub.io), with a free key of your own |
 | **Exchange rates** *(online)* | currency pairs you follow (`EUR/USD 1.0942`), rotating in the bar; can pop out on a big daily move | rate and daily % change for up to 6 pairs, plus an inline currency converter. From the European Central Bank via [Frankfurter](https://frankfurter.dev) (no key needed) |
-| **Value from a URL** *(online)* | one number or word from an address of your own, such as a sensor or a status page | the value, when it was read, and Refresh. HTTPS only; the address stays on this device |
 | **Live activity** | the one thing happening now: a running timer, the meeting about to start, a flight, what plays; can show only while something is | everything happening now, and which of them it follows |
 | **Camera and mic** | shows while an app uses the camera or the microphone, with the time it has | which of the two is in use and for how long, a button that mutes the microphone for every app, Android's privacy settings |
 | **Mirror** | a camera glyph | you, from the camera: a look before a call. The camera runs only while the popup is open |
 | **Prompter** | a notes glyph | your notes moving up under the camera, to read while you speak; play, pause and a speed. The popup stays open while you use another window |
 | **Notification icons** | other apps' notifications as icons, one per app | the list, to open, dismiss or clear |
-| **Shelf** | how many things it holds; drop text or a link on it | what it holds, to copy, drag out or open |
 | **Focus** | the time left of a Do Not Disturb session you start from the item | the length, a session with no end, End now |
 | **Brightness** | the screen's brightness, with a slider in the bar | the slider, automatic brightness, display settings |
 | **Keyboard light** | the keyboard's backlight, with a slider in the bar | Give back to the system |
@@ -168,7 +166,7 @@ with that access:
 
 BentoBar never reads what is in another app's window and doesn't watch your keyboard, mouse or touches.
 
-**BentoBar goes online for six items only, and only after you set them up** on this device:
+**BentoBar goes online for five items only, and only after you set them up** on this device:
 
 - **Weather** sends [Open-Meteo](https://open-meteo.com) the city you search for, and for the forecast
   the coordinates of the city you pick, rounded to about a kilometre: about every 30 minutes while the
@@ -197,14 +195,9 @@ BentoBar never reads what is in another app's window and doesn't watch your keyb
   and when you open its menu, press Refresh or save a new key. Its search sends what you type when you
   press Search.
   Finnhub sees your IP address and can tie requests to your key's account. BentoBar ships no key.
-- **Value from a URL** asks the one address you typed for it, and nothing else: as often as you set,
-  never more than once a minute, while the bar is on screen. The address must be HTTPS, with no name
-  or password in it; a redirect is not followed and a reply over 64 KB is dropped. The address is kept
-  on this device only: not in your layout, a copied layout or a backup. It has a switch of its own in
-  Setup › Online services, Your own addresses. Whoever runs that address sees your IP address.
 
-Requests can go to those four services, to the one address you type for each Value from a URL item,
-and nowhere else (the code has no other way to name an address), **Setup › Online services** switches
+Requests can go to those four services and nowhere else (the code has no way to name another
+address), **Setup › Online services** switches
 each off, and a layout pasted from another install never turns them on. BentoBar sends nothing else
 anywhere: not your layout, your calendar, your clipboard, your notifications, the camera's picture,
 what's playing or anything it measures. It has no accounts of its own, no ads and no analytics, and it
@@ -229,14 +222,13 @@ Its button mutes the microphone for every app, and only when you press it; Bento
 remove the item or turn BentoBar off, and leaves alone a mute Android or another app made. It can't
 switch a camera off.
 
-**Shelf** keeps the text and links you drop on it, and **Prompter** keeps
-your notes: on this device only, not in your layout, a copied layout or a backup, and never sent.
+**Prompter** keeps your notes on this device only: not in your layout, a copied layout or a backup,
+and never sent.
 Forget, in Add items, deletes them.
 
 If you use Android's backup, Android keeps a copy of BentoBar's settings in your Google account. Your
-AirLabs and Finnhub keys, the online switches, the addresses of Value from a URL, a Prompter's notes,
-what a Shelf holds, a Focus session, your answer to the accessibility explanation, a running timer and
-keep awake are left out of it.
+AirLabs and Finnhub keys, the online switches, a Prompter's notes, a Focus session, your answer to
+the accessibility explanation, a running timer and keep awake are left out of it.
 
 **Usage access is optional and off by default.** If you turn it on (Setup, or the Network and
 Storage menus), BentoBar reads how much data and storage each app uses, to list the top five in
@@ -260,7 +252,7 @@ show the whole system instead.
 | Do Not Disturb access *(optional)* | Focus, to turn its own mode on and off |
 | Modify system settings *(optional)* | Brightness's slider |
 | Modify audio settings | Camera and mic's microphone mute, only when you press it |
-| Internet | Weather and Air quality & UV (Open-Meteo), Flight (AirLabs), US stocks (Finnhub), Exchange rates (Frankfurter) and Value from a URL (your own address), only after you set them up; nothing else |
+| Internet | Weather and Air quality & UV (Open-Meteo), Flight (AirLabs), US stocks (Finnhub) and Exchange rates (Frankfurter), only after you set them up; nothing else |
 | Notification access *(optional)* | Now playing's title, artist and artwork; BentoBar receives no notifications through this entry |
 | Notification access, "BentoBar notification icons" *(optional)* | Notification icons, and other apps' progress in Live activity; read while on screen, never stored |
 | Network state, launcher apps | the network menu, and picking apps for shortcuts |

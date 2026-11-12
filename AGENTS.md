@@ -109,15 +109,14 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     "Notification access" list that Android wants for it: it asks for no notification type and is
     not bound by Android by itself (see the manifest's comment). Its pure rules are in
     `items/NowPlayingRules.kt`.
-  - `items/` after 1.7.1: Camera and mic (`InUse*`), Mirror, Prompter, Shelf, Notification icons (`Notices*`), Live
+  - `items/` after 1.7.1: Camera and mic (`InUse*`), Mirror, Prompter, Notification icons (`Notices*`), Live
     activity, Focus, Brightness, Keyboard light (`KeyLight*`), Headphones and output (`Output*`), Connection, Screen
-    time, Day progress (`Progress*`), Sunset (`Sun*`), Break reminder (`Breaks*`) and Value from a URL
-    (`WebValue*`). None has run on a device yet (`docs/RELEASING.md` has each one's list). What they added to
+    time, Day progress (`Progress*`), Sunset (`Sun*`) and Break reminder (`Breaks*`). None has run on a device yet (`docs/RELEASING.md` has each one's list). What they added to
     `ItemType`: `needs`, the access a type wants (`Access`: CAMERA, NOTICES, DO_NOT_DISTURB, WRITE_SETTINGS;
     `SetupState.access` is what is given); `settle(why)`, the one hook for what outlives the bar
     (`Settle.SERVICE_STARTED`, `SERVICE_ENDING`, `LEFT_LAYOUT`: a Focus session and its Do Not Disturb, the microphone
     mute BentoBar made, the keyboard light it holds; `onIdle` ends none of them, since the bar hiding must not);
-    `staysOpen`; `takesDrops` and `onDrop` (Shelf); `liveSource` and `liveNow`, what a type tells Live activity
+    `staysOpen`; `liveSource` and `liveNow`, what a type tells Live activity
     (`LiveItem.wakes` keeps the sources switched on in its options live with it, never drawn; `LiveRules.first` picks
     the one to show). `Kept.own(name)` is where a type keeps what `keepsOwn` names, in the no-backup directory.
   - `items/NoticeAccess.kt` is a second entry in Android's "Notification access" list, "BentoBar notification icons",
@@ -128,8 +127,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     level, so the slider is dimmed until the first slide). `tools/zones.py PATH/zone.tab [VERSION]` writes
     `SunZones.kt`, the city Sunset works from in each time zone.
   - `net/`: the only code that opens a connection (pure Kotlin). `Host` is an enum of the hosts BentoBar may ask; a `Request` names one of them, a path and a query, so no call takes an
-    address but one: `Http.getOwn`, for Value from a URL, takes the address the user typed (`OwnAddress`: HTTPS, no name or
-    password in it, no redirect followed; it is counted and printed as "own", never as itself, and has a switch of its own). `Http.get` refuses unless the service is switched on, an item that uses it is outside
+    address. `Http.get` refuses unless the service is switched on, an item that uses it is outside
     Off and something that shows items is on screen, and never runs on the main thread. A `Request` holds no key:
     `Http.key` is wired in `Env` and `HttpTransport` adds it, so no item's code ever holds one. A `Request` prints as host and path only, and no exception leaves `HttpTransport`.
     One 429 or Retry-After holds the whole service (`Http.get` answers for it), and what the transport would refuse is `Why.REFUSED`, counted as nothing sent.
@@ -147,8 +145,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     `data/BarList.kt` is how the settings see a layout: each area's list in two parts (`parts`, `partOf`: in the bar, and
     under the line the items that wait for their rule, or with ‹ everything behind it), `canGoBelow`, `standing`, and
     what a setup is (`fresh`, `carriesSetup`: an item that differs from what the + makes, or one whose type keeps
-    something for it outside the layout, `ItemType.keepsOwn`. Flight does (the flight an item follows), Prompter (its notes), Shelf (what it holds) and
-    Value from a URL (its address): it stays
+    something for it outside the layout, `ItemType.keepsOwn`. Flight does (the flight an item follows) and Prompter (its notes): it stays
     while the item is in the layout, a line included, or `Undo` can bring it back, and goes when a forgotten line is
     let go, `forgetOwn`, or at the next start; a type's defaults are the same every day, so a new Countdown has no date and
     says "Set a date": a default that moved with the day made a date somebody set equal to it, and so no setup). `Store.update` keeps no Off item that carries none (`withoutBareOff`), so
@@ -158,9 +155,10 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     SharedPreferences, a process-wide StateFlow shared by the service and settings; `Store.open` takes a `Prefs`, so a test
     runs it on a map). `Layout.kt` holds `readLayout`, the one reader of a stored or pasted layout: decode, migrate, repeated
     ids dropped; a layout from a newer version (`LAYOUT_VERSION`) is refused, never clamped, and kept for Backup to offer.
-    `data/Retired.kt` is the one list of the item types BentoBar took out (Clipboard, Crypto): `readLayout` drops their
+    `data/Retired.kt` is the one list of the item types BentoBar took out (Clipboard, Crypto, Shelf, Value from a URL): `readLayout` drops their
     items with their options, where an unknown type's item stays (it may be from a newer version), and `Online.init`
-    drops the switch of a service only they asked (`RetiredTest`; no new layout version, since the schema is the same).
+    drops the switch of a service only they asked and deletes what they kept on the install (`Retired.kept`: the
+    folders under `kept/`; `RetiredTest`, `OnlineTest`; no new layout version, since the schema is the same).
     A schema change adds a file to `test/resources/layouts` (write-once, `LayoutFixturesTest`). Version 4 gave every item
     an area (`ItemConfig.area`: Left, Middle, Right; `Position.CENTER` is the Middle) where the whole strip had one place:
     `migrateToV4` puts each item where the strip was. `BarConfig.position` is read by that and, in a layout with no
@@ -351,7 +349,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   with the release key (from `~/.config/bentobar`): it installs over the release, same version code, and keeps its
   layout and its accessibility switch.
   Also `now +3h|+90m|off` (moves the clock everything newer reads, `util/Now`), `net [reset]` (requests
-  sent per host, the user's own addresses counted together as `own=`, and whether each service may be asked right now), `online weather|fx|flights|stocks|own on|off`,
+  sent per host, and whether each service may be asked right now), `online weather|fx|flights|stocks on|off`,
   and `TYPE …` or `item TYPE …`, which go to that item type's own `debug(args)`. What a hook prints
   is logged: no hook takes or prints a key, and a type marked `discreet` prints no title (`state media`
   and `state flight` print the text's length).
@@ -462,9 +460,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   In desktop windowing, Settings opens in its own window and BentoBar's stays resumed, so onResume
   alone misses changes; and with strong skipping (Kotlin 2.x) a composable reading Android state
   inside isn't redrawn when its parameters are unchanged.
-- **Going online is six items' business, and each install's own decision.** Weather, Air quality, Exchange
-  rates, Flight and Stocks ask a service, and Value from a URL asks the address its user typed; nothing else does, and nothing the accessibility service or any other
-  item reads can get there (`net/` is the only way out, and only those six types name a service in
+- **Going online is five items' business, and each install's own decision.** Weather, Air quality, Exchange
+  rates, Flight and Stocks ask a service; nothing else does, and nothing the accessibility service or any other
+  item reads can get there (`net/` is the only way out, and only those five types name a service in
   `ItemType.online`).
   A service is asked only after its item was set up on this install: `data/Online.kt` records that
   outside the layout, so a pasted layout or a restored backup turns nothing on. Off (Setup › Online
@@ -482,7 +480,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   `HereKeeper`, pure and unit-tested; `WeatherHere` is the keeper on Android's location service).
   `ManifestTest` pins the permissions, the backup rules, cleartext off and both listeners' entries;
   `HttpTest` and `HttpTransportTest` pin the hosts and what a request may carry; `OneWayOutTest` names
-  the five `*Load.kt` files that may call `Http.get`, by exact name, and `WebValueLoad` as the one caller of `Http.getOwn` (its no-log and import scan covers `items/Weather*`, `Air*`, `Fx*`, `Flight*`, `AirLabs*`, `Stocks*`, `Finnhub*`); a key is read only by `Http.key`'s wiring in `items/Env.kt`.
+  the five `*Load.kt` files that may call `Http.get`, by exact name (its no-log and import scan covers `items/Weather*`, `Air*`, `Fx*`, `Flight*`, `AirLabs*`, `Stocks*`, `Finnhub*`); a key is read only by `Http.key`'s wiring in `items/Env.kt`.
 - **US stocks** (`StocksItem`, type "stocks", rules in `StocksRules`, requests and what is kept in `StocksLoad`, replies in
   `Finnhub`): US stocks only (Finnhub's free plan), with the user's own key; one quote request per stock,
   every 2 minutes while the market is open (`Market`: weekday hours in New York; a holiday is seen in quotes

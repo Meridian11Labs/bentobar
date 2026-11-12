@@ -114,7 +114,7 @@ class BarPagePicturesTest {
             area = if (id in left) Position.LEFT else if (id in middle) Position.CENTER else Position.RIGHT)
         fun waiting(id: String) = ItemConfig(id, id, Section.HIDDEN, whenActive = true, area = Position.RIGHT)
         show(BarConfig(items = listOf(item("event"), item("weather"), item("clock"), item("timer"), item("caffeine", Display.ICON),
-            item("network", Display.TEXT), item("cpu"), item("memory"), item("sound", Display.ICON), item("shelf"), item("tools"),
+            item("network", Display.TEXT), item("cpu"), item("memory"), item("sound", Display.ICON), item("prompter"), item("tools"),
             waiting("media"), waiting("devices")), position = Position.RIGHT), select)
     }
 
