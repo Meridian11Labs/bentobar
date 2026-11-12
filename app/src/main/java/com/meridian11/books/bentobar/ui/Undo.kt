@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * control are the same step, [undone]: order, part, rule and area of every item as they were, an option changed since
  * kept. A removed item is deleted from the layout, and this is what has it meanwhile: it comes back as it was, and what
  * its type keeps for it outside the layout stays until the removal can be undone no more ([letGo]). What a page says
- * of the change, with an Undo to click, goes after a few seconds ([over]); the step itself stays until the next change.
+ * of the change, with an Undo to click, goes after a few seconds ([over]); the step itself stays until the next change
+ * or until the settings window is closed ([end]), whichever is first.
  */
 object Undo {
     /**
@@ -129,6 +130,19 @@ object Undo {
             letGo(old)
         }
         Items.of(item.type)?.forgetOwn(id)
+    }
+
+    /**
+     * The settings window was closed for good: Undo is the window's, and its reach ends with it. The change kept is the
+     * one to undo no more, as after a next change ([letGo]): what a type kept for an item it removed is deleted now and
+     * not at some change days later, and a window opened afterwards takes nothing back that nobody there saw go. Not
+     * for a window that is made again (a rotation, a new size) or only left. Main thread.
+     */
+    fun end() {
+        val old = last.value ?: return
+        last.value = null
+        over.value = null
+        letGo(old)
     }
 
     /** Whether [kept] can still be taken back from [now]: the layout is arranged as that change left it. */

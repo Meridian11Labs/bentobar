@@ -174,7 +174,9 @@ learned the hard way" says why. Run it again on every new draft.
 - **Prompter.** While its popup is open, keys still go to the other app; Space pauses and plays only when the popup
   has the focus. The motion is even at speeds 1 and 10 and stops at "End of your notes". Edit opens the options. The
   notes survive BentoBar being turned off and on. Remove deletes them with the item (Undo right after brings both
-  back); a new Prompter starts empty.
+  back); a new Prompter starts empty. Remove one with notes, close the settings window (the caption's close button,
+  and once with Back), open it again: Ctrl+Z brings nothing back. Remove one, resize or rotate the window, or put
+  another window in front and come back: Ctrl+Z still brings it back with its notes.
 - **Notification icons.** "BentoBar notification icons" is its own entry in Notification access, and is not connected
   while no such item is placed. With access: one icon per app (`./bento debug notices` counts those it couldn't load
   as `bells=`), and the popup opens, dismisses and clears. `listener=` in the same line says whether it is connected:

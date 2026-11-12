@@ -143,6 +143,22 @@ class PrivateTextTest {
         assertNull(PrompterItem.script("p"))
     }
 
+    /** Closing the settings window ends Undo's reach as the next change does: the notes go then, not at some change days later. */
+    @Test fun aRemovedPromptersNotesGoWhenTheSettingsWindowIsClosed() {
+        PrompterItem.edit("p", script)
+        PrompterItem.save("p")
+        settled(PrompterItem.type)
+        assertTrue(Undo.change(removed = "p") { it.without("p") })
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
+        Undo.end()
+        settled(PrompterItem.type)
+        assertEquals(emptySet<String>(), Kept.own("prompter").names())
+        assertNull(PrompterItem.script("p"))
+        assertFalse(Undo.undo())
+        assertEquals(listOf("c"), Store.config.value.items.map { it.id })
+    }
+
     @Test fun aRemovedAreasPromptersNotesStayWhileUndoCanBringItBackAndGoWhenItNoLongerCan() {
         Store.update { c -> c.copy(items = c.items.map { if (it.id == "p") it.copy(area = Position.LEFT) else it }) }
         PrompterItem.edit("p", script)

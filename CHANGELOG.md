@@ -10,7 +10,8 @@
   menu) is gone from the layout, whatever it was set to, and Undo brings it back as it was. Add items lists the types
   and nothing else: no remembered setups under a type, no Forget. A layout that is read (stored, pasted, imported)
   drops what an older version kept in Off, with no new layout version. A Flight's followed flight and a Prompter's
-  notes are deleted once the removal can no longer be undone.
+  notes are deleted once the removal can no longer be undone: at the next change to the bar, or when the settings
+  window is closed, whichever comes first.
 - **A bar starts in Left.** A fresh install has its four items in Left, after the clock. A new item goes to the first
   area in use of Left, Middle, Right (it was Right, Middle, Left), and when the status bar is short of room Left has
   it first, then Right, then the Middle (it was Right, Left, Middle). A bar that is already set up stays where it is,

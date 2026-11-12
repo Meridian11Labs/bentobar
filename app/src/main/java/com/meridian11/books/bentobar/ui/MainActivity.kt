@@ -173,7 +173,23 @@ class MainActivity : ComponentActivity() {
         data += KeyboardShortcutGroup(getString(page.title), keys.map { KeyboardShortcutInfo(getString(it.does), it.keycode, it.modifiers) })
     }
 
+    /** This window's end has been seen ([closing]). */
+    private var closed = false
+
+    /**
+     * Undo is this window's, and its reach ends when the window is closed for good ([Undo.end]): asked at each step of
+     * the window's way out, so at the first that knows. Not when it is made again (a rotation, a new size) or only left
+     * for another window: it is not finishing then. A window opened since has Undo by now, with what it may have
+     * changed already; an end that comes that late takes nothing.
+     */
+    private fun closing() {
+        if (closed || !isFinishing) return
+        closed = true
+        if (current === this) Undo.end()
+    }
+
     override fun onDestroy() {
+        closing()
         if (current === this) current = null
         super.onDestroy()
     }
@@ -185,6 +201,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         getSystemService(AccessibilityManager::class.java)?.removeAccessibilityServicesStateChangeListener(services)
+        closing()
         super.onStop()
     }
 
@@ -198,6 +215,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         Ticker.stop("settings")
+        closing()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {

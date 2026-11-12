@@ -87,6 +87,20 @@ class FlightRemovedTest {
         assertEquals(listOf("c"), ids())
     }
 
+    /** Closing the settings window ends Undo's reach as the next change does: the flight goes then. */
+    @Test fun aRemovedItemsFlightGoesWhenTheSettingsWindowIsClosed() {
+        follow("f")
+        follow("g")
+        assertTrue(Undo.change(removed = "f") { it.without("f") })
+        settled()
+        assertEquals(setOf("f", "g"), notes())
+        Undo.end()
+        settled()
+        assertEquals("the other item's flight stays", setOf("g"), notes())
+        assertEquals(false, Undo.undo())
+        assertEquals(listOf("c", "g"), ids())
+    }
+
     /** Remove an area takes every item of it in one step: each one's flight stays while that step can be undone, and not longer. */
     @Test fun theFlightsOfARemovedAreasItemsStayWhileUndoCanBringThemBackAndGoWhenItNoLongerCan() {
         Store.update { c -> c.copy(items = c.items.map { if (it.id == "f") it.copy(area = Position.LEFT) else it } + flight.copy(id = "h", area = Position.LEFT)) }

@@ -44,6 +44,21 @@ class UndoTest {
         assertEquals(layout, Store.config.value)
     }
 
+    /** The settings window closed for good: its Undo ends with it, and a window opened later has nothing to take back. */
+    @Test fun whenTheWindowIsClosedTheChangeCanBeTakenBackNoMoreAndItsNoteIsGone() {
+        assertTrue(Undo.change(removed = "a") { it.without("a") })
+        Undo.noteOver(Undo.last.value!!)
+        Undo.end()
+        assertNull(Undo.last.value)
+        assertNull(Undo.over.value)
+        assertEquals(emptySet<String>(), Undo.held("nope"))
+        assertFalse(Undo.undo())
+        assertEquals(listOf("b", "c"), ids())
+        // With nothing kept it does nothing.
+        Undo.end()
+        assertEquals(listOf("b", "c"), ids())
+    }
+
     @Test fun looksCommandIsOneChangeTakenBackInOneStepWithAreasAndOrderAsTheyWere() {
         val three = BarConfig(items = listOf(a.copy(area = Position.LEFT), b.copy(area = Position.CENTER), c.copy(area = Position.RIGHT)), position = Position.RIGHT)
         Store.update { three }

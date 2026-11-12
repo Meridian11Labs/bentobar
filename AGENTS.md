@@ -149,7 +149,14 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     says "Set a date"). What a type keeps for an item outside the layout (Flight: the flight it follows; Prompter: its
     notes) stays while the item is in the layout or `Undo` can bring it back, and goes once it no longer can
     (`Undo.letGo` calls `forgetOwn`; the bar's own menu has no Undo, so its Remove is `Undo.removeForGood`, at once),
-    or at the next start (a type's own sweep, for what a pasted layout or an ended process left).
+    or at the next start (a type's own sweep, for what a pasted layout or an ended process left). Undo can bring an
+    item back until the next change or until the settings window is closed, whichever is first: `Undo.end`, which
+    `MainActivity` calls at the first step of its way out that says it is finishing (`closing`: not when it is made
+    again for a rotation or a new size, not when it is only left; `UndoWindowTest`), lets the kept change go as a
+    next change does, so a removed item's kept text does not wait for a change days later and a window opened
+    afterwards takes nothing back. A type's sweep runs on its own thread and asks `Undo.held`, which also counts the
+    layout a change that is being made started from (`Undo.pending`, set in `change` from before the write until the
+    change is kept): an item is never in no layout and in no kept change at once.
     `stripPlan` (in `Model.kt`) is the one choice of what an area's strip and the settings preview show (`StripPlanTest`).
   - `data/`: `Model.kt` (`BarConfig`, `ItemConfig`, `Section`…) and `Store` (JSON in
     SharedPreferences, a process-wide StateFlow shared by the service and settings; `Store.open` takes a `Prefs`, so a test
@@ -304,7 +311,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     press for the system's double-tap time after the note came (`Modifier.deafAtFirst`: the press is taken on its way
     down; Enter, Ctrl+Z and a screen reader's click are not held up; a Compose test that clicks an Undo waits it out,
     `pastANotesFirstMoment`). Only the note goes
-    (`Undo.noteOver`, `Undo.noted`): Ctrl+Z and the system's shortcut list keep Undo until the next change. Rows travel to their
+    (`Undo.noteOver`, `Undo.noted`): Ctrl+Z and the system's shortcut list keep Undo until the next change or the window's end. Rows travel to their
     places (`animatePlacement`, 200 ms while the lanes change: `ListTravel`), and a row the library's + added opens
     downwards. What scrolls (the list, the library, the options) has a thin thumb while it has more than fits
     (`Modifier.scrollThumb`, `thumbOf` pure, `Palette.thumb`). The right-click menu's head has its symbol on the card's
