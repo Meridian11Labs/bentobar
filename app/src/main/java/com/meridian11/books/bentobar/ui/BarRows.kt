@@ -12,6 +12,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,6 +48,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
@@ -300,7 +302,8 @@ private fun Lines(abreast: Int, content: @Composable () -> Unit) {
  * The bar's card: the one list, or with several [lanes] on screen in a window with the room, the lanes side by side.
  * A click selects a row, a click on the card's empty part lets the selection go, and a row is dragged to a new place by
  * [reorder] (the gesture and the copy that floats are the page's): the list shows the opening where the row would land,
- * room at the end of each part, and the part under it tinted.
+ * room at the end of each part, and the part under it tinted. While a row is carried the card's lower edge is the
+ * [Trash]'s: the list ends above it and scrolls there, the trash stays.
  */
 @Composable
 internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: String?, edit: BarEdit, reorder: Reorder, lanes: Lanes,
@@ -341,7 +344,8 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     val added = Undo.added(kept, cfg)?.id
     val moved = if (fold != null) movedBy(kept) else null
     val grabbing = remember { PointerIcon(android.view.PointerIcon.TYPE_GRABBING) }
-    Column(modifier.clip(RoundedCornerShape(Radius.large)).background(c.panel)
+    Column(modifier.clip(RoundedCornerShape(Radius.large)).background(c.panel)) {
+      Column(Modifier.weight(1f).fillMaxWidth()
         .pointerInput(edit) { detectTapGestures { edit.letGo() } }
         .onGloballyPositioned { reorder.viewport = it }
         .scrollThumb(scroll, c.thumb).verticalScroll(scroll).padding(vertical = Space.m).testTag("bar-list")) {
@@ -410,6 +414,43 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
                     }
                 }
             }
+        }
+      }
+      Trash(reorder)
+    }
+}
+
+/** How much of the danger colour lies over the card while a row is over the trash: as under a pressed red button. */
+internal const val TRASH_VEIL = 0.10f
+
+/**
+ * The trash: while a row of the bar is carried (never a type of the library), a strip along the card's lower edge,
+ * under the list and not scrolled with it. A drop on it removes the row, as Remove does. Its room is the card's from
+ * the pickup, the strip rises into it and sinks when the drag ends ([Motion.LIFT]; with no animations it is simply
+ * there). With the row over it, it is in the danger colour. It takes no click and no focus and says nothing: Remove is
+ * a row's action and a key.
+ */
+@Composable
+private fun Trash(reorder: Reorder) {
+    val c = Bento.colors
+    val on = reorder.carried?.from == From.BAR && reorder.live
+    val travel by animateFloatAsState(if (on) 1f else 0f, Motion.spec(tween(Motion.LIFT)), label = "trash")
+    val risen = if (Motion.off) (if (on) 1f else 0f) else travel
+    if (!on && risen == 0f) return
+    val over = on && reorder.drop == Drop.Off
+    val ink = if (over) c.danger else c.ink2
+    val shape = RoundedCornerShape(Radius.medium)
+    Box(Modifier.fillMaxWidth().onGloballyPositioned { reorder.trash = it }.clipToBounds().testTag("trash")) {
+        Row(Modifier.fillMaxWidth().graphicsLayer { translationY = (1f - risen) * size.height }
+            .padding(start = ROW_INSET, end = ROW_INSET, bottom = Space.m).heightIn(min = Target.row)
+            .background(if (over) c.danger.copy(alpha = TRASH_VEIL) else c.sunk, shape)
+            .then(if (over) Modifier.border(1.5.dp, c.danger, shape) else Modifier)
+            .padding(horizontal = Space.m, vertical = Space.s).clearAndSetSemantics { },
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            SymIcon(Sym.DELETE, size = 18.sp, color = ink)
+            Spacer(Modifier.width(Space.s))
+            Text(stringResource(R.string.bar_trash), style = Bento.type.small.copy(fontWeight = FontWeight.SemiBold), color = ink, maxLines = lines(),
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }

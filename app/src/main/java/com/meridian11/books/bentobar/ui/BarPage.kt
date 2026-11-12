@@ -10,7 +10,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -382,7 +381,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
 
     /**
      * A drag was let go. Into the bar: the row at its new place, or the library's type in the bar where it was
-     * dropped. On the library: the row removed, as Remove does it. One change and one step of Undo each; the same place
+     * dropped. On the trash: the row removed, as Remove does it. One change and one step of Undo each; the same place
      * again changes nothing and keeps nothing. Under a line the item can't go under, the page says why. True if the
      * layout changed.
      */
@@ -559,8 +558,6 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
         reorder.config = cfg
         reorder.density = density
         reorder.scope = scope
-        // A row carried onto the panel is removed there, while the panel is the library or an item's options.
-        reorder.shelfOn = side != PanelSide.BAR
         reorder.onDrop = edit::dropped
         edit.settle(kept, fold, lanes.on.size)
     }
@@ -639,11 +636,7 @@ private fun Panel(side: PanelSide, item: ItemConfig?, cfg: BarConfig, states: Ma
     // The options on their way out are still the item's that was let go.
     val last = remember { object { var item: ItemConfig? = null } }
     if (item != null) last.item = item
-    // While a row of the bar is carried the whole card takes it: dropped here it is removed.
-    val takes = reorder.carried?.from == From.BAR && reorder.live && side != PanelSide.BAR
-    val over = takes && reorder.drop == Drop.Off
-    Box(modifier.fillMaxWidth().onGloballyPositioned { reorder.shelf = it }.clip(CARD).background(Bento.colors.panel)
-        .then(if (takes) Modifier.border(if (over) 2.dp else 1.5.dp, Bento.colors.accent, CARD) else Modifier).testTag("panel")) {
+    Box(modifier.fillMaxWidth().clip(CARD).background(Bento.colors.panel).testTag("panel")) {
         AnimatedContent(side, transitionSpec = {
             val way = if (targetState.ordinal > initialState.ordinal) 1 else -1
             (slideInHorizontally(Motion.spec(tween(Motion.SETTLE))) { way * shift } + fadeIn(Motion.spec(tween(Motion.SETTLE)))) togetherWith
@@ -652,7 +645,7 @@ private fun Panel(side: PanelSide, item: ItemConfig?, cfg: BarConfig, states: Ma
             when (shown) {
                 PanelSide.BAR -> BarList(cfg, states, item?.id, edit, reorder, lanes, Modifier.fillMaxSize())
                 PanelSide.ADD -> Library(cfg, edit, lanes, reorder, selected = item != null)
-                PanelSide.OPTIONS -> (item ?: last.item)?.let { of -> key(of.id) { ItemOptions(of, cfg, states[of.id], edit, lanes.several, reorder = reorder) } }
+                PanelSide.OPTIONS -> (item ?: last.item)?.let { of -> key(of.id) { ItemOptions(of, cfg, states[of.id], edit, lanes.several) } }
             }
         }
     }

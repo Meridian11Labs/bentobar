@@ -141,9 +141,14 @@ class Reorder {
     val sources = HashMap<Pair<From, String>, LayoutCoordinates>()
     val stops = HashMap<Pair<From, String>, LayoutCoordinates>()
     var libraryView: LayoutCoordinates? = null
-    /** The panel's card, and whether it shows the library or an item's options: then a row dropped on it is removed. */
-    var shelf: LayoutCoordinates? = null
-    var shelfOn = false
+    /** The trash: the strip along the list card's lower edge while a row of the bar is carried. A row dropped on it is removed. */
+    var trash: LayoutCoordinates? = null
+    /**
+     * The trash takes this drag's drop: the row was picked up beside it, or the pointer has been off it since. A row
+     * picked up where the trash then comes up is not on it by standing still.
+     */
+    private var armed = false
+    private var pickedAt = Offset.Zero
     /** The preview: its bar, the mock clock and system icons in it, each area's strip, and each item's chip as the strip reports it (in the window). */
     var previewBar: LayoutCoordinates? = null
     var clock: LayoutCoordinates? = null
@@ -234,6 +239,8 @@ class Reorder {
         source = p.at
         pending = null
         settle = null
+        armed = false
+        pickedAt = down
         this.touch = touch
         lift = config.lift(c)
         drop = lift?.own?.let { own -> Drop.At(DropSpot(own, config.parts(own.area)[own.part].indexOfFirst { it.id == c.id })) } ?: Drop.None
@@ -278,6 +285,8 @@ class Reorder {
         val bar = bounds(previewBar)
         val along = previewAreas()
         if (along != areas) areas = along
+        val bin = bounds(trash, clip = true)?.takeIf { c.from == From.BAR }
+        if (bin != null && !(bin.contains(pickedAt) && bin.contains(pointer))) armed = true
         val root = container
         fun chipX(id: String) = chips[id]?.let { r -> root?.takeIf { it.isAttached }?.windowToLocal(Offset(r.exactCenterX(), r.exactCenterY()))?.x }
         val chipsAt = buildMap {
@@ -286,7 +295,7 @@ class Reorder {
         return DropMap(
             list = bounds(viewport, clip = true), zones = zones, rows = middles,
             preview = bar, areas = if (bar == null) emptyMap() else along.mapValues { (_, r) -> (bar.left + r.start)..(bar.left + r.endInclusive) }, chips = chipsAt,
-            shelf = bounds(shelf, clip = true)?.takeIf { shelfOn && c.from == From.BAR },
+            trash = bin?.takeIf { armed },
         )
     }
 
@@ -307,7 +316,11 @@ class Reorder {
         return Rect(all.left, minOf(head.bottom, all.bottom), all.right, all.bottom)
     }
 
-    /** Pixels to scroll the list this frame: faster the closer the pointer is to its upper or lower edge, while it is over the list. */
+    /**
+     * Pixels to scroll the list this frame: faster the closer the pointer is to its upper or lower edge, while it is over
+     * the list. The list as it shows ends above the trash, so its lower edge is the trash's upper one, and over the
+     * trash nothing scrolls.
+     */
     fun edgeSpeed(edge: Float, max: Float): Float {
         if (!live) return 0f
         val visible = viewport?.takeIf { it.isAttached }?.boundsInWindow() ?: return 0f
@@ -322,7 +335,7 @@ class Reorder {
 
     /**
      * Let go. Into the bar: the copy glides into the opening (over the preview, to the insertion bar), then the page
-     * writes the drop. On the library the row is removed at once. Over nothing, or a part that refuses it, it travels back.
+     * writes the drop. On the trash the row is removed at once. Over nothing, or a part that refuses it, it travels back.
      */
     suspend fun release() {
         val c = carried ?: return

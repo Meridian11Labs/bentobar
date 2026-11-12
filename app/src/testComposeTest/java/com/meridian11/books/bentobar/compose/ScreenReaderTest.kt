@@ -12,7 +12,11 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -388,11 +392,33 @@ class ScreenReaderTest {
             // And what it did is said: the row's new place, in the line a screen reader hears.
             assertTrue(rule.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.LiveRegion)).fetchSemanticsNodes()
                 .any { n -> n.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { str(R.string.areas_middle) in it } })
-            // Off the bar (the drop on the library): Remove.
+            // Off the bar (the drop on the trash): Remove.
             val remove = actions("m").first { it.label == str(R.string.detail_remove) }
             rule.runOnUiThread { assertTrue(remove.action()) }
             rule.waitForIdle()
             assertTrue(Store.config.value.items.none { it.id == "m" })
+        }
+    }
+
+    @Config(qualifiers = "w1180dp-h780dp-mdpi")
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun theTrashUnderTheListSaysNothingAndTakesNoFocusAndRemoveStaysARowsAction() {
+        window(HiddenMode.SHOW_ALL, three) {
+            val from = rule.onNodeWithTag("row:a").fetchSemanticsNode().boundsInRoot.center
+            rule.onRoot().performMouseInput { moveTo(from); press(); for (i in 1..6) moveBy(Offset(0f, 5f)) }
+            rule.waitForIdle()
+            // The strip and whatever is in it, as a screen reader gets it: no words, no name, nothing to focus or to do.
+            val nodes = rule.onAllNodes(hasTestTag("trash") or hasAnyAncestor(hasTestTag("trash"))).fetchSemanticsNodes()
+            assertTrue("the trash is on screen", nodes.isNotEmpty())
+            for (node in nodes) for (key in listOf(SemanticsProperties.Text, SemanticsProperties.ContentDescription, SemanticsProperties.Focused,
+                SemanticsProperties.Role, SemanticsActions.OnClick, SemanticsActions.RequestFocus, SemanticsProperties.LiveRegion))
+                assertTrue("the trash has no ${key.name}", key !in node.config)
+            assertTrue("its words are drawn and not read", rule.onAllNodes(hasText(str(R.string.bar_trash))).fetchSemanticsNodes().isEmpty())
+            assertEquals("and are there to see", 1, rule.onAllNodes(hasText(str(R.string.bar_trash)), useUnmergedTree = true).fetchSemanticsNodes().size)
+            // What it does is every row's action still.
+            assertTrue(str(R.string.detail_remove) in labels("m"))
+            rule.onRoot().performMouseInput { release() }
+            rule.waitForIdle()
         }
     }
 

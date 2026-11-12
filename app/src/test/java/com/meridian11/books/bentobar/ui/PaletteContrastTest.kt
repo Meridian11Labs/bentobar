@@ -86,6 +86,22 @@ class PaletteContrastTest {
         }
     }
 
+    /**
+     * The trash under the Bar page's list: at rest its glyph and words are ink2 on the sunk ground; with a row over it
+     * they are the danger colour on that colour's veil over the card ([TRASH_VEIL]), inside a border of the same red,
+     * which must show against the card and against the veil's own ground.
+     */
+    @Test fun theTrashHoldsAtRestAndWithARowOverIt() {
+        for ((theme, p) in listOf("light" to Palette.Light, "dark" to Palette.Dark)) {
+            assertTrue("ink2 on sunk, $theme", Contrast.ratio(p.ink2, p.sunk) >= Contrast.MIN)
+            val ground = p.danger.copy(alpha = TRASH_VEIL).compositeOver(p.panel)
+            val ratio = Contrast.ratio(p.danger, ground)
+            assertTrue("danger on the trash's veil, $theme: $ratio", ratio >= Contrast.MIN)
+            assertTrue("the trash's border on the card, $theme", Contrast.ratio(p.danger, p.panel) >= OUTLINE)
+            assertTrue("the trash's border on its own ground, $theme", Contrast.ratio(p.danger, ground) >= OUTLINE)
+        }
+    }
+
     @Test fun theSchemeTodaysPagesReadIsThePalette() {
         for (p in listOf(Palette.Light, Palette.Dark)) {
             val s = p.scheme()

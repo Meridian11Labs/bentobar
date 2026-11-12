@@ -1,7 +1,6 @@
 package com.meridian11.books.bentobar.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -110,8 +108,8 @@ private fun sought(key: String, edit: BarEdit): Pair<BringIntoViewRequester, Foc
  * The library, the panel's "Add items": the filter, and every type in its group with a +. What a + did is said on the
  * type's row, with Undo. With several [lanes] on screen "Add to" stands under the filter, set to the area in use or the
  * one just opened, and every + says where it adds. Every change is one of [edit]'s commands. A type's row can be
- * carried into the bar ([reorder]: it registers where it stands; the one carried is dimmed meanwhile). While a row
- * of the bar is carried the filter's place is the well that says a drop here removes it; nothing else moves.
+ * carried into the bar ([reorder]: it registers where it stands; the one carried is dimmed meanwhile). The library
+ * takes no drop: a row of the bar is removed on the trash under the list.
  */
 @Composable
 internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reorder, modifier: Modifier = Modifier, selected: Boolean = false) {
@@ -143,11 +141,8 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
         if (edit.seek == seek) edit.seek = null
     }
     Column(modifier.fillMaxSize().padding(start = Space.l, top = 14.dp, end = 6.dp).testTag("library")) {
-        Box(Modifier.padding(end = 10.dp)) {
-            FilterField(edit.filter, { edit.filter = it }, stringResource(R.string.library_filter), Modifier.testTag("filter"), field,
-                find = BarKeys.FIND.caps(res), clear = BarKeys.ESC.caps(res), held = reorder.busy, ends = selected)
-            DropWell(reorder, Modifier.matchParentSize())
-        }
+        FilterField(edit.filter, { edit.filter = it }, stringResource(R.string.library_filter), Modifier.padding(end = 10.dp).testTag("filter"), field,
+            find = BarKeys.FIND.caps(res), clear = BarKeys.ESC.caps(res), held = reorder.busy, ends = selected)
         if (query.isNotBlank()) Text(pluralStringResource(R.plurals.add_filter_count, shown.size, shown.size, shelves.size),
             Modifier.padding(start = Space.xs, top = 10.dp, end = Space.xs).semantics { liveRegion = LiveRegionMode.Polite }.testTag("filter-count"),
             style = Bento.type.help, color = c.ink3)
@@ -176,24 +171,6 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
 
 /** A row of the library while it is carried into the bar: still in its place, dimmed. */
 private const val CARRIED_ALPHA = 0.4f
-
-/**
- * The well: while a row of the bar is carried, what stands in the filter's place (and in the first row of an item's
- * options) says that a drop here removes it. It lies over what it replaces, in exactly its bounds, so nothing moves;
- * with the pointer over the panel it fills more.
- */
-@Composable
-internal fun DropWell(reorder: Reorder, modifier: Modifier = Modifier) {
-    if (reorder.carried?.from != From.BAR || !reorder.live) return
-    val c = Bento.colors
-    val over = reorder.drop == Drop.Off
-    val shape = RoundedCornerShape(Radius.medium)
-    Box(modifier.testTag("well").background(c.panel, shape).background(c.accent.copy(alpha = if (over) 0.18f else 0.08f), shape)
-        .border(if (over) 2.dp else 1.5.dp, c.accent, shape).padding(horizontal = Space.m), contentAlignment = Alignment.CenterStart) {
-        Text(stringResource(R.string.library_drop_off), style = Bento.type.small.copy(fontWeight = FontWeight.SemiBold), color = c.accent, maxLines = lines(),
-            overflow = TextOverflow.Ellipsis)
-    }
-}
 
 @Composable
 private fun GroupHead(group: ItemGroup) {

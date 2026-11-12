@@ -445,15 +445,15 @@
     <string name="bar_drop_when_active_touch">Drop to show %1$s only when active. Let go outside to cancel.</string>
     <string name="bar_drop_behind">Drop to put %1$s behind ‹. Esc cancels.</string>
     <string name="bar_drop_behind_touch">Drop to put %1$s behind ‹. Let go outside to cancel.</string>
-    <!-- Over the library with a row of the bar. -->
+    <!-- Over the trash with a row of the bar. -->
     <string name="bar_drop_off">Drop to remove %1$s from the bar. Esc cancels.</string>
     <string name="bar_drop_off_touch">Drop to remove %1$s from the bar. Let go outside to cancel.</string>
     <!-- Over nothing that takes a drop. -->
     <string name="bar_drop_none">Nothing changes if you let go here.</string>
     <!-- A type from the library over the lower part, which its type can't wait in. -->
     <string name="bar_drop_no_rule_add">%1$s has no Show when… rule, so it can only go above the line.</string>
-    <!-- In the place of the library's filter while a row of the bar is dragged. -->
-    <string name="library_drop_off">Drop here to remove it from the bar</string>
+    <!-- The trash: the strip along the lower edge of the bar's list while a row of the bar is dragged. -->
+    <string name="bar_trash">Drop here to remove</string>
     <string name="panel_select_item">Select an item</string>
     <string name="row_needs_calendar">needs calendar access</string>
     <!-- A row whose service gave no answer: when what it still shows was fetched ("last updated 9:12 AM"). -->

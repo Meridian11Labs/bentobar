@@ -59,7 +59,8 @@ class ReorderTest {
         assertEquals(listOf("b", "c", "d", "a"), items.moved("a", Section.HIDDEN, 5).map { it.id })
     }
 
-    // The whole page: the preview across the top, the list's card with two lanes side by side, the panel's card beside it.
+    // The whole page: the preview across the top, the list's card with two lanes side by side and the trash along its
+    // lower edge; the panel's card stands beside it and is nothing to a drag.
     private val leftLower = Zone(Position.LEFT, Part.LOWER)
     private val page = DropMap(
         list = Rect(0f, 100f, 620f, 600f),
@@ -69,7 +70,7 @@ class ReorderTest {
         preview = Rect(0f, 0f, 1000f, 52f),
         areas = mapOf(Position.LEFT to 100f..200f, Position.CENTER to 400f..500f, Position.RIGHT to 600f..900f),
         chips = mapOf(upper to listOf(650f, 750f, 850f)),
-        shelf = Rect(640f, 100f, 1000f, 600f),
+        trash = Rect(0f, 600f, 620f, 660f),
     )
     private val rule = Items.all.first { it.canBeActive && it.type != Store.PINNED_LEFT && !it.addsWhenActive }.type
     private val plain = Items.all.first { !it.canBeActive && it.type != Store.PINNED_LEFT }.type
@@ -102,13 +103,67 @@ class ReorderTest {
         assertEquals("a preview with no areas measured takes nothing", Drop.None, bar.at("c", 610f, 20f, map = page.copy(areas = emptyMap())))
     }
 
-    @Test fun theLibraryTakesARowFromTheBarAndNothingThatCameFromIt() {
-        assertEquals(Drop.Off, bar.at("a", 700f, 300f))
-        assertEquals(Drop.None, bar.at("new", 700f, 300f, From.TYPE))
-        assertEquals("outside the list, the preview and the library", Drop.None, bar.at("a", 630f, 300f))
+    @Test fun theTrashTakesARowOfTheBarAndNothingThatCameFromTheLibrary() {
+        assertEquals(Drop.Off, bar.at("a", 300f, 630f))
+        assertEquals("a row waiting under the line too", Drop.Off, bar.at("w", 10f, 601f))
+        assertEquals(Drop.None, bar.at("new", 300f, 630f, From.TYPE))
+        assertEquals("the panel takes no drop", Drop.None, bar.at("a", 700f, 300f))
+        assertEquals("nor beside the trash", Drop.None, bar.at("a", 630f, 630f))
+        assertEquals("nor under it", Drop.None, bar.at("a", 300f, 670f))
+        assertEquals("outside the list, the preview and the trash", Drop.None, bar.at("a", 630f, 300f))
         assertEquals(Drop.None, bar.at("a", 400f, 80f))
+        assertEquals("just above the trash is still a place in the list", Drop.At(DropSpot(lower, 1)), bar.at("a", 400f, 598f))
+        assertEquals("with no trash to drop on the point is nothing", Drop.None, bar.at("a", 300f, 630f, map = page.copy(trash = null)))
         assertEquals("the layout without it", listOf("b", "c") to listOf("w"), bar.dropped(Carried("a", From.BAR, rule), Drop.Off).order())
-        assertSame("a type let go over the library adds nothing", bar, bar.dropped(Carried("new", From.TYPE, rule), Drop.Off))
+        assertSame("a type let go there adds nothing", bar, bar.dropped(Carried("new", From.TYPE, rule), Drop.Off))
+    }
+
+    /** A page's drop map with [areas] as lanes, abreast or in one column, the card at the left or (right to left) at the right. */
+    private fun lanes(areas: List<Position>, abreast: Boolean, rtl: Boolean): DropMap {
+        val card = if (rtl) Rect(380f, 100f, 1000f, 600f) else Rect(0f, 100f, 620f, 600f)
+        val zones = areas.flatMapIndexed { i, area ->
+            if (abreast) {
+                val w = card.width / areas.size
+                val l = card.left + i * w
+                listOf(Zone(area, Part.UPPER) to Rect(l, 100f, l + w, 340f), Zone(area, Part.LOWER) to Rect(l, 340f, l + w, 600f))
+            } else {
+                val h = card.height / areas.size
+                val t = card.top + i * h
+                listOf(Zone(area, Part.UPPER) to Rect(card.left, t, card.right, t + h / 2), Zone(area, Part.LOWER) to Rect(card.left, t + h / 2, card.right, t + h))
+            }
+        }
+        return DropMap(list = card, zones = zones, rows = zones.associate { (z, r) -> z to listOf(r.top + 30f) },
+            preview = Rect(0f, 0f, 1000f, 52f), areas = areas.associateWith { 100f + 300f * across(it)..300f + 300f * across(it) },
+            trash = Rect(card.left, 600f, card.right, 660f))
+    }
+    private fun across(area: Position) = listOf(Position.LEFT, Position.CENTER, Position.RIGHT).indexOf(area)
+
+    @Test fun theTrashIsTheSameRectangleWithOneTwoAndThreeLanesAbreastAndInOneColumnAndFromRightToLeft() {
+        val all = listOf(Position.LEFT, Position.CENTER, Position.RIGHT)
+        for (count in 1..3) for (abreast in listOf(true, false)) for (rtl in listOf(false, true)) {
+            val areas = all.take(count)
+            val map = lanes(areas, abreast, rtl)
+            val trash = map.trash!!
+            val cfg = BarConfig(items = areas.flatMap { listOf(row("u$it", area = it), row("l$it", area = it, section = Section.HIDDEN, active = true)) })
+            val say = "$count lanes, abreast=$abreast, rtl=$rtl"
+            for (item in cfg.items) {
+                // Across the whole strip, whichever lane stands above the point and whichever part the row is in.
+                for (x in listOf(trash.left, trash.left + 1f, trash.center.x, trash.right - 1f)) for (y in listOf(trash.top, trash.center.y, trash.bottom - 1f)) {
+                    assertEquals("$say: ${item.id} at $x, $y", Drop.Off, cfg.at(item.id, x, y, map = map))
+                    assertEquals("$say: a type at $x, $y", Drop.None, cfg.at("new", x, y, From.TYPE, map = map))
+                }
+                assertEquals("$say: the strip's end is not the strip", Drop.None, cfg.at(item.id, trash.right, trash.center.y, map = map))
+                assertEquals("$say: nor what is beside it", Drop.None, cfg.at(item.id, if (rtl) trash.left - 6f else trash.right + 6f, trash.center.y, map = map))
+                assertEquals("$say: nor the panel", Drop.None, cfg.at(item.id, if (rtl) 150f else 800f, 300f, map = map))
+                val above = cfg.at(item.id, trash.center.x, trash.top - 2f, map = map)
+                assertTrue("$say: just above it ${item.id} has a place in the list or is refused there, $above", above is Drop.At || above is Drop.Refused)
+                assertEquals("$say: the drop takes ${item.id} out and nothing else", cfg.items.map { it.id } - item.id,
+                    cfg.dropped(Carried(item.id, From.BAR, rule), Drop.Off).items.map { it.id })
+            }
+            // A list that reaches under the trash (a card measured a frame apart): the trash is asked first.
+            val under = map.copy(list = Rect(map.list!!.left, 100f, map.list!!.right, 660f))
+            assertEquals("$say: where the two overlap it is the trash", Drop.Off, cfg.at(cfg.items.first().id, trash.center.x, trash.center.y, map = under))
+        }
     }
 
     @Test fun aPointAboveNextMeetingLandsAfterIt() {
@@ -209,7 +264,7 @@ class ReorderTest {
         val a = Carried("a", From.BAR, rule)
         assertSame(bar, bar.dropped(a, Drop.None))
         assertSame(bar, bar.dropped(Carried("new", From.TYPE, rule), Drop.None))
-        // While it is carried the list has the row where it would land, nowhere over the library, and at home over nothing.
+        // While it is carried the list has the row where it would land, nowhere over the trash, and at home over nothing.
         assertSame(bar, bar.showing(a, Drop.None))
         assertEquals(listOf("b", "c") to listOf("w"), bar.showing(a, Drop.Off).order())
         assertTrue("and the item is still in the layout's list of what could come back", bar.showing(a, Drop.Off).items.none { it.id == "a" })

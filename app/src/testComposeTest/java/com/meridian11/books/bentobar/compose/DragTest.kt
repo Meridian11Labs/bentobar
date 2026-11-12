@@ -39,6 +39,7 @@ import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.ui.BarPage
 import com.meridian11.books.bentobar.ui.LocalWindowLayout
+import com.meridian11.books.bentobar.ui.Motion
 import com.meridian11.books.bentobar.ui.SettingsTheme
 import com.meridian11.books.bentobar.ui.Undo
 import com.meridian11.books.bentobar.ui.windowLayout
@@ -115,12 +116,19 @@ class DragTest {
     private fun carryTo(to: Offset) { rule.onRoot().performMouseInput { moveTo((currentPosition + to) / 2f); moveTo(to) }; rule.waitForIdle() }
     private fun letGo() { rule.onRoot().performMouseInput { release() }; rule.waitForIdle() }
     private fun drag(from: Offset, to: Offset) { hold(from, to); letGo() }
+    /** Pick the row [id] up and carry it over the trash, which is there only while a row is carried. */
+    private fun toTrash(id: String) {
+        val row = at("row:$id").center
+        hold(row, row + Offset(0f, 30f))
+        carryTo(at("trash").center)
+    }
 
     // ---- What a drop writes ----
 
-    @Test fun aRowDroppedOnTheLibraryIsRemovedAndNothingIsSelectedAndThePanelStays() {
-        page(null, *three)
-        hold(at("row:c").center, at("library").center)
+    @Test fun aRowDroppedOnTheTrashIsRemovedAndNothingIsSelectedAndThePanelStays() {
+        val layout = page(null, *three)
+        tag("trash").assertDoesNotExist()
+        toTrash("c")
         says(str(R.string.bar_drop_off, title("battery")))
         tag("row:c").assertDoesNotExist()
         assertEquals("nothing is written before the drop", listOf("a", "b", "c"), order())
@@ -130,29 +138,69 @@ class DragTest {
         assertNull("a drag never selects", selected)
         tag("options").assertDoesNotExist()
         tag("library").assertExists()
+        tag("trash").assertDoesNotExist()
         tag("slip").assertExists()
         assertEquals("one step of Undo", "c", Undo.last.value?.removed)
+        // The slip is a note like every other: it goes after its three seconds, and the change can still be taken back.
+        rule.mainClock.advanceTimeBy(Motion.NOTE + 400L)
+        rule.waitForIdle()
+        tag("slip").assertDoesNotExist()
         rule.runOnIdle { Undo.undo() }
         rule.waitForIdle()
-        assertEquals(listOf("a", "b", "c"), order())
+        assertEquals(layout, Store.config.value)
+    }
+
+    @Test fun aRowLetGoBesideTheTrashChangesNothing() {
+        val layout = page(null, *three)
+        toTrash("b")
+        val trash = at("trash")
+        for (beside in listOf(Offset(trash.right + 6f, trash.center.y), Offset(trash.left - 6f, trash.center.y))) {
+            carryTo(beside)
+            says(str(R.string.bar_drop_none))
+            carryTo(trash.center)
+            says(str(R.string.bar_drop_off, title("memory")))
+        }
+        carryTo(Offset(trash.right + 6f, trash.center.y))
+        letGo()
+        assertEquals(layout, Store.config.value)
+        assertNull(Undo.last.value)
+        tag("slip").assertDoesNotExist()
+        tag("trash").assertDoesNotExist()
+        tag("row:b").assertExists()
+    }
+
+    @Test fun thePanelTakesNoDropWhateverItShows() {
+        val layout = page(null, *three)
+        hold(at("row:c").center, at("library").center)
+        says(str(R.string.bar_drop_none))
+        letGo()
+        assertEquals("a row let go over the library stays in the bar", layout, Store.config.value)
+        assertNull(Undo.last.value)
+        tag("slip").assertDoesNotExist()
+        tag("row:c").assertExists()
     }
 
     @Test fun aDropIsWhereThePointerWasLetGoAlsoWhenNoMoveCameFromThere() {
         page(null, *three)
         hold(at("row:c").center, at("row:b").center)
         // Injected input, and a pointer that is resampled, can let go at a place its last move did not name.
-        rule.onRoot().performMouseInput { updatePointerTo(at("library").center); release() }
+        val trash = at("trash").center
+        rule.onRoot().performMouseInput { updatePointerTo(trash); release() }
         rule.waitForIdle()
 
-        assertEquals("the release was over the library", listOf("a", "b"), order())
+        assertEquals("the release was over the trash", listOf("a", "b"), order())
         assertEquals("c", Undo.last.value?.removed)
     }
 
     @Test fun aRowHeldAtTheListsLowerEdgeScrollsTheListAtEveryFrame() {
         val many = Items.all.take(24).mapIndexed { i, type -> item("i$i", type.type) }
         page(null, *many.toTypedArray())
-        val list = at("bar-list") // the part of it on screen
-        hold(grip("i3"), list.center)
+        val card = at("bar-list") // the part of it on screen
+        hold(grip("i3"), card.center)
+        // While the row is carried the list ends above the trash: its lower edge is the trash's upper one.
+        val list = at("bar-list")
+        assertEquals(at("trash").top, list.bottom)
+        assertTrue("the trash took its room from the list", list.bottom < card.bottom)
         fun top() = tag("row:i1").fetchSemanticsNode().positionInRoot.y
 
         rule.mainClock.autoAdvance = false
@@ -165,13 +213,58 @@ class DragTest {
         repeat(10) { rule.mainClock.advanceTimeByFrame(); val y = top(); if (y != last) moved++; last = y }
         assertEquals("the list moves at every frame while the pointer is at its edge", 10, moved)
 
+        // Over the trash nothing scrolls, though the pointer is nearer still to the card's lower edge.
+        val trash = at("trash")
+        rule.onRoot().performMouseInput { moveTo(Offset(list.center.x, trash.top + 4f)) }
+        repeat(6) { rule.mainClock.advanceTimeByFrame() }
+        last = top()
+        repeat(10) { rule.mainClock.advanceTimeByFrame(); assertEquals("the list rests while the row is over the trash", last, top()) }
+        rule.onRoot().performMouseInput { moveTo(trash.center) }
+        repeat(10) { rule.mainClock.advanceTimeByFrame(); assertEquals(last, top()) }
+
         rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        says(str(R.string.bar_drop_off, title(many[3].type)))
         letGo()
+        assertNull("the drop removed it", now("i3"))
+        assertEquals(23, order().size)
+    }
+
+    @Test fun aRowPickedUpWhereTheTrashComesUpIsNotOnItUntilThePointerHasLeftItOnce() {
+        val many = Items.all.take(24).mapIndexed { i, type -> item("i$i", type.type) }
+        val layout = page(null, *many.toTypedArray())
+        val card = at("bar-list")
+        // The row under a point near the card's lower edge, where the trash will stand.
+        fun rowAt(y: Float) = many.map { it.id }.firstOrNull { id ->
+            val node = tag("row:$id").fetchSemanticsNode()
+            y > node.positionInRoot.y + 4f && y < node.positionInRoot.y + node.size.height - 4f
+        }
+        val y = listOf(20f, 30f, 40f).map { card.bottom - it }.first { rowAt(it) != null }
+        val id = rowAt(y)!!
+        val from = Offset(card.center.x, y)
+
+        hold(from, from + Offset(30f, 0f))
+        tag("drag-row").assertExists()
+        assertTrue("the trash came up under the pointer", at("trash").contains(from + Offset(30f, 0f)))
+        says(str(R.string.bar_drop_none))
+        letGo()
+        assertEquals("let go where it was picked up, the row stays", layout, Store.config.value)
+        assertNull(Undo.last.value)
+
+        // Carried off the trash and back, it is on it.
+        hold(from, from + Offset(30f, 0f))
+        carryTo(Offset(card.center.x, at("trash").top - 100f))
+        carryTo(at("trash").center)
+        says(str(R.string.bar_drop_off, title(many.first { it.id == id }.type)))
+        letGo()
+        assertNull(now(id))
+        assertEquals(id, Undo.last.value?.removed)
     }
 
     @Test fun aRemovedRowsSlipStaysWhereItIsWhileAnotherRowIsCarried() {
         page(null, *three)
-        drag(at("row:a").center, at("library").center)
+        toTrash("a")
+        letGo()
         val slip = at("slip")
 
         // b is carried under c: the list shows another arrangement than the removal left, and the slip is still the Store's.
@@ -186,19 +279,25 @@ class DragTest {
         tag("slip").assertDoesNotExist()
     }
 
-    @Test fun aRowDroppedOnAnotherItemsOptionsIsRemovedAndTheSelectionAndThePanelStay() {
-        page("a", *three)
+    @Test fun withAnotherItemsOptionsUpTheirCardTakesNoDropAndTheTrashKeepsTheSelectionAndThePanel() {
+        val layout = page("a", *three)
         tag("options").assertExists()
+        val head = at("options-head")
         hold(at("row:c").center, at("panel").center)
-        assertEquals("with Options up the card's first row is the well, in its own place", at("options-head"), at("well"))
+        says(str(R.string.bar_drop_none))
+        assertEquals("nothing stands in the options' place", head, at("options-head"))
         letGo()
+        assertEquals(layout, Store.config.value)
+        assertNull(Undo.last.value)
 
+        toTrash("c")
+        letGo()
         assertEquals(listOf("a", "b"), order())
         assertEquals("a", selected)
         tag("row:a").assertIsSelected()
         tag("options").assertExists()
         tag("library").assertDoesNotExist()
-        tag("well").assertDoesNotExist()
+        tag("trash").assertDoesNotExist()
     }
 
     @Test fun aRowIsCarriedIntoThePartUnderTheLineAndOneWithoutARuleIsToldWhyNot() {
@@ -247,7 +346,7 @@ class DragTest {
         page(null, item("a", "memory"), item("b", "battery"))
         val between = Offset(at("row:a").center.x, at("row:a").bottom)
         hold(line("type:storage"), between)
-        tag("well").assertDoesNotExist()
+        tag("trash").assertDoesNotExist()
         says(str(R.string.bar_drop_add, title("storage"), title("memory")))
         assertEquals("nothing is added before the drop", 2, Store.config.value.items.size)
         letGo()
@@ -278,27 +377,60 @@ class DragTest {
 
     // ---- What the page shows meanwhile ----
 
-    @Test fun atPickupTheWellStandsInTheFilterFieldsPlaceAndNothingInTheLibraryMoves() {
+    @Test fun atPickupTheTrashStandsAlongTheCardsLowerEdgeAndNothingElseMoves() {
         page(null, *three)
         val filter = at("filter")
         val group = at("group:SYSTEM")
-        tag("well").assertDoesNotExist()
+        val card = at("bar-list")
+        val rows = listOf(at("row:a"), at("row:c"))
+        tag("trash").assertDoesNotExist()
 
         hold(at("row:b").center, at("row:b").center + Offset(0f, 30f))
-        assertEquals("the well has the filter field's exact place", filter, at("well"))
+        val trash = at("trash")
+        val list = at("bar-list")
+        assertEquals("as wide as the card", card.left to card.right, trash.left to trash.right)
+        assertEquals("at the card's lower edge", card.bottom, trash.bottom)
+        assertEquals("the list ends where the trash starts", trash.top, list.bottom)
+        assertEquals(card.top, list.top)
+        assertTrue("tall enough for a finger: ${trash.height}", trash.height >= 48f)
+        assertEquals("no row has moved", rows, listOf(at("row:a"), at("row:c")))
+        assertEquals("the library's filter is in its place", filter, at("filter"))
         assertEquals("the first group's heading has not moved", group, at("group:SYSTEM"))
+        says(str(R.string.bar_drop_move, title("memory"), title("clock")))
         letGo()
-        tag("well").assertDoesNotExist()
+        tag("trash").assertDoesNotExist()
+        assertEquals("the card is the list's again", card, at("bar-list"))
         assertEquals(group, at("group:SYSTEM"))
 
-        // What comes from the library can't be dropped on it: no well.
+        // What comes from the library has no trash: let go anywhere but in the bar, it is not added.
         hold(line("type:storage"), at("row:b").center)
-        tag("well").assertDoesNotExist()
+        tag("trash").assertDoesNotExist()
+        assertEquals(card, at("bar-list"))
+        carryTo(Offset(card.center.x, card.bottom - 20f))
+        tag("trash").assertDoesNotExist()
         carryTo(at("library").center)
-        tag("well").assertDoesNotExist()
         says(str(R.string.bar_drop_none))
         letGo()
         assertEquals("let go over the library, a type is not added", listOf("a", "b", "c"), order())
+    }
+
+    @Test fun theTrashRisesIntoItsRoomAndSinksWhenTheDragEnds() {
+        page(null, *three)
+        rule.mainClock.autoAdvance = false
+        rule.onRoot().performMouseInput { moveTo(at("row:b").center); press(); for (i in 1..6) moveBy(Offset(0f, 5f)) }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        val room = at("trash")
+        rule.mainClock.advanceTimeBy(Motion.LIFT.toLong() + 100)
+        assertEquals("its room is the card's from the pickup: the strip travels, the list does not", room, at("trash"))
+
+        rule.onRoot().performMouseInput { release() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(Motion.BACK + Motion.LIFT + 400L)
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        tag("trash").assertDoesNotExist()
     }
 
     @Test fun withOneLaneTheAreasShowOnlyWhileThePointerIsOverThePreviewAndNothingChangesHeight() {
@@ -459,15 +591,29 @@ class DragTest {
         assertNull(selected)
         assertTrue(at("row:a").top < at("row:b").top)
 
-        // A mouse, carrying a row to the library, where letting go would remove it.
-        hold(at("row:c").center, at("library").center)
+        // A mouse, carrying a row to the trash, where letting go would remove it.
+        toTrash("c")
         says(str(R.string.bar_drop_off, title("battery")))
         rule.onRoot().performMouseInput { cancel() }
         rule.waitForIdle()
         tag("drag-row").assertDoesNotExist()
         tag("row:c").assertExists()
         tag("slip").assertDoesNotExist()
+        tag("trash").assertDoesNotExist()
         assertEquals(layout, Store.config.value)
+        assertNull(Undo.last.value)
+
+        // Esc over the trash puts everything back too.
+        rule.runOnIdle { assertTrue(inputMode.requestInputMode(InputMode.Keyboard)) }
+        tag("row:a").requestFocus()
+        toTrash("c")
+        says(str(R.string.bar_drop_off, title("battery")))
+        tag("bar-list").performKeyInput { pressKey(Key.Escape) }
+        rule.waitForIdle()
+        tag("drag-row").assertDoesNotExist()
+        tag("trash").assertDoesNotExist()
+        letGo()
+        assertEquals("the button let go later drops nothing", layout, Store.config.value)
         assertNull(Undo.last.value)
 
         // And the next drag is an ordinary one.
@@ -495,6 +641,40 @@ class DragTest {
         rule.waitForIdle()
         assertEquals(listOf("b", "a", "c"), order())
         assertNull("a pickup never selects", selected)
+    }
+
+    @Test fun aFingerDropsARowOnTheTrashAndOneUndoBringsItBack() {
+        val layout = page(null, *three)
+        fun pickUp() { rule.onRoot().performTouchInput { down(grip("b")); repeat(4) { moveBy(Offset(0f, 16f)) } }; rule.waitForIdle() }
+        fun carry(to: Offset) { rule.onRoot().performTouchInput { moveTo(Offset(to.x, to.y - 40f)); moveTo(to) }; rule.waitForIdle() }
+        pickUp()
+        tag("drag-row").assertExists()
+        val trash = at("trash")
+        assertTrue("tall enough to hit with a finger: ${trash.height}", trash.height >= 48f)
+        carry(trash.center)
+        says(str(R.string.bar_drop_off_touch, title("memory")))
+        assertEquals("nothing is written before the drop", layout, Store.config.value)
+        rule.onRoot().performTouchInput { up() }
+        rule.waitForIdle()
+
+        assertEquals(listOf("a", "c"), order())
+        assertNull("a drag never selects", selected)
+        tag("trash").assertDoesNotExist()
+        tag("slip").assertExists()
+        assertEquals("one step of Undo", "b", Undo.last.value?.removed)
+        rule.runOnIdle { Undo.undo() }
+        rule.waitForIdle()
+        assertEquals(layout, Store.config.value)
+
+        // Let go beside it: nothing changes.
+        Undo.last.value = null
+        pickUp()
+        carry(Offset(trash.right + 6f, trash.center.y))
+        rule.onRoot().performTouchInput { up() }
+        rule.waitForIdle()
+        assertEquals(layout, Store.config.value)
+        assertNull(Undo.last.value)
+        tag("trash").assertDoesNotExist()
     }
 
     @Test fun aFingerPicksALineOfTheLibraryUpOnlyAfterALongPress() {

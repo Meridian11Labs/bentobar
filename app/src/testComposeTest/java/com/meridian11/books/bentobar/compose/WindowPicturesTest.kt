@@ -14,9 +14,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -50,6 +54,7 @@ import com.meridian11.books.bentobar.ui.Shell
 import com.meridian11.books.bentobar.ui.Undo
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -234,6 +239,42 @@ class WindowPicturesTest {
         fontScale = 2f
         bar(three = true, mode = HiddenMode.CLICK, select = "weather")
         large("large-areas")
+    }
+
+    /** Pick the row [id] up with the mouse and carry it over the trash, without letting go. */
+    @OptIn(ExperimentalTestApi::class)
+    private fun overTrash(id: String) {
+        val from = rule.onNodeWithTag("row:$id").fetchSemanticsNode().boundsInRoot.center
+        rule.onRoot().performMouseInput { moveTo(from); press(); for (i in 1..6) moveBy(Offset(0f, 6f)) }
+        rule.waitForIdle()
+        val to = rule.onNodeWithTag("trash").fetchSemanticsNode().boundsInRoot.center
+        rule.onRoot().performMouseInput { moveTo(Offset(to.x, to.y - 40f)); moveTo(to) }
+        rule.waitForIdle()
+    }
+    @OptIn(ExperimentalTestApi::class)
+    private fun letGo() { rule.onRoot().performMouseInput { release() }; rule.waitForIdle() }
+
+    @Test fun atTwiceTheTextSizeTheTrashUnderTheListIsWhole() {
+        fontScale = 2f
+        bar()
+        overTrash("weather")
+        large("large-drag-trash")
+        val trash = rule.onNodeWithTag("trash").fetchSemanticsNode().boundsInRoot
+        assertTrue("it grows with its words: ${trash.height}", trash.height >= 60f)
+        letGo()
+        rule.onNodeWithTag("row:weather").assertDoesNotExist()
+    }
+
+    @Test fun fromRightToLeftTheTrashSpansTheListsCard() {
+        direction = LayoutDirection.Rtl
+        bar(three = true)
+        overTrash("timer")
+        large("rtl-drag-trash")
+        val trash = rule.onNodeWithTag("trash").fetchSemanticsNode().boundsInRoot
+        val list = rule.onNodeWithTag("bar-list").fetchSemanticsNode().boundsInRoot
+        assertEquals(list.left to list.right, trash.left to trash.right)
+        letGo()
+        rule.onNodeWithTag("row:timer").assertDoesNotExist()
     }
 
     @Test fun atTwiceTheTextSizeTheLanesTrashAndWhatItSaysAfterwardsAreWhole() {

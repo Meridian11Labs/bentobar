@@ -34,11 +34,11 @@ data class Carried(val id: String, val from: From, val type: String)
 sealed interface Drop {
     /** Into the bar at [spot]; [starts] when its area has no other item, so the drop starts that area. */
     data class At(val spot: DropSpot, val starts: Boolean = false) : Drop
-    /** On the library: a row of the bar is removed. */
+    /** On the trash: a row of the bar is removed. */
     data object Off : Drop
     /** Over a lower part the item can't wait in (its type has no rule): no place, and the line says why. */
     data class Refused(val zone: Zone) : Drop
-    /** Outside the list, the preview and the library: nothing changes. */
+    /** Outside the list, the preview and the trash: nothing changes. */
     data object None : Drop
 }
 
@@ -46,8 +46,9 @@ sealed interface Drop {
  * The page as a drag sees it, in one coordinate space. [list] is the list's card and [zones] the stretch of each part
  * in it, [rows] the middles of each zone's rows without the carried one; [preview] is the bar in the preview, [areas]
  * the stretch of each area along it (also one that is not in use) and [chips] the middles of each zone's rows there,
- * null for a row the bar isn't drawing right now; [shelf] is the library's (or the options') card, null while a drop
- * there would do nothing.
+ * null for a row the bar isn't drawing right now; [trash] is the strip along the card's lower edge that takes a row of
+ * the bar, null while there is none to drop on (a type of the library is carried, or the row was picked up where the
+ * trash stands and has not left it yet).
  */
 data class DropMap(
     val list: Rect? = null,
@@ -56,7 +57,7 @@ data class DropMap(
     val preview: Rect? = null,
     val areas: Map<Position, ClosedFloatingPointRange<Float>> = emptyMap(),
     val chips: Map<Zone, List<Float?>> = emptyMap(),
-    val shelf: Rect? = null,
+    val trash: Rect? = null,
 )
 
 /**
@@ -178,7 +179,8 @@ fun areaAt(x: Float, areas: Map<Position, ClosedFloatingPointRange<Float>>): Pos
 /**
  * What a drop would do with the pointer at [p] and the carried row's middle at height [mid] (the row hangs from the
  * pointer where it was grabbed, so its middle tells the place in the list, the pointer the lane and everything else).
- * The library takes a row of the bar and nothing that came from it. The preview takes a drop by area: the item keeps
+ * The trash is asked first: it takes a row of the bar and nothing that came from the library, and the panel takes no
+ * drop at all. The preview takes a drop by area: the item keeps
  * its part and stands after the last chip of its part that is left of the pointer. In the list a part under a line
  * refuses what can't wait there. A place before Next meeting is the one after it. Anywhere else nothing would change.
  */
@@ -188,7 +190,7 @@ fun dropAt(p: Offset, mid: Float, map: DropMap, lift: Lift, current: Drop): Drop
         val starts = zone.area !in lift.inUse && zone.area != lift.own?.area
         return Drop.At(DropSpot(zone, if (zone in lift.pinned) index.coerceAtLeast(1) else index), starts)
     }
-    if (map.shelf?.contains(p) == true) return if (lift.from == From.BAR) Drop.Off else Drop.None
+    if (map.trash?.contains(p) == true) return if (lift.from == From.BAR) Drop.Off else Drop.None
     if (map.preview?.contains(p) == true) {
         val zone = Zone(areaAt(p.x, map.areas) ?: return Drop.None, lift.part)
         return at(zone, map.chips[zone].orEmpty().indexOfLast { it != null && it < p.x } + 1)
@@ -214,7 +216,7 @@ fun BarConfig.dropped(c: Carried, drop: Drop): BarConfig = when (drop) {
 }
 
 /**
- * The layout the list shows while [c] is carried: with it where it would land, without it over the library, and as the
+ * The layout the list shows while [c] is carried: with it where it would land, without it over the trash, and as the
  * Store has it over nothing (a row's opening stays where the row came from).
  */
 fun BarConfig.showing(c: Carried, drop: Drop): BarConfig = when (drop) {
