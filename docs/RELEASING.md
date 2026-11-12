@@ -76,6 +76,9 @@ learned the hard way" says why. Run it again on every new draft.
   none in the morning.
 - **Menus.** The ‹ chevron and an item open their menus at the right width (not cut off, not pushed under the chevron);
   a click outside closes them; the glass and its shadow sit together.
+- **Where a bar starts.** A fresh install (or the app's data cleared) has its four items in Left, after the clock, and
+  the next item added goes there. An install updated from 2.1 or earlier keeps its bar where it was, its items in the
+  areas they had, and what is added to a bar in Right alone still goes to Right.
 - **One area.** Look › Where BentoBar sits puts every item in Left, Middle or Right and shows that one as chosen. In each
   the bar is one strip that looks and behaves as the previous release did there, and no row in Settings names an area.
   With every item removed and a pill background, the row still shows a place as chosen, a press on another moves the
@@ -83,32 +86,65 @@ learned the hard way" says why. Run it again on every new draft.
 - **Three areas.** Put items in Left, Middle and Right (an item's detail › Area): rows name their areas and Look shows
   none as chosen, with a line under the row's title saying that choosing one moves every item there (with one area, or
   no items, the row has no such line). The strips do not overlap, and a press in a gap between them reaches the status
-  bar. A ticking item or a timer in Right moves neither Left nor the Middle; a Right that grows (a long Now playing
-  title) pushes the Middle aside smoothly, never in a jump, and it returns to the centre; in a recording no frame has
-  Right's first item in the place the Middle has not left yet. The picture on the Bar page
-  shows the areas where the bar has them; in a narrow settings window Right keeps its room longest, then Left, then the
+  bar. A ticking item or a timer in Left moves neither Right nor the Middle; a Left or a Right that grows (a long Now
+  playing title) pushes the Middle aside smoothly, never in a jump, and it returns to the centre; in a recording no
+  frame has the grown area's item in the place the Middle has not left yet. The picture on the Bar page
+  shows the areas where the bar has them; in a narrow settings window Left keeps its room longest, then Right, then the
   Middle, and the line under the picture counts every item not drawn, once.
-- **An area that comes and goes.** Left holding only a Hidden timer with Show when on: starting the timer brings Left up
-  within a second, stopping it takes Left away, and the other areas do not move either time and go on ticking. The same
-  with Presenting on. Start and stop the timer several times within a second or two: Left never shows blank or at
-  another width for a frame (a recording), and with `debug trace on` no more than one `left width` line follows each
-  return.
-- **No room.** Narrow the free part of the status bar (snap windows, or a larger display size) until an area has no room:
+- **An area that comes and goes.** Right holding only a Hidden timer with Show when on: starting the timer brings Right
+  up within a second, stopping it takes Right away, and the other areas do not move either time and go on ticking. The
+  same with Presenting on. Start and stop the timer several times within a second or two: Right never shows blank or at
+  another width for a frame (a recording), and with `debug trace on` no more than one `right width` line follows each
+  return. Then the same with Left, the first strip, as the one that comes and goes.
+- **No room.** Narrow the free part of the status bar (snap windows, or a larger display size) until an area has no room
+  (Left keeps its room, then Right, and the Middle is the first to go):
   its items are in the first strip's ‹ menu and their rows in Settings say they don't fit right now; the other strips do
   not move when that ‹ comes and goes, and nothing flickers at the edge of room. With Presenting on, a ‹ that ends it
-  stays on screen. An area with no room whose items are all Hidden (Right: a clock; Left: two Hidden items; hidden items
+  stays on screen. An area with no room whose items are all Hidden (Left: a clock; Right: two Hidden items; hidden items
   on a click) still gives the bar a ‹: the first strip draws one, and a press on it opens the menu that lists them. With
   room for nothing, the home area's ‹ is drawn as it was with one strip, and the keyboard's "BentoBar menu" opens it.
   Give the room back: the areas return and the rows clear.
 - **One bar across areas.** With hidden items out, a click on another app folds them, once; a click on an item in
   another area opens its popup and folds nothing. A click on another app folds them also while the first strip draws
-  nothing (Right holding only a spacer with no line, Left with a Hidden item: click Left's ‹, then another app). A press
+  nothing (Left holding only a spacer with no line, Right with a Hidden item: click Right's ‹, then another app). A press
   on another area's item closes an open popup and opens its own (one click): the first dissolves while the second
   unfolds. A ‹ menu closed under one area and at once opened from another area's ‹ opens under that one, not turned
   round under the first. The pointer moving from one strip straight to the next keeps hidden items out, takes the highlight with
   it and leaves no tooltip behind; the next item's tooltip still comes. A ‹ in an area with nothing hidden opens the menu
   while another area's ‹ opens and folds the bar. A drag stays among its own area's items. From the keyboard's "BentoBar
   menu", an item drawn in another area than the first strip's opens its menu under that item, which shows as open.
+- **The trash under the list.** On the Bar page, drag a row with the mouse: a strip comes up along the list's lower
+  edge ("Drop here to remove"), rising, and no row moves for it. Over it the strip is red and the line under the
+  preview says "Drop to remove…"; let go and the row is gone, "Removed…" stands in its place, and Undo or Ctrl+Z brings
+  it back. Let go beside the strip (on the panel, on the page's ground) or press Esc over it: nothing changes and the
+  strip sinks. The same by finger, by a row's handle: the strip is easy to hit and the copy under the finger does not
+  hide that it is red. With more rows than fit, hold a row just above the strip: the list scrolls; over the strip it
+  rests. Scroll that way to the list's end and drop the row there: the list comes down into the strip's room as the
+  strip sinks, in one even move (a test holds that it takes several frames; whether it looks even is for the eye),
+  and the row lands in its place. Pick up one of the last rows of a full list, where the strip comes up under the pointer, and let go without
+  moving away: nothing is removed; move off the strip and back, and it takes the row. Drag a type out of Add items:
+  no strip. In a narrow window and with three areas the strip spans the list's card. With "No animations" it is
+  simply there and gone.
+- **Remove an area.** With items in two or three areas, each lane's head ends in a trash (a screen reader says
+  "Remove Left and its 3 items" or the like). A click removes the lane and its items, the others take the room, and
+  "Removed Left and its 3 items" stands above the list with Undo; Undo brings every item back where it was. The
+  pointer rests where the trash was, which is where the note's Undo may then stand: the note still goes after three
+  seconds. Double-click a trash, the last lane's most of all: the area stays removed (a note's Undo takes no click
+  for the system's double-tap time after the note came; a test holds it with an injected mouse, a real double click
+  and a double tap by finger are for a device), and a click on Undo a moment later brings it back. With the keyboard (Tab to the trash, Enter) the keyboard
+  is then on the note's Undo; after a mouse click, see where Tab goes next. Remove the bar's last area: the empty
+  bar's page with the note on top. An area opened with "Add an area" and still empty closes with no note.
+- **Notes go after three seconds.** Remove an item, close an area by moving its last row, add from the library, and
+  use Look's "Where BentoBar sits": each note with Undo is gone three seconds later, a row's slip closing up as the
+  rows travel. Point at a note, or Tab to its Undo: it stays, and goes three seconds after the pointer or the
+  keyboard left. After a note went, Ctrl+Z still takes the change back, and the keyboard's shortcut list still
+  shows Undo. With Android's "Time to take action" set longer, the notes stay that long. With a screen reader on
+  (touch exploration), a note is read out and stays until the next change: find it by touch and double-tap its Undo
+  well after three seconds.
+- **The red button.** An item's options end in "Remove from the bar": red words and a trash on a pale red ground,
+  beside Duplicate and as tall, clearly a button in light and dark, with no keycap beside it; under the pointer and
+  pressed its ground is a step stronger each time; Delete and Backspace still remove the selected item. Look's
+  Discard (under a kept layout) and Setup's Remove key look the same.
 - **Live Update chip.** A timer or a meeting shows its chip with BentoBar's settings window closed.
 - **Items that tick.** A clock and a network speed item do not make neighbours move; the bar's CPU use stays low
   (about 1% of one core on a release build).
@@ -135,14 +171,12 @@ learned the hard way" says why. Run it again on every new draft.
   it. The camera's light goes out as the popup starts to close: by its button, Esc, a click on the item or on another
   one, and full screen. The popup stays while you type in another window. The permission is asked on the first
   opening; refused, the popup says so and Setup has the Camera row.
-- **Shelf.** Text and a link dragged from another app onto the item land, in each area: the item lights up, the count
-  rises, pictures and files are refused. Whether the system's window tiling takes a drag at the top edge first. A row
-  drags out into another app. Text the system marks sensitive is refused. Open
-  link opens the browser. Removed from the bar the item waits as a line with what it holds; Forget deletes the kept
-  file. Nothing of what it holds is in the log.
 - **Prompter.** While its popup is open, keys still go to the other app; Space pauses and plays only when the popup
   has the focus. The motion is even at speeds 1 and 10 and stops at "End of your notes". Edit opens the options. The
-  notes survive BentoBar being turned off and on.
+  notes survive BentoBar being turned off and on. Remove deletes them with the item (Undo right after brings both
+  back); a new Prompter starts empty. Remove one with notes, close the settings window (the caption's close button,
+  and once with Back), open it again: Ctrl+Z brings nothing back. Remove one, resize or rotate the window, or put
+  another window in front and come back: Ctrl+Z still brings it back with its notes.
 - **Notification icons.** "BentoBar notification icons" is its own entry in Notification access, and is not connected
   while no such item is placed. With access: one icon per app (`./bento debug notices` counts those it couldn't load
   as `bells=`), and the popup opens, dismisses and clears. `listener=` in the same line says whether it is connected:
@@ -176,10 +210,6 @@ learned the hard way" says why. Run it again on every new draft.
   zone is". The week starts on the day Android's regional preferences say. The lid closed, or the bar hidden, for a
   rest's length starts the break count again. `sun stage evening|night|polar|nozone`, `progress stage
   morning|evening|yearend`, `breaks stage early|due`.
-- **Value from a URL.** An HTTPS address of your own and a JSON path show the value; the log says `GET own -> ok` and
-  never the address. `http://` and a name and password in the address are refused. A server with a self-signed
-  certificate fails in a release build. Its switch off stops the requests at once. A redirect and a reply over 64 KB
-  both read "No answer", after one request. Copy settings and a backup carry no address.
 
 ## What the tag does
 

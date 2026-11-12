@@ -11,7 +11,6 @@ import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalInputModeManager
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -45,7 +44,6 @@ import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.fresh
-import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.ItemGroup
 import com.meridian11.books.bentobar.items.Items
@@ -68,8 +66,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The library, the panel's "Add items": a type's + and what its row says after, the setups remembered under their type
- * (a line each, with Forget and a + of its own), the filter and its keys, and where Remove from the bar leaves the panel.
+ * The library, the panel's "Add items": the types and nothing under them, a type's + and what its row says after, the
+ * filter and its keys, and where Remove from the bar leaves the panel. A removed item is deleted: it is no line here.
  */
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -115,7 +113,7 @@ class BarLibraryTest {
     private fun ids() = Store.config.value.items.map { it.id }
     private fun tag(tag: String) = rule.onNodeWithTag(tag)
     private fun within(tag: String) = hasAnyAncestor(hasTestTag(tag))
-    private val lines get() = rule.onAllNodes(SemanticsMatcher("a remembered setup's line") {
+    private val lines get() = rule.onAllNodes(SemanticsMatcher("a line under a type, which up to 2.1 a removed item's setup was") {
         it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("line:") == true
     })
     /** Where a row stands in the window, in or out of sight. */
@@ -130,19 +128,35 @@ class BarLibraryTest {
     private fun press(with: Key, key: Key, on: String = "bar-list") { tag(on).performKeyInput { withKeyDown(with) { pressKey(key) } }; rule.waitForIdle() }
     private val rows get() = ItemGroup.entries.sumOf { Items.inGroup(it).size }
 
-    @Test fun removingASetUpItemPutsOneLineUnderItsTypeWithItsCityAsItsWords() {
-        page("k", *bar, clockIn("k", "Asia/Tokyo"))
+    @Test fun removingASetUpItemDeletesItAndTheLibraryHasNoLineForIt() {
+        val layout = page("k", *bar, clockIn("k", "Asia/Tokyo").copy(display = Display.TEXT, whenActive = true))
         remove()
-        assertEquals(Section.OFF, now("k")?.section)
+        assertNull("deleted, not kept in Off", now("k"))
+        assertEquals(layout.items - layout.items.last(), Store.config.value.items)
         tag("library").assertExists()
-        lines.assertCountEquals(1)
-        rule.onNode(hasText("Tokyo") and within("line:k")).assertExists()
-        assertEquals("the line stands right under its type", bottom("type:clock"), top("line:k"), 1f)
-        // And the bar's slip names it as the library does.
-        rule.onNode(hasText(str(R.string.bar_removed, str(R.string.library_setup, title("clock"), "Tokyo"))) and within("bar-list")).assertExists()
+        lines.assertCountEquals(0)
+        rule.onNode(hasText("Tokyo") and within("library")).assertDoesNotExist()
+        // The slip names it by its type, and its Undo brings it back as it was.
+        rule.onNode(hasText(str(R.string.bar_removed, title("clock"))) and within("bar-list")).assertExists()
+        rule.pastANotesFirstMoment()
+        rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and within("bar-list")).performClick()
+        rule.waitForIdle()
+        assertEquals(layout, Store.config.value)
+        tag("row:k").assertExists()
     }
 
-    @Test fun removingAnItemAsThePlusMadeItPutsNoLine() {
+    @Test fun deleteOnASetUpItemsRowDeletesItToo() {
+        val layout = page(null, *bar, clockIn("k", "Asia/Tokyo"))
+        keyboard()
+        tag("row:k").requestFocus()
+        press(Key.Delete)
+        assertEquals(listOf("a", "b"), ids())
+        lines.assertCountEquals(0)
+        press(Key.CtrlLeft, Key.Z)
+        assertEquals(layout, Store.config.value)
+    }
+
+    @Test fun removingAnItemAsThePlusMadeItDeletesItTheSame() {
         page("f", *bar, fresh("f", "clock"))
         remove()
         assertNull(now("f"))
@@ -151,46 +165,22 @@ class BarLibraryTest {
         rule.onNode(hasText(str(R.string.bar_removed, title("clock"))) and within("bar-list")).assertExists()
     }
 
-    @Test fun plusOnTheLineBringsTheItemBackWithItsOptionsIntoTheAreaInUseAndTheLineIsGone() {
-        val tokyo = clockIn("k", "Asia/Tokyo", Section.OFF, Position.RIGHT)
-        val layout = page(null, item("a", "memory", Position.LEFT), tokyo)
-        tag("line:k").assertExists()
-        tag("row:k").assertDoesNotExist()
-
-        click("add-line:k")
-        val back = now("k")!!
-        assertEquals(Section.SHOWN, back.section)
-        assertEquals("the area in use, not the one it was stored with", Position.LEFT, back.area)
-        assertEquals(tokyo.options, back.options)
-        lines.assertCountEquals(0)
-        tag("row:k").assertExists()
-        rule.onNodeWithTag("added-mark", useUnmergedTree = true).assertExists()
-        // Ctrl+Z is the same step back.
-        keyboard()
-        tag("row:a").requestFocus()
-        press(Key.CtrlLeft, Key.Z)
-        assertEquals(layout, Store.config.value)
-        tag("line:k").assertExists()
-    }
-
-    @Test fun plusOnTheTypeWhileALineExistsAddsAFreshItemAndKeepsTheLine() {
-        val tokyo = clockIn("k", "Asia/Tokyo", Section.OFF)
-        page(null, *bar, tokyo)
+    @Test fun plusOnTheTypeAddsAFreshItemAndItsUndoTakesItOut() {
+        val layout = page(null, *bar)
+        tag("add:clock").assertContentDescriptionEquals(str(R.string.library_add, title("clock")))
         click("add:clock")
-        assertEquals(tokyo, now("k"))
-        tag("line:k").assertExists()
-        val new = Store.config.value.items.single { it.type == "clock" && it.id != "k" }
+        val new = Store.config.value.items.single { it.type == "clock" }
         assertEquals(fresh(new.id, "clock"), new)
         // The type's row says so, with the Undo; the bar's new row is marked.
         rule.onNode(hasText(str(R.string.add_added)) and within("type:clock")).assertExists()
         rule.onNode(hasText(str(R.string.add_added)) and within("row:${new.id}"), useUnmergedTree = true).assertExists()
+        rule.pastANotesFirstMoment()
         click("library-undo")
-        assertNull(now(new.id))
-        tag("line:k").assertExists()
+        assertEquals(layout, Store.config.value)
         tag("added").assertDoesNotExist()
     }
 
-    @Test fun undoOfAnAddedItemThatWasSetUpSinceLeavesItAsALineAndNothingSaysAddedAnyMore() {
+    @Test fun undoOfAnAddedItemThatWasSetUpSinceTakesItOutAllTheSameAndNothingSaysAddedAnyMore() {
         val layout = page(null, *bar)
         click("add:clock")
         val new = Store.config.value.items.single { it.type == "clock" }
@@ -198,82 +188,38 @@ class BarLibraryTest {
         Store.updateItem(new.id) { it.with("zone", "Asia/Tokyo") }
         rule.waitForIdle()
         rule.onNode(hasText(str(R.string.add_added)) and within("type:clock")).assertExists()
+        rule.pastANotesFirstMoment()
         click("library-undo")
-        // Out of the bar, and not lost: a line under its type, with its city.
-        assertEquals(layout.items, Store.config.value.items.filter { it.section != Section.OFF })
-        assertEquals(Section.OFF, now(new.id)?.section)
-        assertEquals("Asia/Tokyo", now(new.id)?.options?.get("zone"))
+        // Out of the layout, as it came in: nothing of it waits anywhere.
+        assertEquals(layout, Store.config.value)
         tag("row:${new.id}").assertDoesNotExist()
-        rule.onNode(hasText("Tokyo") and within("line:${new.id}")).assertExists()
+        lines.assertCountEquals(0)
         tag("added").assertDoesNotExist()
         tag("library-undo").assertDoesNotExist()
         rule.onNode(hasText(str(R.string.add_added))).assertDoesNotExist()
     }
 
-    @Test fun forgetRemovesTheLineAndUndoBringsItBack() {
-        val layout = page(null, *bar, clockIn("k", "Asia/Tokyo", Section.OFF), clockIn("l", "Europe/London", Section.OFF))
-        click("forget:k")
-        assertEquals(listOf("a", "b", "l"), ids())
-        tag("line:k").assertDoesNotExist()
-        // Its place says what went, between its type and the next line, until the next change.
-        rule.onNode(hasText(str(R.string.library_forgot, str(R.string.library_setup, title("clock"), "Tokyo"))) and within("forgot")).assertExists()
-        assertEquals(bottom("type:clock"), top("forgot"), 1f)
-        assertEquals(bottom("forgot"), top("line:l"), 1f)
-
-        click("library-undo")
-        assertEquals(layout, Store.config.value)
-        tag("forgot").assertDoesNotExist()
-        assertEquals(bottom("type:clock"), top("line:k"), 1f)
-    }
-
-    @Test fun aForgottenLinesPlaceClosesWithTheNextChange() {
-        page(null, *bar, clockIn("k", "Asia/Tokyo", Section.OFF))
-        click("forget:k")
-        tag("forgot").assertExists()
-        click("add:memory")
-        tag("forgot").assertDoesNotExist()
+    @Test fun aTypeHasOneRowAndNothingUnderItHoweverManyOfItTheBarHas() {
+        page(null, *bar, clockIn("k", "Asia/Tokyo"), clockIn("l", "Europe/London", Section.HIDDEN))
         lines.assertCountEquals(0)
+        rule.onAllNodes(hasTestTag("type:clock")).assertCountEquals(1)
+        rule.onNode(hasText(str(R.string.library_in_bar)) and within("type:clock")).assertExists()
+        rule.onNode(hasText(str(R.string.library_in_bar)) and within("type:timer")).assertDoesNotExist()
+        rule.onNode(hasText("Tokyo") and within("library")).assertDoesNotExist()
+        rule.onNode(hasText("London") and within("library")).assertDoesNotExist()
     }
 
-    @Test fun severalSetupsOfOneTypeAreSeveralLinesInTheirOrder() {
-        page(null, *bar, clockIn("k", "Asia/Tokyo", Section.OFF), fresh("t", "timer").with("label", "Tea").copy(section = Section.OFF),
-            clockIn("l", "Europe/London", Section.OFF))
-        lines.assertCountEquals(3)
-        rule.onNode(hasText("Tokyo") and within("line:k")).assertExists()
-        rule.onNode(hasText("London") and within("line:l")).assertExists()
-        rule.onNode(hasText("Tea") and within("line:t")).assertExists()
-        assertEquals(bottom("type:clock"), top("line:k"), 1f)
-        assertEquals(bottom("line:k"), top("line:l"), 1f)
-        assertEquals(bottom("type:timer"), top("line:t"), 1f)
-    }
-
-    @Test fun aLineIsReadByItsTypeAndItsWordsWithTheActionsAddAndForget() {
-        page(null, *bar, clockIn("l", "Europe/London", Section.OFF))
-        val words = rule.onNode(hasText("London") and within("line:l"))
-        words.assertContentDescriptionEquals("${title("clock")}, London")
-        val actions = words.fetchSemanticsNode().config[SemanticsActions.CustomActions]
-        assertEquals(listOf(str(R.string.add_add), str(R.string.library_forget)), actions.map { it.label })
-        tag("add-line:l").assertContentDescriptionEquals(str(R.string.library_add_setup, title("clock"), "London"))
-        tag("forget:l").assertContentDescriptionEquals(str(R.string.library_forget_setup, title("clock"), "London"))
-        tag("add:clock").assertContentDescriptionEquals(str(R.string.library_add, title("clock")))
-        rule.runOnIdle { actions.first { it.label == str(R.string.library_forget) }.action() }
-        rule.waitForIdle()
-        assertNull(now("l"))
-    }
-
-    @Test fun theFilterMatchesANameADescriptionAndALinesWordsAndCountsWhatItShows() {
-        val lisbon = fresh("w", "weather").with("city", "Lisbon").with("lat", "38.7").with("lon", "-9.1").copy(section = Section.OFF)
-        page(null, *bar, lisbon, clockIn("k", "Asia/Tokyo", Section.OFF))
-        val all = rows + 2
+    @Test fun theFilterMatchesANameAndADescriptionAndCountsWhatItShows() {
+        page(null, *bar, clockIn("k", "Asia/Tokyo"))
+        val all = rows
         tag("filter-count").assertDoesNotExist()
 
-        // A name: the type with all its lines.
+        // A name.
         tag("filter").performTextInput(title("clock").take(4))
         rule.waitForIdle()
         tag("type:clock").assertExists()
-        tag("line:k").assertExists()
         tag("type:memory").assertDoesNotExist()
-        val shown = ItemGroup.entries.flatMap { Items.inGroup(it) }.count { str(it.titleRes).contains(title("clock").take(4), true) || str(it.blurbRes).contains(title("clock").take(4), true) } + 1
+        val shown = ItemGroup.entries.flatMap { Items.inGroup(it) }.count { str(it.titleRes).contains(title("clock").take(4), true) || str(it.blurbRes).contains(title("clock").take(4), true) }
         tag("filter-count").assertTextEquals(count(shown, all))
 
         // Esc empties it, and everything is back.
@@ -292,14 +238,11 @@ class BarLibraryTest {
         tag("filter-count").assertTextEquals(count(1, all))
         press(Key.Escape, on = "filter")
 
-        // A line's words: its type, with that line only.
-        tag("filter").performTextInput("lisb")
+        // What an item of the bar is set to is no word of the library: only the types are listed.
+        tag("filter").performTextInput("toky")
         rule.waitForIdle()
-        tag("type:weather").assertExists()
-        tag("line:w").assertExists()
         tag("type:clock").assertDoesNotExist()
-        tag("line:k").assertDoesNotExist()
-        tag("filter-count").assertTextEquals(count(2, all))
+        tag("filter-count").assertTextEquals(count(0, all))
         assertEquals("3 of 32 shown.", count(3, 32))
     }
 
@@ -461,7 +404,7 @@ class BarLibraryTest {
         assertEquals(Section.HIDDEN, new.section)
     }
 
-    @Test fun afterRemoveInOptionsTheLibraryIsUpAndTheLineIsOnScreen() {
+    @Test fun afterRemoveInOptionsTheLibraryIsUpAndTheItemsTypeIsOnScreen() {
         // The last type of the last group: far below what the panel shows.
         val last = Items.inGroup(ItemGroup.entries.last()).last()
         val setUp = fresh("s", last.type).copy(display = Display.TEXT)
@@ -470,46 +413,44 @@ class BarLibraryTest {
         tag("library").assertDoesNotExist()
         remove()
         assertNull(selected)
+        assertNull(now("s"))
         tag("library").assertExists()
         switchPart(R.string.page_add).assertIsSelected()
-        tag("line:s").assertIsDisplayed()
-        rule.onNode(hasText(str(R.string.row_text_only)) and within("line:s")).assertIsDisplayed()
-    }
-
-    @Test fun anItemRemovedByTheBarsOwnMenuIsLetGoSoItsLinesPlusDoesNotTurnThePanel() {
-        page("k", *bar, clockIn("k", "Asia/Tokyo"))
-        tag("options").assertExists()
-        // The bar's right-click menu, while the settings show the item's options.
-        rule.runOnIdle { Store.update { it.removed("k") } }
-        rule.waitForIdle()
-        assertNull("only an item in the bar is selected", selected)
-        tag("options").assertDoesNotExist()
-        tag("line:k").assertExists()
-
-        click("add-line:k")
-        assertEquals(Section.SHOWN, now("k")?.section)
-        assertNull("a + never selects", selected)
-        tag("options").assertDoesNotExist()
-        tag("library").assertExists()
-    }
-
-    @Test fun belowTheWidthWithRoomForBothRemoveInOptionsTurnsToAddItemsAndTheLine() {
-        val layout = page("k", *bar, clockIn("k", "Asia/Tokyo"), width = 960)
-        remove()
-        switchPart(R.string.page_add).assertIsSelected()
-        tag("line:k").assertIsDisplayed()
-        // The slip waits on "Your bar", one part to the left.
-        switchPart(R.string.page_bar).performClick()
-        rule.waitForIdle()
-        rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and within("bar-list")).performClick()
-        rule.waitForIdle()
-        assertEquals(layout, Store.config.value)
-        switchPart(R.string.page_add).performClick()
-        rule.waitForIdle()
+        tag("type:${last.type}").assertIsDisplayed()
         lines.assertCountEquals(0)
     }
 
-    @Test fun removeEmptiesAFilterThatWouldHideTheLine() {
+    @Test fun anItemRemovedByTheBarsOwnMenuIsDeletedAndLetGo() {
+        val layout = page("k", *bar, clockIn("k", "Asia/Tokyo"))
+        tag("options").assertExists()
+        // The bar's right-click menu, while the settings show the item's options.
+        rule.runOnIdle { Undo.removeForGood("k") }
+        rule.waitForIdle()
+        assertEquals(layout.items - layout.items.last(), Store.config.value.items)
+        assertNull("only an item in the bar is selected", selected)
+        tag("options").assertDoesNotExist()
+        tag("library").assertExists()
+        lines.assertCountEquals(0)
+        // That menu has no Undo, and the window offers none for it.
+        tag("slip").assertDoesNotExist()
+    }
+
+    @Test fun belowTheWidthWithRoomForBothRemoveInOptionsTurnsToAddItemsAndTheType() {
+        val layout = page("k", *bar, clockIn("k", "Asia/Tokyo"), width = 960)
+        remove()
+        switchPart(R.string.page_add).assertIsSelected()
+        tag("type:clock").assertIsDisplayed()
+        lines.assertCountEquals(0)
+        // The slip waits on "Your bar", one part to the left.
+        switchPart(R.string.page_bar).performClick()
+        rule.waitForIdle()
+        rule.pastANotesFirstMoment()
+        rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and within("bar-list")).performClick()
+        rule.waitForIdle()
+        assertEquals(layout, Store.config.value)
+    }
+
+    @Test fun removeEmptiesAFilterThatWouldHideTheType() {
         page("k", *bar, clockIn("k", "Asia/Tokyo"))
         rule.onNode(hasText(str(R.string.page_add)) and within("panel-switch")).performClick()
         rule.waitForIdle()
@@ -520,28 +461,27 @@ class BarLibraryTest {
         rule.waitForIdle()
         remove()
         assertEquals("", filterText())
-        tag("line:k").assertIsDisplayed()
+        tag("type:clock").assertIsDisplayed()
     }
 
     @Test fun anItemOfATypeThisVersionDoesNotKnowLeavesTheLayoutAndUndoRestoresIt() {
         val layout = page("u", *bar, ItemConfig("u", "from-a-newer-version", options = mapOf("k" to "1")))
         remove()
-        assertNull("the library can't keep it", now("u"))
+        assertNull(now("u"))
         tag("library").assertExists()
         lines.assertCountEquals(0)
+        rule.pastANotesFirstMoment()
         rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and within("bar-list")).performClick()
         rule.waitForIdle()
         assertEquals(layout, Store.config.value)
         tag("row:u").assertExists()
     }
 
-    @Test fun anOffItemFromAnOlderLayoutShowsAsALineByTheRule() {
-        // Up to 1.8 any item could be turned off: one that carries a setup is a line, one as it came is not kept.
-        val layout = BarConfig(items = listOf(*bar, fresh("t", "timer").with("label", "Tea").copy(section = Section.OFF),
-            fresh("m", "storage").copy(section = Section.OFF)), position = Position.RIGHT)
-        page(null, *layout.items.toTypedArray())
-        assertEquals(listOf("a", "b", "t"), ids())
-        lines.assertCountEquals(1)
-        rule.onNode(hasText("Tea") and within("line:t")).assertExists()
+    @Test fun anOffItemIsNoPartOfALayoutTheAppHoldsSoNothingListsIt() {
+        // Up to 2.1 a removed item that was set up waited in Off, as a line under its type.
+        page(null, *bar, fresh("t", "timer").with("label", "Tea").copy(section = Section.OFF), fresh("m", "storage").copy(section = Section.OFF))
+        assertEquals(listOf("a", "b"), ids())
+        lines.assertCountEquals(0)
+        rule.onNode(hasText("Tea")).assertDoesNotExist()
     }
 }

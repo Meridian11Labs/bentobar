@@ -176,11 +176,11 @@ class PopupRulesTest {
     // ---- which strip's window hears a press outside the bar --------------------------------------------------
 
     @Test fun theFirstStripOnViewInRoomOrderHearsPressesOutsideTheBar() {
-        assertEquals(Position.RIGHT, PopupRules.watchingArea(setOf(Position.RIGHT, Position.LEFT, Position.CENTER), carrier = Position.RIGHT))
+        assertEquals(Position.LEFT, PopupRules.watchingArea(setOf(Position.RIGHT, Position.LEFT, Position.CENTER), carrier = Position.LEFT))
         // The first strip draws nothing right now (its window is invisible): the next one on view hears them.
-        assertEquals(Position.LEFT, PopupRules.watchingArea(setOf(Position.LEFT, Position.CENTER), carrier = Position.RIGHT))
-        assertEquals(Position.CENTER, PopupRules.watchingArea(setOf(Position.CENTER), carrier = Position.RIGHT))
+        assertEquals(Position.RIGHT, PopupRules.watchingArea(setOf(Position.RIGHT, Position.CENTER), carrier = Position.LEFT))
         assertEquals(Position.CENTER, PopupRules.watchingArea(setOf(Position.CENTER), carrier = Position.LEFT))
+        assertEquals(Position.CENTER, PopupRules.watchingArea(setOf(Position.CENTER), carrier = Position.RIGHT))
     }
 
     @Test fun withNoStripOnViewTheFirstStripsWindowKeepsTheWatch() {

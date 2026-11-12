@@ -132,7 +132,7 @@ enum class Settle {
     SERVICE_STARTED,
     /** The service is ending: an unbind, also a plain rebind; never sent when the process is killed. */
     SERVICE_ENDING,
-    /** The type's last item outside Off has left the layout (removed, or moved to Off). An Undo may bring it back. */
+    /** The type's last item has left the layout (it was removed). An Undo may bring it back. */
     LEFT_LAYOUT,
 }
 
@@ -179,7 +179,7 @@ abstract class ItemType(
     /** Still shown while presenting, while it has something to say: a running timer, a meeting about to start ([com.meridian11.books.bentobar.data.BarConfig.shows]). */
     open val presents: Boolean = false
 
-    /** Asks for where the device is (Weather's and Air quality's My location), so that is known only while such an item is outside Off (`HereRules.wanted`). */
+    /** Asks for where the device is (Weather's and Air quality's My location), so that is known only while the layout has such an item (`HereRules.wanted`). */
     open val usesMyLocation: Boolean = false
 
     /** How often [state] is recomputed while the bar shows. */
@@ -200,8 +200,8 @@ abstract class ItemType(
     open val permissions: List<String> = emptyList()
 
     /**
-     * The online service this type asks, or null: the type never goes online. A request reaches a service only while an
-     * item of a type that names it is outside Off, the service is switched on for this install and something shows items
+     * The online service this type asks, or null: the type never goes online. A request reaches a service only while the
+     * layout has an item of a type that names it, the service is switched on for this install and something shows items
      * (see `Http.allowed`). A type that names one is in [ItemGroup.ONLINE], says what it sends in [onlineNote], and Setup
      * has a switch for the service.
      */
@@ -247,8 +247,8 @@ abstract class ItemType(
     open fun onLive() {}
 
     /**
-     * The last item of this type stopped being sampled: the bar is hidden, the screen is off, or no
-     * such item is outside Off. Let go of every listener and poll; nothing of this type runs until
+     * The last item of this type stopped being sampled: the bar is hidden, the screen is off, or the
+     * layout has no such item. Let go of every listener and poll; nothing of this type runs until
      * [onLive] is called again. Main thread.
      */
     open fun onIdle() {}
@@ -317,23 +317,17 @@ abstract class ItemType(
     open fun defaultOptions(): Map<String, String> = emptyMap()
 
     /**
-     * Whether [item] holds something of the user's that is kept outside the layout, under the item's id (the flight a
-     * Flight item follows). Such an item is a setup whatever its options say ([carriesSetup][com.meridian11.books.bentobar.data.carriesSetup]):
-     * Remove keeps it as a line in the library, and what is kept for it stays for as long as the line does. Asked inside
-     * a change to the layout, on any thread: it must not wait for anything.
-     */
-    open fun keepsOwn(item: ItemConfig): Boolean = false
-
-    /**
-     * The item [id] of this type is gone from the layout and no Undo can bring it back (its line was forgotten, and
-     * the Bar page's Undo has gone on to something else): what was kept for it outside the layout goes. Main thread.
-     * Only for deleting kept text: it runs late or never (Undo is in memory). "The item was removed" is [settle].
+     * The item [id] of this type is gone from the layout and no Undo can bring it back (it was removed, and the Bar
+     * page's Undo has gone on to something else; or the bar's own menu removed it, which has no Undo): what the type
+     * kept for it outside the layout, under its id (the flight a Flight item follows, a Prompter's notes), goes. Main
+     * thread. Only for deleting kept text: it runs late or never (Undo is in memory, and a pasted layout tells nobody),
+     * so a type that keeps something also sweeps at the start. "The item was removed" is [settle].
      */
     open fun forgetOwn(id: String) {}
 
     /**
-     * This type's items in the layout, in the bar or a line in the library, and any the Bar page's Undo can still bring
-     * back: what a type keeps under another id ([keepsOwn]) belonged to an item that is gone. Main thread.
+     * This type's items in the layout and any the Bar page's Undo can still bring back: what a type keeps under another
+     * id belonged to an item that is gone. Main thread.
      */
     internal fun ids(): Set<String> =
         com.meridian11.books.bentobar.data.Store.config.value.items.filter { it.type == type }.mapTo(HashSet()) { it.id }
@@ -353,12 +347,6 @@ abstract class ItemType(
      */
     open val staysOpen: Boolean = false
 
-    /** Text or links dragged onto it in the bar are handed to [onDrop]. */
-    open val takesDrops: Boolean = false
-
-    /** [clip] was dropped on [item] in the bar: true if anything was taken. Main thread, behind `Ticker.guarded`; never throws. */
-    open fun onDrop(item: ItemConfig, clip: android.content.ClipData): Boolean = false
-
     /**
      * Types that are kept live ([onLive], [sample], [onIdle]) while [item] is sampled, though no item of theirs is. [state]
      * is NOT run for them: what they have to say reaches [item]'s type through [liveNow].
@@ -369,7 +357,7 @@ abstract class ItemType(
     open val liveSource: Boolean = false
 
     /**
-     * What is happening right now, or null. [items]: this type's items outside Off (may be empty: the type was only
+     * What is happening right now, or null. [items]: this type's items (may be empty: the type was only
      * woken). [now] is the clock [sample] gets; [LiveNow.since] is in it. Called from the Live activity's sample on the
      * tick. Reads what is at hand, and may ask for its own refresh without waiting (`Refresher.want`, `Calendar.refresh()`),
      * since nobody runs [state] for a woken type.

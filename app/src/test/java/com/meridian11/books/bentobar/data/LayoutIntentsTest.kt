@@ -12,8 +12,7 @@ class LayoutIntentsTest {
     private val shown = ItemConfig("s", "clock", Section.SHOWN)
     private val shown2 = ItemConfig("s2", "clock", Section.SHOWN)
     private val hidden = ItemConfig("h", "clock", Section.HIDDEN)
-    private val off = ItemConfig("o", "clock", Section.OFF)
-    private val layout = BarConfig(items = listOf(shown, shown2, hidden, off))
+    private val layout = BarConfig(items = listOf(shown, shown2, hidden))
     private fun BarConfig.ids() = items.map { it.id }
     private fun BarConfig.at(id: String) = items.single { it.id == id }
 
@@ -24,11 +23,8 @@ class LayoutIntentsTest {
         val back = layout.show("h")
         assertEquals(Section.SHOWN, back.at("h").section)
         assertEquals(layout.ids(), back.ids())
-        val gone = layout.turnOff("s2")
-        assertEquals(Section.OFF, gone.at("s2").section)
-        assertEquals(layout.ids(), gone.ids())
-        val chosen = layout.putIn("o", Section.SHOWN)
-        assertEquals(Section.SHOWN, chosen.at("o").section)
+        val chosen = layout.putIn("s2", Section.HIDDEN)
+        assertEquals(Section.HIDDEN, chosen.at("s2").section)
         assertEquals(layout.ids(), chosen.ids())
     }
 
@@ -45,14 +41,13 @@ class LayoutIntentsTest {
     }
 
     @Test fun onlyAnExplicitMoveChangesAnItemsPlace() {
-        assertEquals(listOf("s2", "s", "h", "o"), layout.copy(items = layout.items.moved("s", Section.HIDDEN, 0)).ids())
+        assertEquals(listOf("s2", "s", "h"), layout.copy(items = layout.items.moved("s", Section.HIDDEN, 0)).ids())
     }
 
     @Test fun aCommandForTheSectionAnItemIsAlreadyInMovesNothing() {
         // The settings' Where chooser asks for the section whichever chip is clicked: the selected one must not reorder.
         assertSame(layout, layout.show("s"))
         assertSame(layout, layout.hide("h"))
-        assertSame(layout, layout.turnOff("o"))
     }
 
     @Test fun anIdThatIsNotInTheLayoutChangesNothing() {
@@ -60,16 +55,12 @@ class LayoutIntentsTest {
         assertEquals(layout, layout.setWhenActive("nope", true))
     }
 
-    @Test fun theRuleBringsAShownOrTurnedOffItemIntoHiddenWhereItIs() {
+    @Test fun theRuleBringsAShownItemIntoHiddenWhereItIs() {
         // Both the bar's menu and settings do this: where it is, because it pops out at the place it had in the bar.
         val fromShown = layout.setWhenActive("s", true)
         assertEquals(Section.HIDDEN, fromShown.at("s").section)
         assertTrue(fromShown.at("s").whenActive)
         assertEquals(layout.ids(), fromShown.ids())
-        // Only hidden items pop out, so a turned-off one comes too (the bar's menu used to leave it Off).
-        val fromOff = layout.setWhenActive("o", true)
-        assertEquals(Section.HIDDEN, fromOff.at("o").section)
-        assertTrue(fromOff.at("o").whenActive)
     }
 
     @Test fun turningTheRuleOffLeavesAnItemWhereItIs() {
@@ -82,7 +73,6 @@ class LayoutIntentsTest {
 
     @Test fun anItemsRuleStaysOnThroughACommandThatChangesItsSection() {
         val rule = layout.setWhenActive("h", true)
-        assertTrue(rule.turnOff("h").at("h").whenActive)
         assertTrue(rule.show("h").at("h").whenActive)
     }
 
@@ -92,8 +82,8 @@ class LayoutIntentsTest {
         assertEquals(layout.ids(), moved.ids())
         // Everything else of the layout, and of the item, is as it was.
         assertEquals(layout, moved.copy(items = moved.items.map { if (it.id == "s2") it.copy(area = Position.RIGHT) else it }))
-        // An Off item has an area too: it is where the item comes back.
-        assertEquals(Position.CENTER, layout.putInArea("o", Position.CENTER).at("o").area)
+        // A Hidden item has an area as any other: it is where it pops out.
+        assertEquals(Position.CENTER, layout.putInArea("h", Position.CENTER).at("h").area)
     }
 
     @Test fun puttingAnItemInTheAreaItIsInOrAnIdThatIsNotThereChangesNothing() {
@@ -101,11 +91,10 @@ class LayoutIntentsTest {
         assertSame(layout, layout.putInArea("nope", Position.LEFT))
     }
 
-    @Test fun puttingAllInOneAreaChangesEveryItemsAreaOffOnesTooAndNothingElse() {
+    @Test fun puttingAllInOneAreaChangesEveryItemsAreaHiddenOnesTooAndNothingElse() {
         val spread = layout.putInArea("s", Position.LEFT).putInArea("h", Position.CENTER)
         val all = spread.putAllIn(Position.LEFT)
-        assertEquals(listOf(Position.LEFT, Position.LEFT, Position.LEFT, Position.LEFT), all.items.map { it.area })
-        assertEquals(Position.LEFT, all.at("o").area) // the Off one too: it comes back where the others are
+        assertEquals(listOf(Position.LEFT, Position.LEFT, Position.LEFT), all.items.map { it.area })
         assertEquals(layout.ids(), all.ids())
         assertEquals(layout, all.putAllIn(Position.RIGHT))
         assertSame(all, all.putAllIn(Position.LEFT))
@@ -144,8 +133,8 @@ class LayoutIntentsTest {
                 assertEquals(area, empty.oneArea())
             }
         }
-        // The last one being Off or Hidden changes nothing: its area is where it would have come back.
-        assertEquals(Position.LEFT, BarConfig(items = listOf(off.copy(area = Position.LEFT))).without("o").position)
+        // The last one being Hidden changes nothing.
+        assertEquals(Position.LEFT, BarConfig(items = listOf(hidden.copy(area = Position.LEFT))).without("h").position)
     }
 
     @Test fun takingAnItemAwayWhileOthersStayChangesNothingElse() {
@@ -154,6 +143,40 @@ class LayoutIntentsTest {
         assertEquals(spread.copy(items = spread.items.filterNot { it.id == "s" }), rest)
         assertEquals(Position.CENTER, rest.position)
         assertSame("an id that isn't in the layout changes nothing", spread, spread.without("nope"))
+    }
+
+    // ---- Remove an area: every item of it, in one step ----
+
+    @Test fun removingAnAreaTakesEveryItemOfItAndLeavesTheOthersAsTheyWere() {
+        val unknown = ItemConfig("u", "a-type-from-later", Section.SHOWN, area = Position.LEFT)
+        val spread = BarConfig(position = Position.CENTER, items = listOf(
+            shown.copy(area = Position.LEFT), shown2, hidden.copy(area = Position.LEFT, whenActive = true), unknown,
+            ItemConfig("m", "clock", area = Position.CENTER)))
+        val rest = spread.withoutArea(Position.LEFT)
+        assertEquals("an item of a type this version doesn't know has its row there, and goes too", listOf("s2", "m"), rest.ids())
+        assertEquals(spread.copy(items = spread.items.filter { it.area != Position.LEFT }), rest)
+        assertEquals(listOf(Position.CENTER, Position.RIGHT), rest.rowAreas())
+        assertEquals("with items left, nothing else is written", Position.CENTER, rest.position)
+        // The step is taken back as any other: every item where it was, in its part and order.
+        assertEquals(spread, rest.undone(spread, rest))
+    }
+
+    @Test fun removingAnAreaWithNothingInItChangesNothing() {
+        assertSame(layout, layout.withoutArea(Position.LEFT))
+        val empty = BarConfig(position = Position.LEFT)
+        assertSame(empty, empty.withoutArea(Position.LEFT))
+    }
+
+    /** As [without] leaves it when the last item goes: the empty bar stands where the bar was, whatever `position` last said. */
+    @Test fun removingTheAreaThatHoldsTheBarsLastItemsLeavesTheEmptyBarWhereTheBarWas() {
+        for (area in Position.entries) {
+            val all = layout.putAllIn(area)
+            assertEquals(Position.RIGHT, all.position)
+            val empty = all.withoutArea(area)
+            assertEquals(BarConfig(position = area), empty)
+            assertEquals(area, empty.homeArea())
+            assertEquals(all, empty.undone(all, empty))
+        }
     }
 
     // ---- Order and Visibility, as the bar's list asks: a place in a part of an area ----
@@ -229,7 +252,6 @@ class LayoutIntentsTest {
         assertEquals(Step.End, bar.stepped("a", down = false))
         assertEquals(Step.End, bar.stepped("w2", down = true))
         assertEquals(Step.End, bar.stepped("nobody", down = true))
-        assertEquals("an item that is not in the bar has no row to step", Step.End, layout.stepped("o", down = true))
     }
 
     @Test fun downAtTheEndOfTheUpperPartCrossesTheLineByTheRuleOrByHiding() {
@@ -303,11 +325,10 @@ class LayoutIntentsTest {
     }
 
     @Test fun intoAnAreaWithNothingInThatPartOnlyTheAreaChangesAndTheSameAreaChangesNothing() {
-        val c = BarConfig(items = listOf(inArea("a", Position.RIGHT), inArea("b", Position.RIGHT), inArea("o", Position.RIGHT, Section.OFF)))
+        val c = BarConfig(items = listOf(inArea("a", Position.RIGHT), inArea("b", Position.RIGHT)))
         assertEquals(c.putInArea("a", Position.LEFT), c.landedIn("a", Position.LEFT))
         assertSame(c, c.landedIn("a", Position.RIGHT))
         assertSame(c, c.landedIn("nobody", Position.LEFT))
-        assertEquals("an item that is not in the bar takes the area it comes back in", c.putInArea("o", Position.LEFT), c.landedIn("o", Position.LEFT))
     }
 
     @Test fun nextMeetingTakesTheAreaAndIsFirstThereWhereverTheListHasIt() {

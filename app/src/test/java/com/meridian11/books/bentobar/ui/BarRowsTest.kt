@@ -8,7 +8,7 @@ import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.hide
-import com.meridian11.books.bentobar.data.removed
+import com.meridian11.books.bentobar.data.without
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -33,6 +33,7 @@ class BarRowsTest {
             is Entry.EmptyLane -> "lane ${it.area}"
             is Entry.Blank -> "nothing ${it.area}"
             is Entry.Fold -> "fold ${it.area}"
+            is Entry.Gone -> "gone ${it.area} ${it.items}"
             is Entry.NoRoom -> "no room ${it.area}"
             is Entry.Room -> if (it.zone.part == Part.LOWER) "room below" else "room"
         }
@@ -43,7 +44,7 @@ class BarRowsTest {
         words(listEntries(cfg, slip, dragging = false, lanes = lanesOnScreen(cfg, opened), abreast = true, fold = fold, noRoom = noRoom))
 
     @Test fun withOneAreaTheListIsOneHeadTheRowsAndAlwaysTheLine() {
-        val cfg = BarConfig(items = listOf(item("a"), item("w", section = Section.HIDDEN, rule = true), item("b"), item("off", section = Section.OFF)))
+        val cfg = BarConfig(items = listOf(item("a"), item("w", section = Section.HIDDEN, rule = true), item("b")))
         assertEquals(listOf("head RIGHT", "a", "b", "line", "w below"), lines(cfg))
         assertEquals("the line is there with nothing under it: it is where a row is dropped", listOf("head RIGHT", "a", "line"), lines(BarConfig(items = listOf(item("a")))))
     }
@@ -105,11 +106,19 @@ class BarRowsTest {
         assertEquals("with one lane nothing is said of room", listOf("head RIGHT", "r", "line"), abreast(one, noRoom = setOf(Position.RIGHT)))
     }
 
-    @Test fun anAreaWithOnlyOffItemsHasNoHeadAndAnEmptyBarSaysSo() {
-        val cfg = BarConfig(items = listOf(item("r"), item("gone", Position.LEFT, Section.OFF)))
-        assertEquals(listOf("head RIGHT", "r", "line"), lines(cfg))
+    @Test fun aRemovedAreaIsSaidFirstTooAlsoOverTheLanesThatStayAndOverAnEmptyBar() {
+        val one = BarConfig(items = listOf(item("r")))
+        assertEquals(listOf("gone LEFT 3", "head RIGHT", "r", "line"), words(listEntries(one, null, dragging = false, gone = Gone(Position.LEFT, 3))))
+        val two = BarConfig(items = listOf(item("m", Position.CENTER), item("r")))
+        assertEquals(listOf("gone LEFT 1", "area CENTER first", "m", "one line", "nothing CENTER", "area RIGHT", "r", "nothing RIGHT"),
+            words(listEntries(two, null, dragging = false, lanes = lanesOnScreen(two, emptySet()), abreast = true, gone = Gone(Position.LEFT, 1))))
+        assertEquals("the bar's last items went with it", listOf("gone LEFT 2", "head LEFT", "empty"),
+            words(listEntries(BarConfig(position = Position.LEFT), null, dragging = false, gone = Gone(Position.LEFT, 2))))
+    }
+
+    @Test fun anEmptyBarSaysSoWhereItStands() {
         assertEquals(listOf("head LEFT", "empty"), lines(BarConfig(position = Position.LEFT)))
-        assertEquals(listOf("head RIGHT", "empty"), lines(BarConfig(position = Position.RIGHT, items = listOf(item("gone", section = Section.OFF)))))
+        assertEquals(listOf("head RIGHT", "empty"), lines(BarConfig(position = Position.RIGHT)))
     }
 
     @Test fun aRowsKeyIsItsIdWhereverItStandsAndNoTwoLinesShareAKey() {
@@ -122,7 +131,7 @@ class BarRowsTest {
     // ---- The slip ----
 
     private val three = BarConfig(items = listOf(item("a"), item("b"), item("c")))
-    private fun removal(before: BarConfig, id: String) = Undo.Kept(before, before.removed(id), removed = id)
+    private fun removal(before: BarConfig, id: String) = Undo.Kept(before, before.without(id), removed = id)
 
     @Test fun aRemovedRowsPlaceStaysOpenWhereItStood() {
         val kept = removal(three, "b")
@@ -143,10 +152,6 @@ class BarRowsTest {
         val one = BarConfig(items = listOf(item("a", Position.LEFT)))
         val kept = removal(one, "a")
         assertEquals(listOf("head LEFT", "slip a", "line"), lines(kept.after, slipOf(kept, kept.after)))
-        // Its slip stands in its own area, wherever an empty bar would add: a setup remembered in another area changes nothing.
-        val other = BarConfig(items = listOf(item("off", Position.RIGHT, Section.OFF), item("a", Position.LEFT)))
-        val last = removal(other, "a")
-        assertEquals(listOf("head LEFT", "slip a", "line"), lines(last.after, slipOf(last, last.after)))
     }
 
     @Test fun theOnlyItemOfOneOfTwoAreasClosesItsLaneAndThePageSaysThatInsteadOfTheRowsSlip() {

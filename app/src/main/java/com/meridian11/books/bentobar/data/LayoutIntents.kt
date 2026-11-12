@@ -22,23 +22,18 @@ fun BarConfig.show(id: String): BarConfig = putIn(id, Section.SHOWN)
 
 fun BarConfig.hide(id: String): BarConfig = putIn(id, Section.HIDDEN)
 
-fun BarConfig.turnOff(id: String): BarConfig = putIn(id, Section.OFF)
-
 /**
- * Into [area], where it stands in the list: among that area's items it is where the list has it, not last. An Off item has
- * an area too, the one it comes back in. Already in [area]: nothing changes.
+ * Into [area], where it stands in the list: among that area's items it is where the list has it, not last. Already in
+ * [area]: nothing changes.
  */
 fun BarConfig.putInArea(id: String, area: Position): BarConfig =
     if (items.none { it.id == id && it.area != area }) this else copy(items = items.map { if (it.id == id) it.copy(area = area) else it })
-
-/** The areas in the order they stand in the bar, which is the order of the settings window's lanes. */
-val BAR_ORDER = listOf(Position.LEFT, Position.CENTER, Position.RIGHT)
 
 /**
  * Into [area] by a click or a key (Area in the options, Alt with an arrow): the item keeps its part and its section, and
  * lands where it came in from. Moving right it is the first of its part there, moving left the last, so a row that
  * crosses to the lane beside it stands next to where it stood. Next meeting takes the area and is drawn first there as
- * everywhere; an item that is not in the bar only takes the area.
+ * everywhere.
  */
 fun BarConfig.landedIn(id: String, area: Position): BarConfig {
     val item = items.firstOrNull { it.id == id } ?: return this
@@ -56,7 +51,7 @@ fun BarConfig.landedIn(id: String, area: Position): BarConfig {
 }
 
 /**
- * Every item into [area], Off ones too, so the layout is a one-area layout again and what comes back from Off joins the rest.
+ * Every item into [area], so the layout is a one-area layout again.
  * A layout with no items has no area to change: there the place is kept in [BarConfig.position], which says where the
  * empty bar is and where its first item goes ([homeArea]). With items, `position` is left as it was ([without] writes
  * it when the last one goes).
@@ -68,7 +63,9 @@ fun BarConfig.putAllIn(area: Position): BarConfig = when {
 }
 
 /**
- * The layout without the item [id]. When the last item goes, the bar stays where it was: `position` takes the
+ * The layout without the item [id]: Remove from the bar, whichever surface asks (the options' button, Delete, a drag
+ * out of the bar, the bar's own menu). Nothing of the item is remembered: the library's + makes a new one, and Undo is
+ * the way back to this one ([undone]). When the last item goes, the bar stays where it was: `position` takes the
  * [home area][homeArea] the layout had with it, so the empty bar stands there and the next item goes there, whichever
  * command had put the items in that area.
  */
@@ -82,7 +79,22 @@ fun BarConfig.without(id: String): BarConfig {
 }
 
 /**
- * The "Show when…" rule on or off. Only hidden items pop into the bar, so turning it on brings a shown or turned-off item
+ * The layout without [area]: Remove an area on the Bar page. Every item of it goes, as [without] takes one: the ones
+ * under the line and one of a type this version doesn't know too (each has its row there, [rowAreas]); the other areas
+ * stay as they are. One step, so one Undo brings them all back, each in its part and place ([undone]). When they were
+ * the bar's last, the empty bar stays where the bar was, as [without] leaves it.
+ */
+fun BarConfig.withoutArea(area: Position): BarConfig {
+    val rest = items.filterNot { it.area == area }
+    return when {
+        rest.size == items.size -> this
+        rest.isEmpty() -> copy(items = rest, position = homeArea())
+        else -> copy(items = rest)
+    }
+}
+
+/**
+ * The "Show when…" rule on or off. Only hidden items pop into the bar, so turning it on brings a shown item
  * into Hidden, and like every command it keeps the item's place in the list: it pops out where it stood in the bar. Turning
  * it off changes no section.
  */
@@ -160,31 +172,6 @@ fun BarConfig.stepped(id: String, down: Boolean): Step {
 }
 
 /**
- * Remove from the bar, whichever surface asks. An item that carries a setup ([carriesSetup]) is kept for the library, in
- * Off where it stands; one that is as the + made it leaves the layout, and so does one of a type this version doesn't
- * know, which the library couldn't offer. A rule left on by an item that isn't waiting on it (above the line, where
- * [show] leaves the bit) is no setup, so it is cleared first.
- */
-fun BarConfig.removed(id: String): BarConfig {
-    val item = items.firstOrNull { it.id == id } ?: return this
-    val part = partOf(item) ?: return this
-    val type = Items.of(item.type) ?: return without(id)
-    val clean = if (part == Part.LOWER || !item.whenActive) this else setWhenActive(id, false)
-    return if (clean.items.first { it.id == id }.carriesSetup(type)) clean.turnOff(id) else clean.without(id)
-}
-
-/**
- * A remembered setup back in the bar (the + on its line in the library): in [area], the one in use and not the one it
- * was stored with, at the place a new item lands ([Store.added]), under the line if it waited on its rule. Its options
- * and how it is shown are untouched. Only an item in Off comes back.
- */
-fun BarConfig.broughtBack(id: String, area: Position = homeArea()): BarConfig {
-    val item = items.firstOrNull { it.id == id && it.section == Section.OFF } ?: return this
-    val back = item.copy(section = if (item.whenActive) Section.HIDDEN else Section.SHOWN, area = area)
-    return copy(items = with(Store) { items.filterNot { it.id == id }.added(back) })
-}
-
-/**
  * A new item of [type], with [id], dropped at a place in the bar: what the + makes ([fresh]), then [placed]. Under a line
  * it can't wait under, nothing is added.
  */
@@ -201,35 +188,20 @@ fun BarConfig.addedAt(type: ItemType, id: String, area: Position, part: Part, in
  */
 fun BarConfig.unplaced(type: ItemType, id: String): ItemConfig = type.fresh(id, homeArea()).copy(whenActive = false)
 
-/** A remembered setup dropped at a place in the bar: [broughtBack] as it was, then [placed]. Under a line it can't wait under, it stays in the library. */
-fun BarConfig.broughtBackAt(id: String, area: Position, part: Part, index: Int): BarConfig {
-    val back = broughtBack(id, area)
-    val item = back.items.firstOrNull { it.id == id }?.takeIf { back !== this } ?: return this
-    if (part == Part.LOWER && !back.canGoBelow(item)) return this
-    return back.placed(id, area, part, index)
-}
-
 /** What a layout change changes: which items there are and in which order, each one's section, rule and area, and where an empty bar stands. */
 private fun BarConfig.arrangement(): Any = items.map { listOf(it.id, it.section, it.whenActive, it.area) } to position
 
 /**
  * Undo of one layout change that led from [before] to [after]: the items [before] had, in its order, each in its section
- * and area and with its rule as it was; an item the change took out comes back as it was. One it brought in (the +, a
- * drop from the library, Duplicate) simply goes while it is exactly as the change left it, whatever it carried from the
- * start (a copy's setup, a place above the line): taking the change back leaves nothing behind. One that was changed
- * since (an option, how it is shown, a flight its type keeps for it) leaves as [removed] takes an item out, so it waits
- * in Off, a line in the library, and Undo never loses what was done to it. What is not layout stays as it is now (an
- * option changed since). Null when the layout was arranged otherwise since (the bar's own menu, a pasted layout): there
- * is nothing left to take back.
+ * and area and with its rule as it was; an item the change took out comes back as it was, with every option. One it
+ * brought in (the +, a drop from the library, Duplicate) goes, whatever was done to it since: taking the change back
+ * leaves nothing behind. What is not layout stays as it is now (an option changed since). Null when the layout was
+ * arranged otherwise since (the bar's own menu, a pasted layout): there is nothing left to take back.
  */
 fun BarConfig.undone(before: BarConfig, after: BarConfig): BarConfig? {
     if (arrangement() != after.arrangement()) return null
     val now = items.associateBy { it.id }
-    val had = before.items.mapTo(HashSet()) { it.id }
-    val left = after.items.associateBy { it.id }
-    val since = items.filter { it.id !in had && (it != left[it.id] || Items.of(it.type)?.keepsOwn(it) == true) }
-    val lines = since.fold(this) { c, new -> c.removed(new.id) }.items.filter { new -> new.section == Section.OFF && since.any { it.id == new.id } }
     return copy(position = before.position, items = before.items.map { was ->
         now[was.id]?.copy(section = was.section, whenActive = was.whenActive, area = was.area) ?: was
-    } + lines)
+    })
 }

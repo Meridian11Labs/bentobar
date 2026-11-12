@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -40,13 +41,12 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
-import com.meridian11.books.bentobar.data.fresh
 import com.meridian11.books.bentobar.items.Env
-import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.ui.BarPage
 import com.meridian11.books.bentobar.ui.LocalPreviewClock
 import com.meridian11.books.bentobar.ui.Page
 import com.meridian11.books.bentobar.ui.Palette
+import com.meridian11.books.bentobar.ui.TRASH_VEIL
 import com.meridian11.books.bentobar.ui.SettingsTheme
 import com.meridian11.books.bentobar.ui.Shell
 import com.meridian11.books.bentobar.ui.Undo
@@ -97,15 +97,23 @@ class BarPagePicturesTest {
     private fun assertColor(what: String, want: Color, bitmap: Bitmap, x: Int, y: Int) =
         assertEquals(what, Integer.toHexString(want.toArgb()), Integer.toHexString(bitmap.getPixel(x, y)))
 
+    /** A veil over a ground, which the canvas rounds its own way: each channel within two steps of [want]. */
+    private fun assertVeil(what: String, want: Color, bitmap: Bitmap, x: Int, y: Int) {
+        val got = bitmap.getPixel(x, y)
+        val wanted = want.toArgb()
+        assertTrue("$what: ${Integer.toHexString(wanted)} wanted, ${Integer.toHexString(got)} drawn",
+            listOf(16, 8, 0).all { kotlin.math.abs((got shr it and 0xFF) - (wanted shr it and 0xFF)) <= 2 })
+    }
+
     private fun palette() = if (dark) Palette.Dark else Palette.Light
 
     /** A bar of seven items and two that wait for their rule. */
-    private fun window(mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null, vararg remembered: ItemConfig) {
+    private fun window(mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null) {
         fun item(id: String, type: String, display: Display = Display.ICON_AND_TEXT) = ItemConfig(id, type, display = display, area = Position.RIGHT)
         fun waiting(id: String, type: String) = ItemConfig(id, type, Section.HIDDEN, whenActive = true, area = Position.RIGHT)
         show(BarConfig(items = listOf(item("event", "event"), item("weather", "weather"), item("clock", "clock"), item("timer", "timer"),
             item("network", "network", Display.TEXT), item("cpu", "cpu"), item("sound", "sound", Display.ICON),
-            waiting("media", "media"), waiting("devices", "devices")) + remembered, position = Position.RIGHT, hiddenMode = mode), select)
+            waiting("media", "media"), waiting("devices", "devices")), position = Position.RIGHT, hiddenMode = mode), select)
     }
 
     /** The same bar in areas: [left] after the clock, [middle] in the middle, the rest and the two that wait at the right. */
@@ -114,7 +122,7 @@ class BarPagePicturesTest {
             area = if (id in left) Position.LEFT else if (id in middle) Position.CENTER else Position.RIGHT)
         fun waiting(id: String) = ItemConfig(id, id, Section.HIDDEN, whenActive = true, area = Position.RIGHT)
         show(BarConfig(items = listOf(item("event"), item("weather"), item("clock"), item("timer"), item("caffeine", Display.ICON),
-            item("network", Display.TEXT), item("cpu"), item("memory"), item("sound", Display.ICON), item("shelf"), item("tools"),
+            item("network", Display.TEXT), item("cpu"), item("memory"), item("sound", Display.ICON), item("prompter"), item("tools"),
             waiting("media"), waiting("devices")), position = Position.RIGHT), select)
     }
 
@@ -253,12 +261,10 @@ class BarPagePicturesTest {
         assertColor("the panel's card", palette().panel, bitmap, showAs.left.toInt() - 4, showAs.center.y.toInt())
     }
 
-    /** A clock set to a city, out of the bar: a line under Clock. */
-    private fun london(id: String = "london") = Items.of("clock")!!.fresh(id, Position.RIGHT).with("zone", "Europe/London").copy(section = Section.OFF)
     private fun click(tag: String) { rule.onNodeWithTag(tag).performScrollTo(); rule.onNodeWithTag(tag).performClick(); rule.waitForIdle() }
 
     @Test fun theLibraryIsOneCardWithTheFilterAndTheTypesInTheirGroups() {
-        window(remembered = arrayOf(london()))
+        window()
         picture("library-top")
         rule.onNodeWithTag("type:timer").performScrollTo()
         rule.waitForIdle()
@@ -267,8 +273,6 @@ class BarPagePicturesTest {
             val bitmap = picture("library-${if (isDark) "dark" else "light"}")
             val library = bounds("library")
             assertColor("the library's card", palette().panel, bitmap, library.left.toInt() + 6, library.center.y.toInt())
-            val line = bounds("line:london")
-            assertColor("a remembered setup's line stands on the card", palette().panel, bitmap, line.left.toInt() + 6, line.center.y.toInt())
         }
         dark = false
         // A type added: its row says so, with the Undo, and the bar's new row is marked.
@@ -277,13 +281,10 @@ class BarPagePicturesTest {
         // A quiet type: under the line, and its row says when it shows.
         click("add:heat")
         picture("library-added-quiet")
-        // A setup forgotten: its place says so until the next change.
-        click("forget:london")
-        picture("library-forgot")
     }
 
     @Test fun theFilterShowsWhatMatchesAndCountsIt() {
-        window(remembered = arrayOf(london()))
+        window()
         rule.onNodeWithTag("filter").performTextInput("clo")
         rule.waitForIdle()
         val bitmap = picture("library-filter")
@@ -294,20 +295,21 @@ class BarPagePicturesTest {
         picture("library-filter-nothing")
     }
 
-    @Test fun afterRemoveThePanelIsTheLibraryAtTheNewLine() {
-        window(select = "clock", remembered = arrayOf(london()))
+    @Test fun afterRemoveThePanelIsTheLibraryAtTheItemsType() {
+        window(select = "clock")
         rule.onNodeWithTag("row:clock").assertExists()
         Store.updateItem("clock") { it.with("zone", "Asia/Tokyo") }
         rule.waitForIdle()
         rule.onNode(hasText(app.getString(R.string.detail_remove)) and hasClickAction()).performClick()
         rule.waitForIdle()
         picture("library-after-remove")
-        rule.onNodeWithTag("line:clock").assertIsDisplayed()
+        rule.onNodeWithTag("type:clock").assertIsDisplayed()
+        assertEquals("deleted, with what it was set to", null, Store.config.value.items.firstOrNull { it.id == "clock" })
     }
 
     @Config(qualifiers = "w960dp-h780dp-mdpi")
     @Test fun at960AddItemsIsTheSwitchsSecondPart() {
-        window(remembered = arrayOf(london()))
+        window()
         rule.onNode(hasText(app.getString(R.string.page_add)) and hasAnyAncestor(hasTestTag("panel-switch"))).performClick()
         rule.waitForIdle()
         val bitmap = picture("mid-library")
@@ -317,7 +319,7 @@ class BarPagePicturesTest {
 
     @Config(qualifiers = "w640dp-h780dp-mdpi")
     @Test fun at640TheLibraryTakesTheWindow() {
-        window(remembered = arrayOf(london()))
+        window()
         rule.onNode(hasText(app.getString(R.string.page_add)) and hasAnyAncestor(hasTestTag("panel-switch"))).performClick()
         rule.waitForIdle()
         picture("narrow-library")
@@ -386,6 +388,20 @@ class BarPagePicturesTest {
         rule.onNodeWithTag("moved-mark", useUnmergedTree = true).assertExists()
     }
 
+    @Test fun aRemovedAreaIsSaidAcrossTheTopWithUndoAndTheLanesThatStayKeepTheirTrash() {
+        areas()
+        for (area in Position.entries) rule.onNodeWithTag("remove-area:$area").assertIsDisplayed()
+        click("remove-area:CENTER")
+        both("areas-removed") { bitmap ->
+            val note = bounds("area-removed")
+            assertColor("the note stands on the sunk ground", palette().sunk, bitmap, note.left.toInt() - 4, note.center.y.toInt())
+        }
+        assert(bounds("area-removed").bottom <= top("row:event")) { "the note stands above the lanes" }
+        rule.onNodeWithTag("row:timer").assertDoesNotExist()
+        rule.onNodeWithTag("remove-area:LEFT").assertIsDisplayed()
+        rule.onNodeWithTag("remove-area:RIGHT").assertIsDisplayed()
+    }
+
     @Test fun anAreaWithoutRoomSaysSoOnceAndTheBarsPictureShowsWhoHasItsPlace() {
         areas(select = "clock")
         BarOverflow.ids.value = setOf("timer", "caffeine", "clock")
@@ -410,6 +426,7 @@ class BarPagePicturesTest {
         both("narrow-areas")
         assert(bounds("row:event").bottom <= top("row:timer")) { "one column: the Middle's rows stand under Left's" }
         rule.onNodeWithTag("add-to:LEFT").assertIsDisplayed()
+        assert(bounds("remove-area:LEFT").left >= bounds("add-to:LEFT").right) { "a head's trash comes after its +" }
         rule.onNodeWithTag("bracket:LEFT").assertIsDisplayed()
     }
 
@@ -437,17 +454,73 @@ class BarPagePicturesTest {
     @OptIn(ExperimentalTestApi::class)
     private fun letGo() { rule.onRoot().performMouseInput { release() }; rule.waitForIdle() }
 
-    @Test fun aRowCarriedInTheListLeavesAnOpeningAndTheLibraryOffersItsWell() {
+    /** The trash's own ground: a point inside the strip, clear of its rounded ends, its glyph and its words. */
+    private fun inTrash() = bounds("trash").let { Offset(it.left + 40f, it.top + 24f) }
+
+    @Test fun aRowCarriedInTheListLeavesAnOpeningAndTheTrashStandsAlongTheCardsLowerEdge() {
         window()
+        val card = bounds("bar-list")
+        val filter = bounds("filter")
         val weather = bounds("row:weather")
         carry(middle("row:cpu"), Offset(weather.center.x + 60f, weather.bottom + 14f))
         both("drag-bar") { bitmap ->
-            val well = bounds("well")
-            assertEquals("the well stands in the filter's place", bounds("filter"), well)
-            assertColor("the page's ground beside the list", palette().surface, bitmap, bounds("bar-list").left.toInt() - 6, well.center.y.toInt())
+            val trash = bounds("trash")
+            assertEquals("the trash is the card's lower edge, as wide as the card", listOf(card.left, card.right, card.bottom), listOf(trash.left, trash.right, trash.bottom))
+            assertEquals("the library is as it was", filter, bounds("filter"))
+            assertColor("at rest the trash is a sunk strip", palette().sunk, bitmap, inTrash().x.toInt(), inTrash().y.toInt())
+            assertColor("on the list's card", palette().panel, bitmap, trash.center.x.toInt(), trash.bottom.toInt() - 4)
+            assertColor("the page's ground beside the list", palette().surface, bitmap, card.left.toInt() - 6, trash.center.y.toInt())
         }
         rule.onNodeWithTag("drag-row").assertIsDisplayed()
         letGo()
+    }
+
+    @Test fun aRowOverTheTrashTurnsItToTheDangerColoursAndTheLineSaysWhatADropDoes() {
+        window()
+        carry(middle("row:cpu"), middle("row:cpu") + Offset(0f, 30f))
+        val to = middle("trash")
+        @OptIn(ExperimentalTestApi::class)
+        rule.onRoot().performMouseInput { moveTo(Offset(to.x, to.y - 40f)); moveTo(to + Offset(90f, 0f)) }
+        rule.waitForIdle()
+        both("drag-trash") { bitmap ->
+            val trash = bounds("trash")
+            assertVeil("the red lies over the card as under a pressed red button", palette().danger.copy(alpha = TRASH_VEIL).compositeOver(palette().panel),
+                bitmap, inTrash().x.toInt(), inTrash().y.toInt())
+            assertColor("inside a border of the same red", palette().danger, bitmap, trash.center.x.toInt(), trash.top.toInt())
+        }
+        rule.onNodeWithTag("preview-line").assertTextEquals(app.getString(R.string.bar_drop_off, app.getString(R.string.item_cpu_title)))
+        rule.onNodeWithTag("row:cpu").assertDoesNotExist()
+        letGo()
+        rule.onNodeWithTag("trash").assertDoesNotExist()
+        rule.onNodeWithTag("slip").assertIsDisplayed()
+    }
+
+    @Config(qualifiers = "w960dp-h780dp-mdpi")
+    @Test fun at960TheTrashStandsUnderTheLanes() {
+        areas()
+        carry(middle("row:weather"), middle("row:weather") + Offset(0f, 30f))
+        both("mid-drag-trash")
+        val trash = bounds("trash")
+        assertEquals(bounds("bar-list").bottom, trash.top)
+        assert(trash.height >= 48f) { "tall enough for a finger: ${trash.height}" }
+        letGo()
+    }
+
+    @Config(qualifiers = "w640dp-h780dp-mdpi")
+    @Test fun at640TheTrashStandsUnderTheOneColumnAndTheListScrollsAboveIt() {
+        areas()
+        carry(middle("row:weather"), middle("row:weather") + Offset(0f, 30f))
+        both("narrow-drag-trash")
+        val trash = bounds("trash")
+        assertEquals(bounds("bar-list").bottom, trash.top)
+        assertEquals("as wide as the list", bounds("bar-list").left to bounds("bar-list").right, trash.left to trash.right)
+        val to = middle("trash")
+        @OptIn(ExperimentalTestApi::class)
+        rule.onRoot().performMouseInput { moveTo(Offset(to.x, to.y - 40f)); moveTo(to) }
+        rule.waitForIdle()
+        both("narrow-drag-trash-over")
+        letGo()
+        rule.onNodeWithTag("row:weather").assertDoesNotExist()
     }
 
     @Test fun aTypeCarriedOutOfTheLibraryIsDimmedThereAndTheListMakesRoom() {
@@ -456,7 +529,7 @@ class BarPagePicturesTest {
         val storage = bounds("type:storage")
         carry(Offset(storage.left + 80f, storage.center.y), Offset(weather.center.x + 120f, weather.bottom + 10f))
         both("drag-add")
-        rule.onNodeWithTag("well").assertDoesNotExist()
+        rule.onNodeWithTag("trash").assertDoesNotExist()
         rule.onNodeWithTag("drag-row").assertIsDisplayed()
         letGo()
     }
@@ -474,16 +547,22 @@ class BarPagePicturesTest {
         letGo()
     }
 
-    @Test fun aFingerCarriesARowByItsHandleOntoTheLibrary() {
+    @Test fun aFingerCarriesARowByItsHandleOntoTheTrash() {
         window()
         val sound = bounds("row:sound")
         val grip = Offset(sound.left + 32f, sound.center.y)
-        val to = bounds("type:cpu").let { Offset(it.left + 20f, it.center.y + 6f) }
-        rule.onRoot().performTouchInput { down(grip); for (i in 1..8) moveTo(grip + (to - grip) * (i / 8f)) }
+        rule.onRoot().performTouchInput { down(grip); for (i in 1..4) moveBy(Offset(0f, -10f)) }
         rule.waitForIdle()
-        both("drag-touch")
-        rule.onNodeWithTag("well").assertIsDisplayed()
+        val to = middle("trash") + Offset(-120f, 0f)
+        rule.onRoot().performTouchInput { for (i in 1..8) moveTo(grip + Offset(0f, -40f) + (to - grip - Offset(0f, -40f)) * (i / 8f)) }
+        rule.waitForIdle()
+        both("drag-touch") { bitmap ->
+            assertVeil("under the finger the trash is red", palette().danger.copy(alpha = TRASH_VEIL).compositeOver(palette().panel),
+                bitmap, inTrash().x.toInt(), inTrash().y.toInt())
+        }
+        rule.onNodeWithTag("preview-line").assertTextEquals(app.getString(R.string.bar_drop_off_touch, app.getString(R.string.item_sound_title)))
         rule.onRoot().performTouchInput { up() }
         rule.waitForIdle()
+        rule.onNodeWithTag("row:sound").assertDoesNotExist()
     }
 }

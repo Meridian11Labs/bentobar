@@ -248,15 +248,17 @@ internal object BarRules {
     }
 
     /**
-     * An area's room in the free space from [lo] to [hi]. Right has all of it; Left what Right leaves; the Middle what both
-     * leave. A neighbour costs what it uses ([usedRight], [usedLeft]) and the gap [between]; one that uses nothing costs nothing.
+     * An area's room in the free space from [lo] to [hi]: what the areas asked before it leave. Asked in room order
+     * ([ROOM_ORDER]), Left has all of it, Right what Left leaves and the Middle what both leave. A neighbour costs what it
+     * uses ([usedRight], [usedLeft]; 0 for one not asked yet) and the gap [between]; one that uses nothing costs nothing.
      */
     fun lane(area: Position, lo: Int, hi: Int, between: Int, usedRight: Int, usedLeft: Int): Lane {
+        val left = lo + if (usedLeft > 0) usedLeft + between else 0
         val right = hi - if (usedRight > 0) usedRight + between else 0
         return when (area) {
-            Position.RIGHT -> Lane(lo, hi)
             Position.LEFT -> Lane(lo, right)
-            Position.CENTER -> Lane(lo + if (usedLeft > 0) usedLeft + between else 0, right)
+            Position.RIGHT -> Lane(left, hi)
+            Position.CENTER -> Lane(left, right)
         }
     }
 
@@ -281,11 +283,11 @@ internal object BarRules {
      * Which areas have a strip, where and how wide: the one rule of room, which the controller only carries out. In pixels.
      * The free area is [freeLeft] to [freeRight] on a screen [screenW] wide; [gap] is kept to its edges, less [out] (what a
      * strip's own ends may reach into the gap: all of [ends] with no pill, nothing with one); [between] is kept between two
-     * strips; [least] is the room a ‹ needs with its ends. [inUse] are the areas with an item outside Off; the [home] area
+     * strips; [least] is the room a ‹ needs with its ends. [inUse] are the areas with an item; the [home] area
      * is wanted as well, so there is always one. [strips] is what is known of each area's strip; an area missing from it
      * was never measured.
      *
-     * Room goes to Right first, then Left, then the Middle. The first area there is has the whole free space and is as wide
+     * Room goes to Left first, then Right, then the Middle. The first area there is has the whole free space and is as wide
      * as it was measured, which is the one strip there was before areas, to the pixel. An area after it is cut to its room,
      * and with less room than [least] it has no strip: it is owed. A strip that draws nothing, or was never measured, has
      * its spot and takes no room from the others. With no room for a ‹ at all the home area alone is placed, as the one

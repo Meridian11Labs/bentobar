@@ -22,6 +22,18 @@
     <string name="areas_nothing">Nothing here</string>
     <!-- An area whose last item left: it is gone from the page, with Undo beside these words. -->
     <string name="areas_folded">%1$s is empty now, so it closed.</string>
+    <!-- An area's trash at the end of its head, read out: the area goes with every item in it. %1$s is the area, %2$d how many items it has. -->
+    <plurals name="areas_remove">
+        <item quantity="one">Remove %1$s and its item</item>
+        <item quantity="other">Remove %1$s and its %2$d items</item>
+    </plurals>
+    <!-- The same for an area with nothing in it. -->
+    <string name="areas_remove_empty">Remove %1$s</string>
+    <!-- Above the list after that, with Undo beside these words. -->
+    <plurals name="areas_removed">
+        <item quantity="one">Removed %1$s and its item</item>
+        <item quantity="other">Removed %1$s and its %2$d items</item>
+    </plurals>
     <!-- On the row that left it. -->
     <string name="areas_moved">Moved</string>
     <!-- A screen reader's action on a row: "Move to Left". -->

@@ -403,7 +403,7 @@ internal fun dropWords(res: Resources, cfg: BarConfig, c: Carried, drop: Drop, s
 
 /**
  * The strips of a layout in several areas, in the room between the mock clock and the mock system icons: where the bar
- * has them, by the bar's own rule of room ([BarRules.lane], [BarRules.middleLeft]). Right has the room first, then Left,
+ * has them, by the bar's own rule of room ([BarRules.lane], [BarRules.middleLeft]). Left has the room first, then Right,
  * then the Middle; Right stands at the right end, Left at the left end and the Middle in the middle, moved only as far as
  * a neighbour makes it. They are sides of the screen, so the picture is not mirrored around them in a right to left
  * language. [areas] are in that order of room; [drawing] are the ones that put anything on the screen; [strip] composes

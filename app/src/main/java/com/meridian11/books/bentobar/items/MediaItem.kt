@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.util.Now
 import com.meridian11.books.bentobar.util.Sym
@@ -157,7 +156,7 @@ object MediaItem : ItemType("media", R.string.item_media_title, Sym.MUSIC_NOTE, 
      * title" counts them (`state media` counts an emoji as two): the number, never the text.
      */
     private fun said(): String {
-        val item = Store.config.value.items.firstOrNull { it.type == type && it.section != Section.OFF }
+        val item = Store.config.value.items.firstOrNull { it.type == type }
         return NowPlaying.debugLine() + (item?.let { " chars=" + MediaText.count(state(it).text.orEmpty()) } ?: "")
     }
 

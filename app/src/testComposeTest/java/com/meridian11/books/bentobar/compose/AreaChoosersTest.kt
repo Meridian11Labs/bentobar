@@ -17,7 +17,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.BarConfig
-import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
@@ -57,7 +56,7 @@ class AreaChoosersTest {
 
     // An item that is not in the bar is kept only with a setup of its own: the one that is Off here shows as an icon.
     private fun item(id: String, area: Position, section: Section = Section.SHOWN) =
-        ItemConfig(id, "cpu", section, display = if (section == Section.OFF) Display.ICON else Display.ICON_AND_TEXT, area = area)
+        ItemConfig(id, "cpu", section, area = area)
 
     private fun barPage(selected: String?, vararg items: ItemConfig): BarConfig {
         // The old Position says Right throughout: nothing here may read it.
@@ -76,7 +75,7 @@ class AreaChoosersTest {
     private fun heads(word: String) = rule.onAllNodes(hasText(word) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading))
 
     @Test fun areaShowsTheItemsAreaAndAChoiceChangesOnlyThatItemsArea() {
-        val layout = barPage("a", item("a", Position.RIGHT), item("b", Position.RIGHT, Section.HIDDEN), item("c", Position.RIGHT, Section.OFF))
+        val layout = barPage("a", item("a", Position.RIGHT), item("b", Position.RIGHT, Section.HIDDEN))
         rule.onNode(hasText(app.getString(R.string.areas_label))).assertExists()
         // One area in use: a menu that shows it, last in the options.
         rule.onNode(hasText(right) and hasClickAction() and inArea).performScrollTo().performClick()
@@ -96,16 +95,8 @@ class AreaChoosersTest {
         areaChoice(left).assertIsNotSelected()
     }
 
-    @Test fun anItemThatIsNotInTheBarHasNoOptionsAndItsAreaNoHead() {
-        barPage("c", item("a", Position.RIGHT), item("c", Position.CENTER, Section.OFF))
-        rule.onNodeWithTag("options").assertDoesNotExist()
-        rule.onNodeWithTag("row:c").assertDoesNotExist()
-        // An area that holds only an item that is not in the bar is not in use: the list goes on saying nothing about areas.
-        for (word in listOf(left, middle, right)) heads(word).assertCountEquals(0)
-    }
-
     @Test fun theListNamesItsAreasOnlyWhileMoreThanOneIsInUse() {
-        barPage(null, item("a", Position.RIGHT), item("b", Position.LEFT, Section.HIDDEN), item("c", Position.CENTER, Section.OFF))
+        barPage(null, item("a", Position.RIGHT), item("b", Position.LEFT, Section.HIDDEN))
         heads(right).assertCountEquals(1)
         heads(left).assertCountEquals(1)
         heads(middle).assertCountEquals(0)
@@ -133,12 +124,12 @@ class AreaChoosersTest {
     }
 
     @Test fun lookShowsNoAreaAsChosenWhileTwoAreInUseAndAPressPutsEveryItemInThatOne() {
-        val layout = lookPage(item("a", Position.RIGHT), item("b", Position.LEFT, Section.HIDDEN), item("c", Position.LEFT, Section.OFF))
+        val layout = lookPage(item("a", Position.RIGHT), item("b", Position.LEFT, Section.HIDDEN), item("c", Position.LEFT))
         for (word in listOf(left, middle, right)) choice(word).assertIsNotSelected()
 
         choice(middle).performClick()
         rule.waitForIdle()
-        assertEquals("every item's area, the one that is Off too, and nothing else",
+        assertEquals("every item's area, and nothing else",
             layout.copy(items = layout.items.map { it.copy(area = Position.CENTER) }), Store.config.value)
         choice(middle).assertIsSelected()
         choice(left).assertIsNotSelected()
@@ -162,8 +153,8 @@ class AreaChoosersTest {
         choice(right).assertIsSelected()
     }
 
-    @Test fun lookShowsTheOneAreaEveryItemOutsideOffIsInWhateverTheOldPositionSays() {
-        lookPage(item("a", Position.LEFT), item("b", Position.LEFT, Section.HIDDEN), item("c", Position.CENTER, Section.OFF))
+    @Test fun lookShowsTheOneAreaEveryItemIsInWhateverTheOldPositionSays() {
+        lookPage(item("a", Position.LEFT), item("b", Position.LEFT, Section.HIDDEN))
         choice(left).assertIsSelected()
         choice(middle).assertIsNotSelected()
         choice(right).assertIsNotSelected()

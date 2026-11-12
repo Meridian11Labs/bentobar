@@ -172,11 +172,11 @@ class OnlineTest {
     }
 
     @Test fun theServicesAreTheseAndNoOthers() {
-        assertEquals(listOf("openMeteo", "airLabs", "finnhub", "frankfurter", "own"), Online.Service.entries.map { it.id })
+        assertEquals(listOf("openMeteo", "airLabs", "finnhub", "frankfurter"), Online.Service.entries.map { it.id })
         assertEquals(setOf(Online.Service.AIRLABS, Online.Service.FINNHUB), Online.Service.entries.filter { it.needsKey }.toSet())
         assertEquals(setOf(com.meridian11.books.bentobar.net.Host.FRANKFURTER), Online.Service.FRANKFURTER.hosts)
-        // Your own addresses stands for no named host: what it asks is an address the user typed.
-        assertEquals(emptySet<com.meridian11.books.bentobar.net.Host>(), Online.Service.OWN.hosts)
+        // Every service stands for a host by name: none takes an address.
+        for (service in Online.Service.entries) assertTrue("$service", service.hosts.isNotEmpty())
     }
 
     @Test fun aFileWithTheRetiredKrakenSwitchLoadsWithoutItAndIsWrittenAgain() {
@@ -195,37 +195,50 @@ class OnlineTest {
         assertTrue(Online.on(Online.Service.FRANKFURTER))
     }
 
-    @Test fun yourOwnAddressesIsOffUntilItIsTurnedOnOnThisInstall() {
-        assertFalse(Online.on(Online.Service.OWN)); assertFalse(Online.setUp(Online.Service.OWN))
-        // Setup's switch is greyed until it was set up here: the item's own Turn on is what does that.
-        assertTrue(Online.turnOn(Online.Service.OWN))
-        assertTrue(Online.on(Online.Service.OWN)); assertTrue(Online.setUp(Online.Service.OWN))
+    @Test fun aFileWithTheRetiredOwnAddressesSwitchLoadsWithoutItAndIsWrittenAgain() {
+        // What 2.1 with a Value from a URL item wrote: "Your own addresses" on and set up, beside a service that stays.
+        File(dir, "online.json").writeText("""{"on":["own","openMeteo"],"setUp":["own","openMeteo"],"keys":{}}""")
         restart()
-        assertTrue(Online.on(Online.Service.OWN))
-        Online.turnOff(Online.Service.OWN)
-        assertEquals(listOf(Online.Service.OWN), told)
+        assertEquals(setOf(OPEN_METEO), Online.state.value.on)
+        assertEquals(setOf(OPEN_METEO), Online.state.value.setUp)
+        val text = File(dir, "online.json").readText()
+        assertFalse(text, "own" in text)
+        assertTrue(text, "openMeteo" in text)
         restart()
-        assertFalse(Online.on(Online.Service.OWN)); assertTrue(Online.setUp(Online.Service.OWN))
-        // Another install's file, restored or copied, is not this one's: a fresh directory has it off.
-        Online.init(File(dir, "elsewhere"))
-        assertFalse(Online.on(Online.Service.OWN)); assertFalse(Online.setUp(Online.Service.OWN))
+        assertTrue(Online.on(OPEN_METEO))
     }
 
-    @Test fun aServiceIsAskedOnlyWhileItIsOnSomethingIsOnScreenAndItsItemIsOutsideOff() {
-        val asks: (String) -> Online.Service? = { mapOf("webvalue" to Online.Service.OWN, "fx" to Online.Service.FRANKFURTER)[it] }
-        val both = listOf(ItemConfig("w", "webvalue"), ItemConfig("x", "fx"))
-        for (s in listOf(Online.Service.OWN, Online.Service.FRANKFURTER)) {
+    @Test fun whatARetiredTypeKeptOnThisInstallIsDeletedAtTheStart() {
+        // What 2.1 left: a Shelf's texts and the address of a Value from a URL, a file per item, beside a Flight's and a Prompter's.
+        for ((name, text) in listOf("shelf" to "a note dropped on it", "webvalue" to "https://example.com/value", "flight" to "{}", "prompter" to "my notes")) {
+            File(dir, "kept/$name").mkdirs()
+            File(dir, "kept/$name/a1.txt").writeText("0\n$text")
+        }
+        File(dir, "kept/shelf/b2.txt.part").writeText("half written")
+        restart()
+        for (name in Retired.kept) assertFalse(name, File(dir, "kept/$name").exists())
+        assertEquals(setOf("flight", "prompter"), File(dir, "kept").list()?.toSet())
+        assertEquals("my notes", Kept.own("prompter").read("a1")?.text)
+        // And with nothing there to delete, a start is a start.
+        restart()
+        assertEquals(setOf("flight", "prompter"), File(dir, "kept").list()?.toSet())
+    }
+
+    @Test fun aServiceIsAskedOnlyWhileItIsOnSomethingIsOnScreenAndTheLayoutHasItsItem() {
+        val asks: (String) -> Online.Service? = { mapOf("weather" to OPEN_METEO, "fx" to Online.Service.FRANKFURTER)[it] }
+        val both = listOf(ItemConfig("w", "weather"), ItemConfig("x", "fx"))
+        for (s in listOf(OPEN_METEO, Online.Service.FRANKFURTER)) {
             assertFalse("$s off", Online.mayAsk(s, true, both, asks))
             Online.turnOn(s)
             assertTrue("$s on", Online.mayAsk(s, true, both, asks))
             assertFalse("$s with nothing on screen", Online.mayAsk(s, false, both, asks))
-            assertFalse("$s with its item in Off", Online.mayAsk(s, true, both.map { it.copy(section = Section.OFF) }, asks))
-            // Hidden is outside Off: it may still have something to say.
+            assertFalse("$s with its item removed", Online.mayAsk(s, true, both.filterNot { asks(it.type) == s }, asks))
+            // A Hidden item may still have something to say.
             assertTrue("$s with its item hidden", Online.mayAsk(s, true, both.map { it.copy(section = Section.HIDDEN) }, asks))
         }
-        // One service's item opens no other: an address of the user's own is not a reason to ask Frankfurter, nor the other way round.
-        assertFalse(Online.mayAsk(Online.Service.OWN, true, listOf(ItemConfig("x", "fx")), asks))
-        assertFalse(Online.mayAsk(Online.Service.FRANKFURTER, true, listOf(ItemConfig("w", "webvalue")), asks))
+        // One service's item opens no other: a Weather item is not a reason to ask Frankfurter, nor the other way round.
+        assertFalse(Online.mayAsk(OPEN_METEO, true, listOf(ItemConfig("x", "fx")), asks))
+        assertFalse(Online.mayAsk(Online.Service.FRANKFURTER, true, listOf(ItemConfig("w", "weather")), asks))
     }
 
     @Test fun eachHostBelongsToOneService() {

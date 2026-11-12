@@ -79,11 +79,11 @@ class TickLoopTest {
 
     @Test fun whereTheDeviceIsIsFollowedOncePerTickWithWhatIsSampledAndLetGoWhenNothingShows() {
         type("weather"); type("air")
-        layout(item("w", "weather"), item("a", "air"), item("off", "air", Section.OFF))
+        layout(item("w", "weather"), item("a", "air"))
         loop.start("bar")
         tick()
         assertEquals("one call for both types' items", 2, located.size)
-        assertEquals(listOf("w", "a", "off") to listOf("w", "a"), located.last())
+        assertEquals(listOf("w", "a") to listOf("w", "a"), located.last())
         // The last Weather item stops being sampled: what the Air item still wants goes on.
         layout(item("a", "air"))
         tick()
@@ -100,8 +100,8 @@ class TickLoopTest {
         assertEquals(1, calls.count { it == "live:two" })
         tick(); tick()
         assertEquals("told once, however many ticks", 1, calls.count { it == "live:one" })
-        // Only the second type's item goes to Off: only it is told to let go.
-        cfg = cfg.copy(items = listOf(item("a", "one"), item("b", "two", Section.OFF)))
+        // Only the second type's item is removed: only it is told to let go.
+        cfg = cfg.copy(items = listOf(item("a", "one")))
         tick()
         assertEquals(1, calls.count { it == "idle:two" })
         assertEquals(0, calls.count { it == "idle:one" })
@@ -212,7 +212,7 @@ class TickLoopTest {
         layout(item("p", "private"), item("n", "plain"))
         loop.start("bar")
         assertEquals("private", loop.states.value["p"]?.text)
-        cfg = cfg.copy(items = listOf(item("p", "private", Section.OFF), item("n", "plain")))
+        cfg = cfg.copy(items = listOf(item("n", "plain")))
         tick()
         assertNull(loop.states.value["p"])
         assertEquals("plain", loop.states.value["n"]?.text)
@@ -286,8 +286,8 @@ class TickLoopTest {
         layout(item("m2", "mic"), item("p", "plain"))
         tick()
         assertEquals(0, settled("mic"))
-        // The last one goes to Off: settled once, and not again on the ticks that follow.
-        layout(item("m2", "mic", Section.OFF), item("p", "plain"))
+        // The last one is removed: settled once, and not again on the ticks that follow.
+        layout(item("p", "plain"))
         tick(); tick()
         assertEquals(1, settled("mic"))
         assertEquals("only the type that left", 0, settled("plain"))

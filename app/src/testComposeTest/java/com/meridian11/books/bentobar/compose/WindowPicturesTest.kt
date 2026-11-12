@@ -14,12 +14,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -28,6 +34,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.bar.BarOverflow
 import com.meridian11.books.bentobar.bar.BarStatus
 import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.Defaults
 import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.ItemConfig
@@ -47,6 +54,7 @@ import com.meridian11.books.bentobar.ui.Shell
 import com.meridian11.books.bentobar.ui.Undo
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -101,7 +109,7 @@ class WindowPicturesTest {
     }
 
     /** A bar of seven items and two that wait for their rule, in one area, in two or in three. */
-    private fun layout(areas: Int, mode: HiddenMode = HiddenMode.SHOW_ALL, vararg remembered: ItemConfig): BarConfig {
+    private fun layout(areas: Int, mode: HiddenMode = HiddenMode.SHOW_ALL): BarConfig {
         fun area(id: String) = when {
             areas > 1 && id in setOf("event", "weather", "clock") -> Position.LEFT
             areas > 2 && id == "timer" -> Position.CENTER
@@ -110,11 +118,11 @@ class WindowPicturesTest {
         fun item(id: String, display: Display = Display.ICON_AND_TEXT) = ItemConfig(id, id, display = display, area = area(id))
         fun waiting(id: String) = ItemConfig(id, id, Section.HIDDEN, whenActive = true, area = Position.RIGHT)
         return BarConfig(items = listOf(item("event"), item("weather"), item("clock"), item("timer"), item("network", Display.TEXT), item("cpu"),
-            item("sound", Display.ICON), waiting("media"), waiting("devices")) + remembered, position = Position.RIGHT, hiddenMode = mode)
+            item("sound", Display.ICON), waiting("media"), waiting("devices")), position = Position.RIGHT, hiddenMode = mode)
     }
 
-    private fun bar(three: Boolean = false, mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null, vararg remembered: ItemConfig) {
-        Store.update { layout(if (three) 3 else 1, mode, *remembered) }
+    private fun bar(three: Boolean = false, mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null) {
+        Store.update { layout(if (three) 3 else 1, mode) }
         selected = select
         window(Page.BAR) { BarPage(selected, onSelect = { selected = it }) }
     }
@@ -150,7 +158,21 @@ class WindowPicturesTest {
                 rule.waitForIdle()
                 large("bar-$width-$areas-${if (night) "dark" else "light"}")
                 layout(areas).items.forEach { rule.onNodeWithTag("row:${it.id}").assertExists() }
+                // A lane's head ends in its trash while there are several, and with one lane there is none.
+                for (area in Position.entries) {
+                    val trash = rule.onNodeWithTag("remove-area:$area")
+                    if (areas > 1 && layout(areas).items.any { it.area == area }) trash.assertExists() else trash.assertDoesNotExist()
+                }
             }
+        }
+        // Remove an area: what went is said above the lanes that stay, with Undo.
+        rule.onNodeWithTag("remove-area:LEFT").performScrollTo().performClick()
+        for (night in listOf(false, true)) {
+            dark = night
+            rule.waitForIdle()
+            large("bar-$width-removed-${if (night) "dark" else "light"}")
+            rule.onNodeWithTag("area-removed").assertExists()
+            rule.onNodeWithTag("row:event").assertDoesNotExist()
         }
     }
 
@@ -162,10 +184,14 @@ class WindowPicturesTest {
     @Config(qualifiers = "w700dp-h780dp-mdpi")
     @Test fun theBarPageAt700() = barPictures(700)
 
-    /** Look, Setup and About, and what a first run shows before BentoBar is on: the Bar page, Setup and the disclosure. */
+    /**
+     * Look, Setup and About, and what a first run shows before BentoBar is on: the Bar page, Setup and the disclosure. The
+     * first run has the bar a fresh install has ([Defaults.config]): four items in Left, after the clock.
+     */
     @Config(qualifiers = "w1180dp-h1100dp-mdpi")
     @Test fun theOtherPagesAndAFirstRun() {
         var shown by mutableStateOf("look")
+        val fresh = Defaults.config()
         Store.update { layout(1) }
         rule.setContent {
             view = LocalView.current
@@ -186,10 +212,12 @@ class WindowPicturesTest {
             }
         }
         for (name in listOf("look", "setup", "about", "first-run-bar", "first-run-setup", "first-run-disclosure")) for (night in listOf(false, true)) {
+            if (name == "first-run-bar" && !night) rule.runOnUiThread { Store.update { fresh } }
             shown = name
             dark = night
             rule.waitForIdle()
             large("$name-${if (night) "dark" else "light"}")
+            if (name == "first-run-bar") fresh.items.forEach { rule.onNodeWithTag("row:${it.id}").assertExists() }
         }
         rule.onNodeWithTag("disclosure").assertExists()
     }
@@ -211,6 +239,52 @@ class WindowPicturesTest {
         fontScale = 2f
         bar(three = true, mode = HiddenMode.CLICK, select = "weather")
         large("large-areas")
+    }
+
+    /** Pick the row [id] up with the mouse and carry it over the trash, without letting go. */
+    @OptIn(ExperimentalTestApi::class)
+    private fun overTrash(id: String) {
+        val from = rule.onNodeWithTag("row:$id").fetchSemanticsNode().boundsInRoot.center
+        rule.onRoot().performMouseInput { moveTo(from); press(); for (i in 1..6) moveBy(Offset(0f, 6f)) }
+        rule.waitForIdle()
+        val to = rule.onNodeWithTag("trash").fetchSemanticsNode().boundsInRoot.center
+        rule.onRoot().performMouseInput { moveTo(Offset(to.x, to.y - 40f)); moveTo(to) }
+        rule.waitForIdle()
+    }
+    @OptIn(ExperimentalTestApi::class)
+    private fun letGo() { rule.onRoot().performMouseInput { release() }; rule.waitForIdle() }
+
+    @Test fun atTwiceTheTextSizeTheTrashUnderTheListIsWhole() {
+        fontScale = 2f
+        bar()
+        overTrash("weather")
+        large("large-drag-trash")
+        val trash = rule.onNodeWithTag("trash").fetchSemanticsNode().boundsInRoot
+        assertTrue("it grows with its words: ${trash.height}", trash.height >= 60f)
+        letGo()
+        rule.onNodeWithTag("row:weather").assertDoesNotExist()
+    }
+
+    @Test fun fromRightToLeftTheTrashSpansTheListsCard() {
+        direction = LayoutDirection.Rtl
+        bar(three = true)
+        overTrash("timer")
+        large("rtl-drag-trash")
+        val trash = rule.onNodeWithTag("trash").fetchSemanticsNode().boundsInRoot
+        val list = rule.onNodeWithTag("bar-list").fetchSemanticsNode().boundsInRoot
+        assertEquals(list.left to list.right, trash.left to trash.right)
+        letGo()
+        rule.onNodeWithTag("row:timer").assertDoesNotExist()
+    }
+
+    @Test fun atTwiceTheTextSizeTheLanesTrashAndWhatItSaysAfterwardsAreWhole() {
+        fontScale = 2f
+        bar(three = true)
+        large("large-lanes")
+        rule.onNodeWithTag("remove-area:LEFT").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("area-removed").assertExists()
+        large("large-area-removed")
     }
 
     @Config(qualifiers = "w640dp-h780dp-mdpi")

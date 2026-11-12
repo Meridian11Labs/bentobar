@@ -69,7 +69,8 @@ fun LookPage() {
             }
             // The press moved things the page doesn't show: it says so, with the way back, while that is the window's last change.
             val kept by Undo.last.collectAsState()
-            Undo.allTo(kept, cfg)?.let { MovedAll(it) }
+            val over by Undo.over.collectAsState()
+            Undo.allTo(Undo.noted(kept, over), cfg)?.let { MovedAll(it) }
             RowLine()
             Spacing(cfg.spacingDp) { v -> Store.update { it.copy(spacing = v) } }
             RowLine()
@@ -176,16 +177,19 @@ private fun SaidLine(said: Said?) {
 
 /**
  * What "Where BentoBar sits" just did, under it, with the Undo that takes it back (the window's one [Undo], so Ctrl+Z here and
- * on the Bar page is the same step): the Bar page's slip for a closed lane, on Look.
+ * on the Bar page is the same step): the Bar page's slip for a closed lane, on Look. Like it, the line stands a
+ * note's time ([NoteTime]) and Ctrl+Z takes the step back after it too.
  */
 @Composable
 private fun MovedAll(area: Position) {
     val c = Bento.colors
+    val hold = remember { NoteHold() }
+    NoteTime(hold)
     Row(Modifier.fillMaxWidth().padding(bottom = Space.m).heightIn(min = Target.row).background(c.sunk, RoundedCornerShape(Radius.medium))
-        .padding(start = 14.dp, end = Space.xs).testTag("look-moved"), verticalAlignment = Alignment.CenterVertically) {
+        .holdsNote(hold).padding(start = 14.dp, end = Space.xs).testTag("look-moved"), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.areas_moved_all, stringResource(areaRes(area))), Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
             style = Bento.type.small, color = c.ink2)
-        BentoButton(stringResource(R.string.bar_undo), { Undo.undo() }, kind = ButtonKind.TEXT)
+        BentoButton(stringResource(R.string.bar_undo), { Undo.undo() }, Modifier.deafAtFirst(), kind = ButtonKind.TEXT)
     }
 }
 

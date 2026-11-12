@@ -129,30 +129,25 @@ fun orderWords(res: Resources, cfg: BarConfig, item: ItemConfig, several: Boolea
 /**
  * The selected item's options, in the panel: its name, what it waits for, then Area (first, as a three-way choice with
  * its keys, while [several] lanes are on screen; else last, as a menu), Visibility with its rule, Order, Show as and the type's own options;
- * Duplicate and Remove from the bar at the card's foot. Every command is [edit]'s, the same one the keys and a row's
+ * Duplicate and Remove from the bar (the red button) at the card's foot. Every command is [edit]'s, the same one the keys and a row's
  * screen-reader actions use.
  */
 @Composable
-internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, edit: BarEdit, several: Boolean, modifier: Modifier = Modifier,
-                         reorder: Reorder? = null) {
+internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, edit: BarEdit, several: Boolean, modifier: Modifier = Modifier) {
     val c = Bento.colors
     val res = androidx.compose.ui.platform.LocalResources.current
     val type = Items.of(item.type)
     val scroll = rememberScrollState()
     Column(modifier.fillMaxSize().testTag("options")) {
         Column(Modifier.weight(1f).scrollThumb(scroll, c.thumb).verticalScroll(scroll).padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = Space.s)) {
-            // While a row of the bar is carried, this first row is the well in its own place: a drop on the card removes the row.
-            Box {
-                Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }.testTag("options-head"), verticalAlignment = Alignment.CenterVertically) {
-                    SymIcon(type?.icon ?: Sym.UPDATE, size = 20.sp, color = c.ink)
-                    Spacer(Modifier.width(10.dp))
-                    Text(itemName(res, item), Modifier.weight(1f, fill = false), style = Bento.type.title, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
-                    state?.text?.takeIf { it.isNotBlank() && type != null }?.let {
-                        Spacer(Modifier.width(Space.s))
-                        Text(it, style = Bento.type.small.tabular, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
-                    }
+            Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }.testTag("options-head"), verticalAlignment = Alignment.CenterVertically) {
+                SymIcon(type?.icon ?: Sym.UPDATE, size = 20.sp, color = c.ink)
+                Spacer(Modifier.width(10.dp))
+                Text(itemName(res, item), Modifier.weight(1f, fill = false), style = Bento.type.title, color = c.ink, maxLines = lines(), overflow = TextOverflow.Ellipsis)
+                state?.text?.takeIf { it.isNotBlank() && type != null }?.let {
+                    Spacer(Modifier.width(Space.s))
+                    Text(it, style = Bento.type.small.tabular, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
                 }
-                if (reorder != null) DropWell(reorder, Modifier.matchParentSize())
             }
             Spacer(Modifier.height(Space.s))
             if (type != null) Needs(item, type)
@@ -206,8 +201,9 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
                 BentoButton(stringResource(R.string.detail_duplicate), { edit.duplicate(item.id) })
                 Spacer(Modifier.width(Space.s))
             }
-            BentoButton(stringResource(R.string.detail_remove), { edit.remove(item.id) }, kind = ButtonKind.PLAIN)
-            BarKeys.REMOVE.caps(res).forEach { Keycap(it) }
+            // The red button, with a trash: the one command here that takes something away. Its keys (Delete, Backspace) are in the
+            // system's list of shortcuts and not beside it.
+            BentoButton(stringResource(R.string.detail_remove), { edit.remove(item.id) }, kind = ButtonKind.DANGER, icon = Sym.DELETE)
         }
     }
 }

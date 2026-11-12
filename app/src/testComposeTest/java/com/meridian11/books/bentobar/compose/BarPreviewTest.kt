@@ -288,28 +288,28 @@ class BarPreviewTest {
     }
 
     @Test fun whatTheAreasHaveNoRoomForIsCountedOnceUnderThePicture() {
-        // 600 dp wide: the Right keeps one of its two, and what it leaves is too little for any of the others' items.
+        // 600 dp wide: the Left keeps one of its two, and what it leaves is too little for any of the others' items.
         words = wide("l1", "l2", "m", "r1", "r2")
         show(listOf(item("l1", Position.LEFT), item("l2", Position.LEFT), item("m", Position.CENTER), item("r1", Position.RIGHT), item("r2", Position.RIGHT)), width = 600.dp)
-        assertEquals(listOf(false, false, false, false, true), listOf("l1", "l2", "m", "r1", "r2").map { drawn(it) })
+        assertEquals(listOf(true, false, false, false, false), listOf("l1", "l2", "m", "r1", "r2").map { drawn(it) })
         rule.onNodeWithText(app.getString(R.string.bar_preview_hint) + " " + more(4)).assertExists()
     }
 
     @Test fun anAreaWithNoRoomForAChevronIsNotDrawnAndItsItemsAreCounted() {
         show(listOf(item("l", Position.LEFT), item("r", Position.RIGHT)))
-        // The Right's one item with its strip's ends, 6 dp to the Left and the 16 dp beside the clock leave the Left 33 dp:
-        // a ‹ needs 30 and its strip's ends 12.
-        width += (at("r").right - at("r").left) + end * 2 + 6.dp + 16.dp + 33.dp - room()
+        // The Left's one item with its strip's ends after the 16 dp beside the clock, and 6 dp to the Right, leave the Right
+        // 33 dp: a ‹ needs 30 and its strip's ends 12.
+        width += (at("l").right - at("l").left) + end * 2 + 6.dp + 16.dp + 33.dp - room()
         rule.waitForIdle()
-        assertEquals(listOf(false, true), listOf("l", "r").map { drawn(it) })
+        assertEquals(listOf(true, false), listOf("l", "r").map { drawn(it) })
         assertEquals("no ‹ where there is no room for one", 0, chevrons().size)
         rule.onNodeWithText(app.getString(R.string.bar_preview_hint) + " " + more(1)).assertExists()
-        // With room for a ‹ and not for the item, the Left has its ‹ for it.
+        // With room for a ‹ and not for the item, the Right has its ‹ for it.
         width += 20.dp
         rule.waitForIdle()
-        assertEquals(listOf(false, true), listOf("l", "r").map { drawn(it) })
+        assertEquals(listOf(true, false), listOf("l", "r").map { drawn(it) })
         assertEquals(1, chevrons().size)
-        assertEquals("at the Left's place", clock().right + 16.dp + end, chevrons().single().left)
+        assertEquals("at the Right's place", icons().left - 12.dp - end, chevrons().single().right)
         rule.onNodeWithText(app.getString(R.string.bar_preview_hint) + " " + more(1)).assertExists()
     }
 
@@ -351,7 +351,7 @@ class BarPreviewTest {
     @Test fun theEmptyCapsuleIsTheHomeAreasWhileNoAreaDraws() {
         quiet = setOf("l", "r")
         show(listOf(item("l", Position.LEFT), item("r", Position.RIGHT))) { copy(pill = Pill.SUBTLE) }
-        assertEquals(listOf(false, true), listOf("l", "r").map { drawn(it) })
+        assertEquals(listOf(true, false), listOf("l", "r").map { drawn(it) })
         // Without a pill there is no capsule to show, in any area.
         rule.runOnUiThread { Store.update { it.copy(pill = Pill.NONE) } }
         rule.waitForIdle()

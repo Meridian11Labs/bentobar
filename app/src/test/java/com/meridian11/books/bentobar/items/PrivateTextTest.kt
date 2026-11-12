@@ -7,12 +7,11 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Kept
 import com.meridian11.books.bentobar.data.MapPrefs
 import com.meridian11.books.bentobar.data.Online
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
-import com.meridian11.books.bentobar.data.carriesSetup
 import com.meridian11.books.bentobar.data.hide
-import com.meridian11.books.bentobar.data.removed
+import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.without
+import com.meridian11.books.bentobar.data.withoutArea
 import com.meridian11.books.bentobar.ui.Undo
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -26,7 +25,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * A prompter's script and what is on a shelf are the user's own words: they are kept in memory and in the item's own
+ * A prompter's script is the user's own words: it is kept in memory and in the item's own
  * file in the no-backup directory (`Kept.own`), never in the layout (which Copy settings and a backup carry), never in
  * a log line or a debug hook's output. Other private texts have their own tests, beside their items.
  */
@@ -35,10 +34,8 @@ class PrivateTextTest {
     private val prefs = MapPrefs()
     private val clock = ItemConfig("c", "clock")
     private val prompter = ItemConfig("p", PrompterItem.type)
-    private val shelf = ItemConfig("s", ShelfItem.type)
     private val script = "Good morning, everyone. The figures for the quarter came in on Friday, and they are better than we hoped.\n" +
         "First the numbers, then what they mean for the plan."
-    private val entries = listOf("The door code is 4711 and the meeting room is the one on the left", "https://a.example/share?token=abc123")
 
     private fun at(id: String) = Store.config.value.items.single { it.id == id }
 
@@ -61,16 +58,14 @@ class PrivateTextTest {
     @Before fun fresh() {
         Online.init(dir)
         Store.open(prefs) { }
-        Store.update { BarConfig(items = listOf(clock, prompter, shelf)) }
+        Store.update { BarConfig(items = listOf(clock, prompter)) }
         Undo.last.value = null
     }
 
     @After fun gone() {
         Undo.last.value = null
         PrompterItem.forgetOwn("p")
-        ShelfItem.forgetOwn("s")
         settled(PrompterItem.type)
-        settled(ShelfItem.type)
         dir.deleteRecursively()
         Online.init(File(dir, "empty"))
     }
@@ -84,7 +79,6 @@ class PrivateTextTest {
         notInTheLayout(at("p"), script)
         assertEquals("kept in its own file", script, Kept.own("prompter").read("p")?.text)
         assertEquals("and in memory", script, PrompterItem.script("p"))
-        assertTrue("so Remove keeps the item as a line", at("p").carriesSetup())
     }
 
     @Test fun aBlankScriptKeepsNothing() {
@@ -94,28 +88,11 @@ class PrivateTextTest {
         PrompterItem.save("p")
         settled(PrompterItem.type)
         assertNull(Kept.own("prompter").read("p"))
-        assertFalse(at("p").carriesSetup())
-    }
-
-    @Test fun shelfEntriesAreNotInTheLayout() {
-        ShelfItem.add("s", entries)
-        settled(ShelfItem.type)
-        for (text in entries) notInTheLayout(at("s"), text)
-        val kept = Kept.own("shelf").read("s")?.text
-        assertEquals(entries, kept?.let(ShelfRules::decode)?.map { it.text })
-        assertEquals(entries, ShelfItem.held("s")?.map { it.text })
-        assertTrue(at("s").carriesSetup())
-        // Cleared, it holds nothing on the device and is as the + made it.
-        ShelfItem.clear("s")
-        settled(ShelfItem.type)
-        assertNull(Kept.own("shelf").read("s"))
-        assertEquals(emptyList<ShelfRules.Entry>(), ShelfItem.held("s"))
-        assertFalse(at("s").carriesSetup())
     }
 
     @Test fun noLogLineInFilesThatHoldPrivateText() {
-        val files = SourceScan.sources.filter { f -> f.place().let { it.startsWith("items/Prompter") || it.startsWith("items/Shelf") } }
-        assertEquals(files.map { it.name }.toString(), 6, files.size)
+        val files = SourceScan.sources.filter { f -> f.place().let { it.startsWith("items/Prompter") } }
+        assertEquals(files.map { it.name }.toString(), 3, files.size)
         for (f in files) {
             val code = SourceScan.code(f)
             for (call in listOf("Log.", "println(", "printStackTrace", "System.out", "System.err")) assertFalse("${f.name} calls $call", call in code)
@@ -124,59 +101,95 @@ class PrivateTextTest {
 
     @Test fun noDebugLineSaysTheText() {
         PrompterItem.edit("p", script)
-        ShelfItem.add("s", entries)
-        settled(ShelfItem.type)
-        for (line in listOfNotNull(PrompterItem.debug(emptyList()), ShelfItem.debug(emptyList()))) {
-            assertFalse(line, script.take(20) in line)
-            for (text in entries) assertFalse(line, text.take(20) in line)
-        }
-        // Nor what a type is asked to say about its item in the bar, which the debug hooks print too.
-        assertTrue("both types are discreet", PrompterItem.discreet && ShelfItem.discreet)
+        for (line in listOfNotNull(PrompterItem.debug(emptyList()))) assertFalse(line, script.take(20) in line)
+        // Nor what the type is asked to say about its item in the bar, which the debug hooks print too.
+        assertTrue("the type is discreet", PrompterItem.discreet)
     }
 
     @Test fun whatIsKeptForAnItemThatIsGoneIsSweptAtTheStart() {
         PrompterItem.edit("p", script)
         PrompterItem.save("p")
-        ShelfItem.add("s", entries)
         // Left behind by items that went while the process ended (Undo is in memory, so it never let them go).
         Kept.own("prompter").write("gone", "an old script", 1)
-        Kept.own("shelf").write("gone", ShelfRules.encode(ShelfRules.take(emptyList(), listOf("an old note"))), 1)
         settled(PrompterItem.type)
-        settled(ShelfItem.type)
         PrompterItem.settle(Settle.SERVICE_STARTED)
-        ShelfItem.settle(Settle.SERVICE_STARTED)
         settled(PrompterItem.type)
-        settled(ShelfItem.type)
         assertEquals(setOf("p"), Kept.own("prompter").names())
-        assertEquals(setOf("s"), Kept.own("shelf").names())
     }
 
-    @Test fun aLineKeepsItsTextAndAForgottenLineTakesItWithIt() {
+    @Test fun aRemovedPromptersNotesStayWhileUndoCanBringItBackAndGoWhenItNoLongerCan() {
         PrompterItem.edit("p", script)
         PrompterItem.save("p")
-        ShelfItem.add("s", entries)
         settled(PrompterItem.type)
-        settled(ShelfItem.type)
-        // Removed, each waits in the library as a line, with its text.
-        assertTrue(Undo.change(removed = "p") { it.removed("p") })
-        assertTrue(Undo.change(removed = "s") { it.removed("s") })
-        assertEquals(Section.OFF, at("p").section)
-        assertEquals(Section.OFF, at("s").section)
-        // The bar's start keeps what a line holds.
+        // The settings' Remove: the item leaves the layout, as one step of Undo.
+        assertTrue(Undo.change(removed = "p") { it.without("p") })
+        assertEquals(listOf("c"), Store.config.value.items.map { it.id })
+        // The bar's start in between keeps what Undo can still bring back.
         PrompterItem.settle(Settle.SERVICE_STARTED)
-        ShelfItem.settle(Settle.SERVICE_STARTED)
         settled(PrompterItem.type)
-        settled(ShelfItem.type)
         assertEquals(setOf("p"), Kept.own("prompter").names())
-        assertEquals(setOf("s"), Kept.own("shelf").names())
-        // Forgotten, and then something else changes: no Undo brings them back, and their texts go, from memory too.
-        assertTrue(Undo.change { it.without("p").without("s") })
+        assertTrue(Undo.undo())
+        settled(PrompterItem.type)
+        assertEquals("back as it was", prompter, at("p"))
+        assertEquals("with its notes", script, Kept.own("prompter").read("p")?.text)
+        assertEquals(script, PrompterItem.script("p"))
+        // Removed again: still there. Then something else changes: no Undo brings it back, and the notes go, from memory too.
+        assertTrue(Undo.change(removed = "p") { it.without("p") })
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
         assertTrue(Undo.change { it.hide("c") })
         settled(PrompterItem.type)
-        settled(ShelfItem.type)
         assertEquals(emptySet<String>(), Kept.own("prompter").names())
-        assertEquals(emptySet<String>(), Kept.own("shelf").names())
         assertNull(PrompterItem.script("p"))
-        assertNull(ShelfItem.held("s"))
+    }
+
+    /** Closing the settings window ends Undo's reach as the next change does: the notes go then, not at some change days later. */
+    @Test fun aRemovedPromptersNotesGoWhenTheSettingsWindowIsClosed() {
+        PrompterItem.edit("p", script)
+        PrompterItem.save("p")
+        settled(PrompterItem.type)
+        assertTrue(Undo.change(removed = "p") { it.without("p") })
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
+        Undo.end()
+        settled(PrompterItem.type)
+        assertEquals(emptySet<String>(), Kept.own("prompter").names())
+        assertNull(PrompterItem.script("p"))
+        assertFalse(Undo.undo())
+        assertEquals(listOf("c"), Store.config.value.items.map { it.id })
+    }
+
+    @Test fun aRemovedAreasPromptersNotesStayWhileUndoCanBringItBackAndGoWhenItNoLongerCan() {
+        Store.update { c -> c.copy(items = c.items.map { if (it.id == "p") it.copy(area = Position.LEFT) else it }) }
+        PrompterItem.edit("p", script)
+        PrompterItem.save("p")
+        settled(PrompterItem.type)
+        // Remove an area: the prompter goes with its area, as one step of Undo.
+        assertTrue(Undo.change(area = Position.LEFT) { it.withoutArea(Position.LEFT) })
+        assertEquals(listOf("c"), Store.config.value.items.map { it.id })
+        PrompterItem.settle(Settle.SERVICE_STARTED)
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
+        assertTrue(Undo.undo())
+        settled(PrompterItem.type)
+        assertEquals("with its notes", script, Kept.own("prompter").read("p")?.text)
+        assertTrue(Undo.change(area = Position.LEFT) { it.withoutArea(Position.LEFT) })
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
+        assertTrue(Undo.change { it.hide("c") })
+        settled(PrompterItem.type)
+        assertEquals(emptySet<String>(), Kept.own("prompter").names())
+        assertNull(PrompterItem.script("p"))
+    }
+
+    @Test fun theBarsOwnMenuHasNoUndoSoItsRemoveTakesTheNotesAtOnce() {
+        PrompterItem.edit("p", script)
+        PrompterItem.save("p")
+        settled(PrompterItem.type)
+        Undo.removeForGood("p")
+        settled(PrompterItem.type)
+        assertEquals(listOf("c"), Store.config.value.items.map { it.id })
+        assertEquals(emptySet<String>(), Kept.own("prompter").names())
+        assertNull(PrompterItem.script("p"))
     }
 }

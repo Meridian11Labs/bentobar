@@ -78,7 +78,6 @@ object Store {
         val raw = file.string(KEY)
         val read = raw?.let(::readLayout)
         state.value = (read as? LayoutRead.Ok)?.config ?: Defaults.config()
-        swept = false
         when {
             raw == null -> save(state.value)
             read is LayoutRead.Ok -> {
@@ -97,20 +96,13 @@ object Store {
     }
 
     /**
-     * Whether the layout in [state] is known to hold no Off item that carries no setup: false from [open] until the first
-     * change, which looks at every Off item; after that a change is asked only about the Off items it touched.
-     */
-    private var swept = false
-
-    /**
-     * Every change goes through here. What it leaves has no Off item that carries no setup ([withoutBareOff]): the first
-     * change after an update from 1.8 drops those, and none can come to be afterwards.
+     * Every change goes through here. What it leaves has no Off item ([withoutOff]): a layout is read without them, and
+     * no change can make one, so nothing else in the app asks whether an item is Off.
      */
     fun update(change: (BarConfig) -> BarConfig) {
         synchronized(this) {
             val was = state.value
-            val n = change(was).withoutBareOff(was.takeIf { swept })
-            swept = true
+            val n = change(was).withoutOff()
             if (n == was) return
             state.value = n
             // Inside the lock, so a later change can never be saved before this one.
@@ -141,7 +133,7 @@ object Store {
     /**
      * The list with [new] in it. A Shown item goes at the left of its area, where a new item is easy to spot, but after
      * the Next meeting item, which stays at the far left: its width changes most, and at the area's outer edge that moves
-     * nothing else. With no Shown item of its area to go before, and for Hidden and Off items, at the end.
+     * nothing else. With no Shown item of its area to go before, and for a Hidden item, at the end.
      */
     internal fun List<ItemConfig>.added(new: ItemConfig): List<ItemConfig> {
         val at = if (new.section != Section.SHOWN) -1
@@ -234,14 +226,17 @@ object Store {
 object Defaults {
     /**
      * A calm first bar, left to right: the next meeting (only when one is near), the calendar, a
-     * timer and keep awake. Everything else is one click away in the library.
+     * timer and keep awake. Everything else is one click away in the library. It starts in Left, after the clock, and
+     * says so for each item and for the layout: the fields' own defaults ([ItemConfig.area], [BarConfig.position]) are
+     * Right and stay Right, since they are what a stored layout that names no area is read by.
      */
     fun config() = BarConfig(
         items = listOf(
-            ItemConfig(Store.newId(), "event", Section.HIDDEN, whenActive = true),
-            ItemConfig(Store.newId(), "calendar", Section.SHOWN, display = Display.ICON),
-            ItemConfig(Store.newId(), "timer", Section.SHOWN, display = Display.ICON),
-            ItemConfig(Store.newId(), "caffeine", Section.SHOWN, display = Display.ICON),
+            ItemConfig(Store.newId(), "event", Section.HIDDEN, whenActive = true, area = Position.LEFT),
+            ItemConfig(Store.newId(), "calendar", Section.SHOWN, display = Display.ICON, area = Position.LEFT),
+            ItemConfig(Store.newId(), "timer", Section.SHOWN, display = Display.ICON, area = Position.LEFT),
+            ItemConfig(Store.newId(), "caffeine", Section.SHOWN, display = Display.ICON, area = Position.LEFT),
         ),
+        position = Position.LEFT,
     )
 }

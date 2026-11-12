@@ -43,7 +43,6 @@ import com.meridian11.books.bentobar.items.MirrorItem
 import com.meridian11.books.bentobar.items.NoticesItem
 import com.meridian11.books.bentobar.items.PrompterItem
 import com.meridian11.books.bentobar.items.ScreenTimeItem
-import com.meridian11.books.bentobar.items.ShelfItem
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
 
@@ -134,7 +133,6 @@ private fun PrivacyByItem() {
         PrivacyNote(MirrorItem.type, MirrorItem.icon, MirrorItem.title, R.string.about_privacy_mirror),
         PrivacyNote(InUseItem.type, InUseItem.icon, InUseItem.title, R.string.about_privacy_inuse),
         PrivacyNote(ScreenTimeItem.type, ScreenTimeItem.icon, ScreenTimeItem.title, R.string.about_privacy_screentime),
-        PrivacyNote(ShelfItem.type, ShelfItem.icon, ShelfItem.title, R.string.about_privacy_shelf),
         PrivacyNote(PrompterItem.type, PrompterItem.icon, PrompterItem.title, R.string.about_privacy_prompter),
         PrivacyNote("others", Sym.WIDGETS, stringResource(R.string.about_privacy_others_title), R.string.about_privacy_others),
         PrivacyNote("backup", Sym.CLOUD_DONE, stringResource(R.string.about_privacy_backup_title), R.string.about_privacy_backup),

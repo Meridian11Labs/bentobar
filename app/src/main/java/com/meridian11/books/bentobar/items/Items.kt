@@ -52,7 +52,6 @@ object Items {
         TextItem,
         SpacerItem,
         PrompterItem,
-        ShelfItem,
         MirrorItem,
         // Online
         WeatherItem,
@@ -60,7 +59,6 @@ object Items {
         FlightItem,
         StocksItem,
         FxItem,
-        WebValueItem,
     )
     private val byType = all.associateBy { it.type }
 

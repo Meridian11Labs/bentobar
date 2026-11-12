@@ -12,15 +12,16 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +48,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
@@ -63,11 +65,13 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -105,7 +109,6 @@ import com.meridian11.books.bentobar.data.Standing
 import com.meridian11.books.bentobar.data.Step
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.canGoBelow
-import com.meridian11.books.bentobar.data.carriesSetup
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.rowAreas
 import com.meridian11.books.bentobar.data.parts
@@ -167,6 +170,8 @@ sealed interface Entry {
     data class Blank(val area: Position) : Entry { override val key: Any get() = "blank" to area; override val lane get() = area }
     /** The area the last change closed, said above the list with Undo. */
     data class Fold(val area: Position) : Entry { override val key: Any get() = "fold" to area; override val lane: Position? get() = null }
+    /** The area that Remove an area took out with its [items], said above the list with Undo, where [Fold] stands. */
+    data class Gone(val area: Position, val items: Int) : Entry { override val key: Any get() = "gone" to area; override val lane: Position? get() = null }
     /** The bar has no room for this area right now. */
     data class NoRoom(val area: Position) : Entry { override val key: Any get() = "noroom" to area; override val lane get() = area }
     /** Room at the end of a part while something is dragged: half a row in the one column, a row in a lane, so an empty part can be dropped into. */
@@ -179,17 +184,20 @@ sealed interface Entry {
  * it there). With several in one column ([abreast] false, the narrow window) a lane has its line only for a lower part
  * that has rows, or while a row is [dragging]; side by side there is one line for all, and a lower part without rows
  * says so. A [slip] stands where its row stood, and keeps its area on screen. A lane with nothing in it says what it
- * is for; [fold], the area that just closed, is said first; an area in [noRoom] says so under its head. While a row is
+ * is for; [fold], the area that just closed, or [gone], the one that was removed, is said first, also over an empty bar;
+ * an area in [noRoom] says so under its head. While a row is
  * [dragging] every part ends in room to drop into, unless words already stand there (an empty lane's, "Nothing here").
  */
-fun listEntries(cfg: BarConfig, slip: Slip?, dragging: Boolean, lanes: List<Position> = lanesOnScreen(cfg, emptySet()), abreast: Boolean = false,
-                fold: Position? = null, noRoom: Set<Position> = emptySet()): List<Entry> {
+internal fun listEntries(cfg: BarConfig, slip: Slip?, dragging: Boolean, lanes: List<Position> = lanesOnScreen(cfg, emptySet()), abreast: Boolean = false,
+                         fold: Position? = null, noRoom: Set<Position> = emptySet(), gone: Gone? = null): List<Entry> {
     // The bar's last row, removed: its slip stands in its own area, whichever area an empty bar would add to.
     val alone = slip?.zone?.area?.takeIf { lanes.size < 2 && cfg.rowAreas().isEmpty() }
     val areas = if (alone != null) listOf(alone) else BAR_ORDER.filter { it in lanes || it == slip?.zone?.area }
     val several = areas.size > 1
-    if (!several && slip == null && cfg.items.none { cfg.partOf(it) != null }) return listOf(Entry.ListHead(areas.first()), Entry.Empty)
+    val note = gone?.let { Entry.Gone(it.area, it.items) }
+    if (!several && slip == null && cfg.items.none { cfg.partOf(it) != null }) return listOfNotNull(note, Entry.ListHead(areas.first()), Entry.Empty)
     return buildList {
+        if (note != null) add(note)
         if (fold != null) add(Entry.Fold(fold))
         areas.forEachIndexed { i, area ->
             add(if (several) Entry.AreaHead(area, first = i == 0) else Entry.ListHead(area))
@@ -234,7 +242,7 @@ private data class Slot(val lane: Int, val band: Band, val fill: Boolean = false
 private fun slotOf(e: Entry, order: List<Position>): Slot {
     val lane = e.lane?.let(order::indexOf) ?: -1
     return when (e) {
-        is Entry.Fold -> Slot(-1, Band.TOP)
+        is Entry.Fold, is Entry.Gone -> Slot(-1, Band.TOP)
         is Entry.ListHead, is Entry.AreaHead -> Slot(lane, Band.HEAD)
         is Entry.NoRoom, Entry.Empty -> Slot(lane, Band.UPPER)
         is Entry.EmptyLane -> Slot(lane, Band.UPPER, fill = true)
@@ -295,7 +303,8 @@ private fun Lines(abreast: Int, content: @Composable () -> Unit) {
  * The bar's card: the one list, or with several [lanes] on screen in a window with the room, the lanes side by side.
  * A click selects a row, a click on the card's empty part lets the selection go, and a row is dragged to a new place by
  * [reorder] (the gesture and the copy that floats are the page's): the list shows the opening where the row would land,
- * room at the end of each part, and the part under it tinted.
+ * room at the end of each part, and the part under it tinted. While a row is carried the card's lower edge is the
+ * [Trash]'s: the list ends above it and scrolls there, the trash stays.
  */
 @Composable
 internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: String?, edit: BarEdit, reorder: Reorder, lanes: Lanes,
@@ -304,6 +313,9 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     val density = LocalDensity.current
     val scroll = rememberScrollState()
     val kept by Undo.last.collectAsState()
+    val over by Undo.over.collectAsState()
+    // The last change while its note stands: a slip with Undo goes after its time, and the change stays the one to undo.
+    val noted = Undo.noted(kept, over)
     val setup by Setup.state.collectAsState()
     val overflow by BarOverflow.ids.collectAsState()
     val narrow = LocalWindowLayout.current.kind == WindowClass.NARROW
@@ -321,17 +333,20 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     if (had[0] != lanes.on.size) { had[0] = lanes.on.size; travel.ms = Motion.AREA }
     LaunchedEffect(lanes.on.size) { delay(Motion.AREA.toLong()); travel.ms = Motion.NEIGHBOURS }
     SideEffect { travel.standing = true }
-    val entries = remember(cfg, shown, kept, dragging != null, lanes, abreast) {
+    // The lane stays closed when its note has gone: only the slip that says so leaves.
+    val fold = lanes.fold.takeIf { noted != null }
+    val entries = remember(cfg, shown, noted, dragging != null, lanes, abreast) {
         // A lane that closed says so above the list; the removed row's own slip would stand in a lane that is gone.
         // The slip is asked of the Store's layout and stands in the list as shown: what is carried changes the
         // arrangement on screen only, and a slip that left for that long would move every row under it by a row.
-        listEntries(shown, slipOf(kept, cfg).takeIf { lanes.fold == null }, dragging != null, lanes.on, abreast, lanes.fold, lanes.noRoom)
+        listEntries(shown, slipOf(noted, cfg).takeIf { lanes.fold == null }, dragging != null, lanes.on, abreast, fold, lanes.noRoom, goneOf(noted, cfg))
     }
     val order = remember(entries) { entries.mapNotNull { it.lane }.distinct() }
     val added = Undo.added(kept, cfg)?.id
-    val moved = if (lanes.fold != null) movedBy(kept) else null
+    val moved = if (fold != null) movedBy(kept) else null
     val grabbing = remember { PointerIcon(android.view.PointerIcon.TYPE_GRABBING) }
-    Column(modifier.clip(RoundedCornerShape(Radius.large)).background(c.panel)
+    Column(modifier.clip(RoundedCornerShape(Radius.large)).background(c.panel)) {
+      Column(Modifier.weight(1f).fillMaxWidth()
         .pointerInput(edit) { detectTapGestures { edit.letGo() } }
         .onGloballyPositioned { reorder.viewport = it }
         .scrollThumb(scroll, c.thumb).verticalScroll(scroll).padding(vertical = Space.m).testTag("bar-list")) {
@@ -355,11 +370,22 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
                             when (e) {
                                 is Entry.ListHead -> Head(stringResource(R.string.section_shown), stringResource(R.string.section_shown_help),
                                     slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.UPPER)] = it }) { AddArea(lanes.on, edit) }
-                                is Entry.AreaHead -> Head(stringResource(areaRes(e.area)), stringResource(whereRes(e.area, mirrored)),
-                                    slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.UPPER)] = it }, rule = !abreast && !e.first, plus = !abreast) {
-                                    if (e.area == order.last() && lanes.on.size < BAR_ORDER.size) AddArea(lanes.on, edit)
-                                    if (!abreast) BentoIconButton(Sym.ADD, stringResource(R.string.areas_add_item, stringResource(areaRes(e.area))),
-                                        { edit.addTo = e.area; edit.toLibrary() }, Modifier.testTag("add-to:${e.area}"), filled = false)
+                                is Entry.AreaHead -> {
+                                    val name = stringResource(areaRes(e.area))
+                                    // What its trash takes: every item of the area, as the Store has it (what is carried is still in it).
+                                    val count = cfg.items.count { it.area == e.area }
+                                    // Not the bar's one area with nothing in it yet, nor a lane only a removed row's slip keeps on screen.
+                                    val remove = if (count > 0) pluralStringResource(R.plurals.areas_remove, count, name, count)
+                                        else stringResource(R.string.areas_remove_empty, name).takeIf { e.area in edit.opened }
+                                    Head(name, stringResource(whereRes(e.area, mirrored)),
+                                        slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.UPPER)] = it }, rule = !abreast && !e.first,
+                                        plus = !abreast || remove != null,
+                                        actions = listOfNotNull(remove?.let { CustomAccessibilityAction(it) { edit.removeArea(e.area); true } })) {
+                                        if (e.area == order.last() && lanes.on.size < BAR_ORDER.size) AddArea(lanes.on, edit)
+                                        if (!abreast) BentoIconButton(Sym.ADD, stringResource(R.string.areas_add_item, name),
+                                            { edit.addTo = e.area; edit.toLibrary() }, Modifier.testTag("add-to:${e.area}"), filled = false)
+                                        if (remove != null) RemoveArea(e.area, remove, edit)
+                                    }
                                 }
                                 is Entry.PartLine -> PartLine(cfg.hiddenMode, slot.onGloballyPositioned { reorder.headings[Zone(e.area, Part.LOWER)] = it })
                                 // Every lane's lower part starts at this one line.
@@ -379,7 +405,9 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
                                 is Entry.EmptyLane -> EmptyLane(e.area, lanes.on, edit, slot)
                                 is Entry.Blank -> Box(slot.fillMaxWidth().heightIn(min = Target.row).padding(horizontal = Space.xl).testTag("blank:${e.area}"),
                                     contentAlignment = Alignment.CenterStart) { Text(stringResource(R.string.areas_nothing), style = Bento.type.help, color = c.ink3) }
-                                is Entry.Fold -> FoldSlip(e.area, edit, slot)
+                                is Entry.Fold -> TopNote(stringResource(R.string.areas_folded, stringResource(areaRes(e.area))), "fold", edit, slot)
+                                is Entry.Gone -> TopNote(pluralStringResource(R.plurals.areas_removed, e.items, stringResource(areaRes(e.area)), e.items),
+                                    "area-removed", edit, slot)
                                 is Entry.NoRoom -> NoRoom(e.area, cfg, slot)
                                 is Entry.Room -> Spacer(slot.fillMaxWidth().height(if (abreast) Target.row else ROOM))
                             }
@@ -387,6 +415,50 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
                     }
                 }
             }
+        }
+      }
+      Trash(reorder)
+    }
+}
+
+/** How much of the danger colour lies over the card while a row is over the trash: the red button's ground. */
+internal const val TRASH_VEIL = DANGER_VEIL
+
+/**
+ * The trash: while a row of the bar is carried (never a type of the library), a strip along the card's lower edge,
+ * under the list and not scrolled with it. A drop on it removes the row, as Remove does. Its room is the card's from
+ * the pickup and the strip rises into it ([Motion.LIFT]; with no animations it is simply there): a room that grew
+ * under the pointer would be one the pointer was outside at the pickup, and so armed at once ([Reorder.trash]). When
+ * the drag ends the room itself closes, in height, and the strip sinks with it: the list gets it back frame by frame,
+ * and one that was scrolled into it during the drag comes back with it and does not jump when the strip is gone. With
+ * the row over it, it is in the danger colour. It takes no click and no focus and says nothing: Remove is a row's
+ * action and a key.
+ */
+@Composable
+private fun Trash(reorder: Reorder) {
+    val c = Bento.colors
+    val on = reorder.carried?.from == From.BAR && reorder.live
+    val travel by animateFloatAsState(if (on) 1f else 0f, Motion.spec(tween(Motion.LIFT)), label = "trash")
+    val risen = if (Motion.off) (if (on) 1f else 0f) else travel
+    if (!on && risen == 0f) return
+    val over = on && reorder.drop == Drop.Off
+    val ink = if (over) c.danger else c.ink2
+    val shape = RoundedCornerShape(Radius.medium)
+    Box(Modifier.fillMaxWidth().onGloballyPositioned { reorder.trash = it }.clipToBounds()
+        .layout { measurable, constraints ->
+            val strip = measurable.measure(constraints)
+            layout(strip.width, if (on) strip.height else (strip.height * risen).roundToInt()) { strip.place(0, 0) }
+        }.testTag("trash")) {
+        Row(Modifier.fillMaxWidth().graphicsLayer { translationY = if (on) (1f - risen) * size.height else 0f }
+            .padding(start = ROW_INSET, end = ROW_INSET, bottom = Space.m).heightIn(min = Target.row)
+            .background(if (over) c.danger.copy(alpha = TRASH_VEIL) else c.sunk, shape)
+            .then(if (over) Modifier.border(1.5.dp, c.danger, shape) else Modifier)
+            .padding(horizontal = Space.m, vertical = Space.s).clearAndSetSemantics { },
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            SymIcon(Sym.DELETE, size = 18.sp, color = ink)
+            Spacer(Modifier.width(Space.s))
+            Text(stringResource(R.string.bar_trash), style = Bento.type.small.copy(fontWeight = FontWeight.SemiBold), color = ink, maxLines = lines(),
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -437,11 +509,13 @@ internal fun whereRes(area: Position, mirrored: Boolean): Int = when (area) {
 
 /**
  * A head: the list's ("In the bar · Left to right, as they appear") or an area's ("Left · After the clock"), one
- * heading for a screen reader, and at its end what [trailing] puts there ("Add an area", an area's +). [rule]: a
- * hairline above it, between the areas of the one column; [plus]: the head ends in a button of a row's height.
+ * heading for a screen reader, and at its end what [trailing] puts there ("Add an area", an area's + and its trash).
+ * [rule]: a hairline above it, between the areas of the one column; [plus]: the head ends in a button of a control's
+ * height; [actions]: what a screen reader can do on the heading itself (Remove an area).
  */
 @Composable
-private fun Head(name: String, where: String, modifier: Modifier, rule: Boolean = false, plus: Boolean = false, trailing: @Composable RowScope.() -> Unit) {
+private fun Head(name: String, where: String, modifier: Modifier, rule: Boolean = false, plus: Boolean = false,
+                 actions: List<CustomAccessibilityAction> = emptyList(), trailing: @Composable RowScope.() -> Unit) {
     val c = Bento.colors
     // The dot stands between the two: from right to left the name is on the right, so the dot ends the words beside it.
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -449,13 +523,25 @@ private fun Head(name: String, where: String, modifier: Modifier, rule: Boolean 
         if (rule) Box(Modifier.fillMaxWidth().padding(Space.s).height(1.dp).background(c.line))
         Row(Modifier.fillMaxWidth().heightIn(min = if (plus) Target.control else 36.dp).padding(start = Space.xl, end = if (plus) Space.s else 14.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f).semantics(mergeDescendants = true) { heading(); if (actions.isNotEmpty()) customActions = actions },
+                verticalAlignment = Alignment.CenterVertically) {
                 Text(name, style = Bento.type.strong, color = c.ink, maxLines = lines())
                 Text(if (rtl) "$where · " else " · $where", style = Bento.type.help, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
             }
             trailing()
         }
     }
+}
+
+/**
+ * An area's trash, quiet at the end of its head while several lanes are on screen: the area goes with every item in it
+ * ([BarEdit.removeArea]), which its name says ("Remove Left and its 3 items").
+ */
+@Composable
+private fun RemoveArea(area: Position, spoken: String, edit: BarEdit) {
+    var focused by remember { mutableStateOf(false) }
+    BentoIconButton(Sym.DELETE, spoken, { edit.removeArea(area, focused) }, Modifier.onFocusChanged { focused = it.isFocused }.testTag("remove-area:$area"),
+        filled = false)
 }
 
 /**
@@ -468,8 +554,17 @@ private fun AddArea(lanes: List<Position>, edit: BarEdit) {
     val interaction = remember { MutableInteractionSource() }
     var open by remember { mutableStateOf(false) }
     val mirrored = barMirrored(LocalLayoutDirection.current)
+    val requester = remember { FocusRequester() }
+    // The empty lane it opened was closed again by its trash, with the keyboard: the keyboard comes back here.
+    LaunchedEffect(edit.focusAddArea) {
+        if (!edit.focusAddArea) return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { requester.requestFocus() }
+        edit.focusAddArea = false
+    }
     Box {
         Row(Modifier.heightIn(min = 32.dp).states(interaction).background(if (open) c.sunk else Color.Transparent, ROW_SHAPE)
+            .focusRequester(requester)
             .clickable(interaction, indication = null, role = Role.Button) { open = true }
             .padding(start = 10.dp, end = 6.dp).testTag("add-area"), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.areas_add), style = Bento.type.small.copy(fontWeight = FontWeight.Medium), color = c.ink2, maxLines = 1)
@@ -517,11 +612,17 @@ private fun EmptyLane(area: Position, lanes: List<Position>, edit: BarEdit, modi
     }
 }
 
-/** A lane closed with its last item: which one, across the top of the list, with the Undo that brings both back. */
+/**
+ * The note across the top of the list: a lane closed with its last item, or an area was removed with all of its items
+ * ([text] says which), with the Undo that brings back what went. A polite live region. The note stands its time
+ * ([NoteTime]); the lane stays closed after it.
+ */
 @Composable
-private fun FoldSlip(area: Position, edit: BarEdit, modifier: Modifier) {
+private fun TopNote(text: String, tag: String, edit: BarEdit, modifier: Modifier) {
     val c = Bento.colors
     val requester = remember { FocusRequester() }
+    val hold = remember { NoteHold() }
+    NoteTime(hold)
     LaunchedEffect(edit.focusFold) {
         if (!edit.focusFold) return@LaunchedEffect
         withFrameNanos { }
@@ -529,10 +630,10 @@ private fun FoldSlip(area: Position, edit: BarEdit, modifier: Modifier) {
         edit.focusFold = false
     }
     Row(modifier.fillMaxWidth().padding(start = ROW_INSET, end = ROW_INSET, bottom = Space.xs).heightIn(min = Target.row).background(c.sunk, ROW_SHAPE)
-        .padding(start = 14.dp, end = Space.xs).testTag("fold"), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.areas_folded, stringResource(areaRes(area))), Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+        .holdsNote(hold).padding(start = 14.dp, end = Space.xs).testTag(tag), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
             style = Bento.type.small, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
-        BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.focusRequester(requester).onFocusChanged { edit.slipFocused = it.hasFocus },
+        BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.deafAtFirst().focusRequester(requester).onFocusChanged { edit.slipFocused = it.hasFocus },
             kind = ButtonKind.TEXT)
     }
 }
@@ -591,26 +692,22 @@ private fun DropOpening(id: String, reorder: Reorder, modifier: Modifier) {
         .background(tint.copy(alpha = 0.08f)).border(1.dp, tint.copy(alpha = 0.35f), ROW_SHAPE))
 }
 
-/** A removed row's place: what was removed, as the library names it, and the one Undo. It closes with the next change. */
+/**
+ * A removed row's place: what was removed, by its type's name, and the one Undo. It closes with the next change, or
+ * when it has stood its time ([NoteTime]): the rows under it then travel up into its place.
+ */
 @Composable
 private fun SlipRow(slip: Slip, edit: BarEdit, modifier: Modifier) {
     val c = Bento.colors
     val res = LocalResources.current
+    val hold = remember { NoteHold() }
+    NoteTime(hold)
     Row(modifier.animatePlacement().fillMaxWidth().padding(horizontal = ROW_INSET).heightIn(min = Target.row).background(c.sunk, ROW_SHAPE)
-        .padding(start = Space.l, end = Space.xs).testTag("slip"), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.bar_removed, removedName(res, slip.item)), Modifier.weight(1f), style = Bento.type.small, color = c.ink2,
+        .holdsNote(hold).padding(start = Space.l, end = Space.xs).testTag("slip"), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.bar_removed, itemName(res, slip.item)), Modifier.weight(1f), style = Bento.type.small, color = c.ink2,
             maxLines = lines(), overflow = TextOverflow.Ellipsis)
-        BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.onFocusChanged { edit.slipFocused = it.hasFocus }, kind = ButtonKind.TEXT)
+        BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.deafAtFirst().onFocusChanged { edit.slipFocused = it.hasFocus }, kind = ButtonKind.TEXT)
     }
-}
-
-/**
- * What a removed item is called, as the library names it: a setup by its type and its line's words ("Clock · Tokyo"),
- * an item that carried nothing by its type alone.
- */
-internal fun removedName(res: android.content.res.Resources, item: ItemConfig): String {
-    val type = Items.of(item.type)?.takeIf { item.carriesSetup(it) } ?: return itemName(res, item)
-    return res.getString(R.string.library_setup, res.getString(type.titleRes), setupText(res, item, type))
 }
 
 @Composable
@@ -764,10 +861,12 @@ private object ChipOnly : StripEvents {
 /**
  * What is carried, drawn over the whole page under the pointer: the row as the list draws it, raised, and over the
  * preview the item's chip as the strip draws it. It turns from one into the other by its size and its shape in 120 ms,
- * never by a fade: one of the two is drawn at a time, cut to the shape between them.
+ * never by a fade: one of the two is drawn at a time, cut to the shape between them. Its corner is a place in the root
+ * ([Reorder.copyAt]), so [modifier] stands it at the root's physical top left and the offset is absolute: from right to
+ * left a start corner and `offset` would each mirror it across the window.
  */
 @Composable
-internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, ItemState>, several: Boolean) {
+internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, ItemState>, several: Boolean, modifier: Modifier = Modifier) {
     val carried = reorder.carried ?: return
     val c = Bento.colors
     // As it would be where it hangs: the copy says nothing of a place that is not so there.
@@ -793,7 +892,7 @@ internal fun DragCopy(reorder: Reorder, cfg: BarConfig, states: Map<String, Item
             if (look != null) Strip(listOf(StripEntry(item, state)), emptyList(), showChevron = false, chevronAlways = false, chevronReservePx = 0,
                 expanded = false, chevronOnLeft = false, look = look.copy(pill = Pill.NONE), maxWidthPx = 4000, heightDp = 36.dp, events = ChipOnly)
         }
-    }, Modifier.offset { reorder.copyAt(chip).round() }.testTag(if (chip < 0.5f) "drag-row" else "drag-chip")
+    }, modifier.absoluteOffset { reorder.copyAt(chip).round() }.testTag(if (chip < 0.5f) "drag-row" else "drag-chip")
         .graphicsLayer {
             shadowElevation = 8.dp.toPx() * raised
             shape = RoundedCornerShape(lerp(Radius.medium, (size.height / 2).toDp(), chip))

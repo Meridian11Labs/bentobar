@@ -3,7 +3,6 @@ package com.meridian11.books.bentobar.items
 import androidx.compose.runtime.Composable
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.util.Fmt
 import com.meridian11.books.bentobar.util.Sym
@@ -77,7 +76,7 @@ object LiveItem : ItemType("live", R.string.item_live_title, Sym.RADIO_BUTTON_CH
         val wanted = wiring.sampled().filter { it.type == type }.flatMapTo(HashSet()) { wakes(it) }
         val before = answers.value
         val next = HashMap<String, LiveNow>()
-        val placed by lazy { wiring.layout().filter { it.section != Section.OFF } }
+        val placed by lazy { wiring.layout() }
         for (source in sources()) {
             val t = source.type
             if (t !in wanted) continue

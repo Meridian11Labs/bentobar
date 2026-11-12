@@ -95,7 +95,7 @@ class ArrangeTest {
             // Every width up to more than the free area holds: the one strip was never cut.
             for (measured in 0..bar.freeRight - bar.freeLeft + 60) {
                 val expected = listOf(today(area, bar, measured, pill, k))
-                // In use, or the home of a layout with nothing outside Off; drawing, blank or not on screen yet.
+                // In use, or the home of a layout with no item; drawing, blank or not on screen yet.
                 for (inUse in listOf(setOf(area), emptySet())) for (state in listOf(drawing(measured), blank(measured), waiting(measured))) {
                     val a = arrange(bar, area, inUse, mapOf(area to state), pill, k)
                     hold(a.spots == expected) { "$area on $bar, $measured wide, pill=$pill, $k, $state: ${a.spots} for $expected" }
@@ -129,63 +129,70 @@ class ArrangeTest {
             assertEquals(ROOM_ORDER - home, a.leave)
             assertEquals(home, a.carrier)
         }
-        // A pixel more is room for a ‹, and room goes in room order: Right has the strip, whichever area is home.
+        // A pixel more is room for a ‹, and room goes in room order: Left has the strip, whichever area is home.
         val a = arrange(Bar(1920, 900, 942), CENTER, all, strips)
-        assertEquals(listOf(Spot(RIGHT, 1920 - 942, 300, 30)), a.spots)
-        assertEquals(setOf(LEFT, CENTER), a.owed)
+        assertEquals(listOf(Spot(LEFT, 900, 200, 30)), a.spots)
+        assertEquals(setOf(RIGHT, CENTER), a.owed)
     }
 
-    // ---- Right, then Left, then Middle -------------------------------------------------------------------
+    // ---- Left, then Right, then Middle -------------------------------------------------------------------
 
-    @Test fun leftGetsTheRoomRightLeavesAndTheMiddleWhatBothLeave() {
-        val a = arrange(small, RIGHT, all, mapOf(RIGHT to drawing(300), LEFT to drawing(200), CENTER to drawing(250)))
-        assertEquals(listOf(RIGHT, LEFT, CENTER), a.spots.map { it.area })
-        assertEquals(listOf(300, 200, 250), a.spots.map { it.width })
-        // 1513 px in all; each strip's own ends (2 x 6) come off what it may fill, and a strip beside it costs its width and the gap.
-        assertEquals(listOf(1513 - 12, 1513 - 306 - 12, 1513 - 306 - 206 - 12), a.spots.map { it.budget })
-        // Right against the right end, Left against the left, the Middle where the one centred strip stood.
-        assertEquals(listOf(1381, 168, 799), a.spots.map { it.left(small.screenW) })
-        assertEquals(today(CENTER, small, 250, pill = false).x, a.spots[2].x)
-        assertTrue(a.owed.isEmpty() && a.leave.isEmpty())
+    @Test fun rightGetsTheRoomLeftLeavesAndTheMiddleWhatBothLeave() {
+        // Whichever area is home: who has the room first is not the home area's to say.
+        for (home in Position.entries) {
+            val a = arrange(small, home, all, mapOf(RIGHT to drawing(300), LEFT to drawing(200), CENTER to drawing(250)))
+            assertEquals(listOf(LEFT, RIGHT, CENTER), a.spots.map { it.area })
+            assertEquals(listOf(200, 300, 250), a.spots.map { it.width })
+            // 1513 px in all; each strip's own ends (2 x 6) come off what it may fill, and a strip beside it costs its width and the gap.
+            assertEquals(listOf(1513 - 12, 1513 - 206 - 12, 1513 - 206 - 306 - 12), a.spots.map { it.budget })
+            // Left against the left end, Right against the right, the Middle where the one centred strip stood.
+            assertEquals(listOf(168, 1381, 799), a.spots.map { it.left(small.screenW) })
+            assertEquals(today(CENTER, small, 250, pill = false).x, a.spots[2].x)
+            assertTrue(a.owed.isEmpty() && a.leave.isEmpty())
+        }
 
-        assertEquals(Lane(168, 1681), BarRules.lane(RIGHT, 168, 1681, between = 6, usedRight = 300, usedLeft = 200))
-        assertEquals(Lane(168, 1375), BarRules.lane(LEFT, 168, 1681, between = 6, usedRight = 300, usedLeft = 200))
+        // An area's room is what the areas asked before it leave: nothing has been used when Left is asked, Left's when Right is.
+        assertEquals(Lane(168, 1681), BarRules.lane(LEFT, 168, 1681, between = 6, usedRight = 0, usedLeft = 0))
+        assertEquals(Lane(374, 1681), BarRules.lane(RIGHT, 168, 1681, between = 6, usedRight = 0, usedLeft = 200))
         assertEquals(Lane(374, 1375), BarRules.lane(CENTER, 168, 1681, between = 6, usedRight = 300, usedLeft = 200))
         assertEquals(1001, Lane(374, 1375).max)
         // A neighbour that takes no room asks for no gap either.
         assertEquals(Lane(168, 1681), BarRules.lane(CENTER, 168, 1681, between = 6, usedRight = 0, usedLeft = 0))
+        assertEquals(Lane(168, 1681), BarRules.lane(RIGHT, 168, 1681, between = 6, usedRight = 0, usedLeft = 0))
+        // What an area uses itself is not taken from its own room.
         assertEquals(Lane(168, 1681), BarRules.lane(LEFT, 168, 1681, between = 6, usedRight = 0, usedLeft = 200))
+        assertEquals(Lane(374, 1681), BarRules.lane(RIGHT, 168, 1681, between = 6, usedRight = 300, usedLeft = 200))
     }
 
-    @Test fun withoutRightTheLeftIsFirstAndHasTheWholeRoom() {
-        val a = arrange(small, CENTER, setOf(LEFT, CENTER), mapOf(LEFT to drawing(200), CENTER to drawing(250)))
-        assertEquals(listOf(today(LEFT, small, 200, pill = false), Spot(CENTER, today(CENTER, small, 250, pill = false).x, 250, 1513 - 206 - 12)), a.spots)
-        assertEquals(LEFT, a.carrier)
+    @Test fun withoutLeftTheRightIsFirstAndHasTheWholeRoom() {
+        val a = arrange(small, CENTER, setOf(RIGHT, CENTER), mapOf(RIGHT to drawing(300), CENTER to drawing(250)))
+        assertEquals(listOf(today(RIGHT, small, 300, pill = false), Spot(CENTER, today(CENTER, small, 250, pill = false).x, 250, 1513 - 306 - 12)), a.spots)
+        assertEquals(RIGHT, a.carrier)
     }
 
     @Test fun anAreaBesideOthersIsCutToItsRoomAndTheFirstNeverIs() {
-        val cut = arrange(small, RIGHT, setOf(RIGHT, LEFT), mapOf(RIGHT to drawing(300), LEFT to drawing(2000)))
-        assertEquals(listOf(Spot(RIGHT, 239, 300, 1501), Spot(LEFT, 168, 1207, 1195)), cut.spots)
+        val cut = arrange(small, LEFT, setOf(RIGHT, LEFT), mapOf(LEFT to drawing(300), RIGHT to drawing(2000)))
+        assertEquals(listOf(Spot(LEFT, 168, 300, 1501), Spot(RIGHT, 239, 1207, 1195)), cut.spots)
         // The first is as wide as it was measured, as the one strip is: the others then have no room left.
-        val over = arrange(small, RIGHT, setOf(RIGHT, LEFT), mapOf(RIGHT to drawing(2000), LEFT to drawing(200)))
-        assertEquals(listOf(Spot(RIGHT, 239, 2000, 1501)), over.spots)
-        assertEquals(setOf(LEFT), over.owed)
+        val over = arrange(small, LEFT, setOf(RIGHT, LEFT), mapOf(LEFT to drawing(2000), RIGHT to drawing(200)))
+        assertEquals(listOf(Spot(LEFT, 168, 2000, 1501)), over.spots)
+        assertEquals(setOf(RIGHT), over.owed)
     }
 
     @Test fun anAreaWithLessRoomThanAChevronNeedsBesideOthersIsOwedAndItsWindowGoes() {
-        // Of 1513 px, Right's 1465 and the gap leave Left exactly a ‹ and its ends (42); a pixel more leaves it too little.
-        val enough = arrange(small, RIGHT, setOf(RIGHT, LEFT), mapOf(RIGHT to drawing(1465), LEFT to drawing(200)))
-        assertEquals(listOf(Spot(RIGHT, 239, 1465, 1501), Spot(LEFT, 168, 42, 30)), enough.spots)
+        // Of 1513 px, Left's 1465 and the gap leave Right exactly a ‹ and its ends (42); a pixel more leaves it too little.
+        val enough = arrange(small, LEFT, setOf(RIGHT, LEFT), mapOf(LEFT to drawing(1465), RIGHT to drawing(200)))
+        assertEquals(listOf(Spot(LEFT, 168, 1465, 1501), Spot(RIGHT, 239, 42, 30)), enough.spots)
         assertTrue(enough.owed.isEmpty() && enough.leave.isEmpty())
 
-        val short = arrange(small, RIGHT, setOf(RIGHT, LEFT), mapOf(RIGHT to drawing(1466), LEFT to drawing(200)))
-        assertEquals(listOf(Spot(RIGHT, 239, 1466, 1501)), short.spots)
-        assertEquals(setOf(LEFT), short.owed)
-        assertEquals(listOf(LEFT), short.leave)
+        val short = arrange(small, LEFT, setOf(RIGHT, LEFT), mapOf(LEFT to drawing(1466), RIGHT to drawing(200)))
+        assertEquals(listOf(Spot(LEFT, 168, 1466, 1501)), short.spots)
+        assertEquals(setOf(RIGHT), short.owed)
+        assertEquals(listOf(RIGHT), short.leave)
 
         // Owed all the same while it has no window, and then no window has to go.
-        val notUp = arrange(small, RIGHT, setOf(RIGHT, LEFT), mapOf(RIGHT to drawing(1466), LEFT to waiting(200)))
-        assertEquals(setOf(LEFT), notUp.owed)
+        val notUp = arrange(small, LEFT, setOf(RIGHT, LEFT), mapOf(LEFT to drawing(1466), RIGHT to waiting(200)))
+        assertEquals(setOf(RIGHT), notUp.owed)
         assertTrue(notUp.leave.isEmpty())
     }
 
@@ -197,9 +204,9 @@ class ArrangeTest {
     }
 
     @Test fun anAreaInUseThatDrawsNothingKeepsItsSpotAndTakesNoRoom() {
-        val a = arrange(small, RIGHT, all, mapOf(RIGHT to blank(300), LEFT to drawing(200), CENTER to drawing(250)))
-        assertEquals(Spot(RIGHT, 239, 300, 1501), a.spots[0])
-        assertEquals("the whole room, as if Right were not there", Spot(LEFT, 168, 200, 1501), a.spots[1])
+        val a = arrange(small, LEFT, all, mapOf(LEFT to blank(300), RIGHT to drawing(200), CENTER to drawing(250)))
+        assertEquals(Spot(LEFT, 168, 300, 1501), a.spots[0])
+        assertEquals("the whole room, as if Left were not there", Spot(RIGHT, 239, 200, 1501), a.spots[1])
         assertEquals(1513 - 206 - 12, a.spots[2].budget)
         assertTrue(a.owed.isEmpty() && a.leave.isEmpty())
     }
@@ -207,10 +214,10 @@ class ArrangeTest {
     @Test fun widthsAreNeverBelowOneAndAStripNeverMeasuredTakesNoRoom() {
         // Its window is up and waits, invisible, for its first measure.
         val fresh = AreaState(0, empty = false, shown = true, pending = true)
-        val a = arrange(small, RIGHT, setOf(RIGHT, LEFT), mapOf(RIGHT to fresh, LEFT to drawing(200)))
-        assertEquals(listOf(Spot(RIGHT, 239, 1, 1501), Spot(LEFT, 168, 200, 1501)), a.spots)
+        val a = arrange(small, LEFT, setOf(RIGHT, LEFT), mapOf(LEFT to fresh, RIGHT to drawing(200)))
+        assertEquals(listOf(Spot(LEFT, 168, 1, 1501), Spot(RIGHT, 239, 200, 1501)), a.spots)
         // An area the controller has no state for yet is one never measured.
-        assertEquals(listOf(Spot(RIGHT, 239, 1, 1501), Spot(LEFT, 168, 1, 1501)), arrange(small, RIGHT, setOf(RIGHT, LEFT), emptyMap()).spots)
+        assertEquals(listOf(Spot(LEFT, 168, 1, 1501), Spot(RIGHT, 239, 1, 1501)), arrange(small, LEFT, setOf(RIGHT, LEFT), emptyMap()).spots)
         // With no room for any area too.
         assertEquals(1, arrange(Bar(1920, 900, 930), LEFT, setOf(LEFT), emptyMap()).spots.single().width)
     }
@@ -230,13 +237,13 @@ class ArrangeTest {
     @Test fun whatStandsBehindTheFirstStripIsTheSameWhetherItDrawsAChevronOrNot() {
         val narrow = Bar(1920, 600, 1200)
         var behindIt = 0
-        for ((bar, inUse) in listOf(small to all, small to setOf(RIGHT, LEFT), narrow to all, narrow to setOf(LEFT, CENTER)))
-            for (kept in listOf(0, 1, 150, 188, 400, 560, 1400, 1471)) for (l in listOf(40, 250, 380, 2000)) for (m in listOf(40, 250)) {
+        for ((bar, inUse) in listOf(small to all, small to setOf(RIGHT, LEFT), narrow to all, narrow to setOf(RIGHT, CENTER)))
+            for (kept in listOf(0, 1, 150, 188, 400, 560, 1400, 1471)) for (r in listOf(40, 250, 380, 2000)) for (m in listOf(40, 250)) {
                 val first = ROOM_ORDER.first { it in inUse }
-                val home = if (RIGHT in inUse) RIGHT else CENTER
-                fun placed(state: AreaState) = arrange(bar, home, inUse, mapOf(LEFT to drawing(l), CENTER to drawing(m)) + (first to state))
+                val home = if (LEFT in inUse) LEFT else CENTER
+                fun placed(state: AreaState) = arrange(bar, home, inUse, mapOf(RIGHT to drawing(r), CENTER to drawing(m)) + (first to state))
                 val none = placed(fitted(kept, chevron = 0))
-                val say = { "$first first on $bar keeping $kept, left $l, middle $m" }
+                val say = { "$first first on $bar keeping $kept, right $r, middle $m" }
                 for (chevron in 1..one.reserve) {
                     val state = fitted(kept, chevron)
                     val a = placed(state)
@@ -263,32 +270,32 @@ class ArrangeTest {
     }
 
     @Test fun aFirstStripThatDrawsNothingKeepsItsReachClearOnceItIsKnown() {
-        val strips = mapOf(RIGHT to blank(), LEFT to drawing(2000), CENTER to drawing(250))
-        val a = arrange(small, RIGHT, all, strips + (RIGHT to blank().copy(reach = 42)))
-        assertEquals(Spot(RIGHT, 239, 1, 1501), a.spots[0])
-        // Of 1513 px, a ‹ with its ends (42) and the gap are Right's.
-        assertEquals(Spot(LEFT, 168, 1465, 1453), a.spots[1])
-        assertEquals("with no reach known it takes no room, as before", Spot(LEFT, 168, 1513, 1501), arrange(small, RIGHT, all, strips).spots[1])
+        val strips = mapOf(LEFT to blank(), RIGHT to drawing(2000), CENTER to drawing(250))
+        val a = arrange(small, LEFT, all, strips + (LEFT to blank().copy(reach = 42)))
+        assertEquals(Spot(LEFT, 168, 1, 1501), a.spots[0])
+        // Of 1513 px, a ‹ with its ends (42) and the gap are Left's.
+        assertEquals(Spot(RIGHT, 239, 1465, 1453), a.spots[1])
+        assertEquals("with no reach known it takes no room, as before", Spot(RIGHT, 239, 1513, 1501), arrange(small, LEFT, all, strips).spots[1])
     }
 
     @Test fun onlyTheFirstStripHasAReachAndWithNoRoomForAChevronNoStripHas() {
         val strips = mapOf(RIGHT to drawing(300), LEFT to drawing(200), CENTER to drawing(250))
-        val plain = arrange(small, RIGHT, all, strips)
-        assertEquals("a strip behind the first takes what it measures", plain, arrange(small, RIGHT, all, strips + (LEFT to drawing(200).copy(reach = 900))))
-        assertEquals(plain.spots.drop(1), arrange(small, RIGHT, all, strips + (RIGHT to drawing(270).copy(reach = 300))).spots.drop(1))
+        val plain = arrange(small, LEFT, all, strips)
+        assertEquals("a strip behind the first takes what it measures", plain, arrange(small, LEFT, all, strips + (RIGHT to drawing(300).copy(reach = 900))))
+        assertEquals(plain.spots.drop(1), arrange(small, LEFT, all, strips + (LEFT to drawing(170).copy(reach = 200))).spots.drop(1))
         val none = Bar(1920, 900, 930)
-        assertEquals(arrange(none, RIGHT, all, strips), arrange(none, RIGHT, all, strips.mapValues { it.value.copy(reach = 400) }))
+        assertEquals(arrange(none, LEFT, all, strips), arrange(none, LEFT, all, strips.mapValues { it.value.copy(reach = 400) }))
     }
 
     @Test fun theAreasThatWantAStripAreThoseInUseAndTheHomeInTheOrderRoomIsGiven() {
         for (area in Position.entries) assertEquals("one area: that one", listOf(area), BarRules.wantedAreas(area, setOf(area)))
         for (home in Position.entries) {
-            assertEquals("whichever is home, room goes Right, Left, Middle", ROOM_ORDER, BarRules.wantedAreas(home, all))
-            assertEquals("nothing outside Off: the home area alone, so there is always one", listOf(home), BarRules.wantedAreas(home, emptySet()))
+            assertEquals("whichever is home, room goes Left, Right, Middle", listOf(LEFT, RIGHT, CENTER), BarRules.wantedAreas(home, all))
+            assertEquals("no item: the home area alone, so there is always one", listOf(home), BarRules.wantedAreas(home, emptySet()))
         }
         assertEquals(listOf(LEFT, CENTER), BarRules.wantedAreas(CENTER, setOf(CENTER, LEFT)))
         assertEquals("the home counts once", listOf(RIGHT, CENTER), BarRules.wantedAreas(RIGHT, setOf(CENTER, RIGHT)))
-        assertEquals("a home that is not in use is wanted as well", listOf(RIGHT, LEFT), BarRules.wantedAreas(RIGHT, setOf(LEFT)))
+        assertEquals("a home that is not in use is wanted as well", listOf(LEFT, RIGHT), BarRules.wantedAreas(RIGHT, setOf(LEFT)))
     }
 
     /** The bar and the settings preview ask the one list, so the preview has a strip exactly where the bar wants one. */
@@ -385,11 +392,11 @@ class ArrangeTest {
 
     @Test fun theCarrierIsTheFirstSpotInRoomOrder() {
         val strips = mapOf(RIGHT to drawing(300), LEFT to drawing(200), CENTER to drawing(250))
-        assertEquals(RIGHT, arrange(small, RIGHT, all, strips).carrier)
-        assertEquals(LEFT, arrange(small, CENTER, setOf(LEFT, CENTER), strips).carrier)
+        assertEquals(LEFT, arrange(small, LEFT, all, strips).carrier)
+        assertEquals(RIGHT, arrange(small, CENTER, setOf(RIGHT, CENTER), strips).carrier)
         assertEquals(CENTER, arrange(small, CENTER, setOf(CENTER), strips).carrier)
-        // Right holds nothing right now and carries all the same: it has a window.
-        assertEquals(RIGHT, arrange(small, RIGHT, all, strips + (RIGHT to blank())).carrier)
+        // Left holds nothing right now and carries all the same: it has a window.
+        assertEquals(LEFT, arrange(small, LEFT, all, strips + (LEFT to blank())).carrier)
         // With no room for any area the one strip is the home area's.
         assertEquals(CENTER, arrange(Bar(1920, 900, 930), CENTER, setOf(LEFT, CENTER), strips).carrier)
     }
@@ -433,14 +440,14 @@ class ArrangeTest {
     // ---- the order in which the spots are carried out ------------------------------------------------------
 
     /** Right with a timer just started: 46 px wider, and the Middle that stood against it 46 px further left. */
-    private val grown = listOf(Spot(RIGHT, 112, 942, 1714), Spot(LEFT, 82, 131, 733), Spot(CENTER, -224, 182, 596))
+    private val grown = listOf(Spot(LEFT, 82, 131, 733), Spot(RIGHT, 112, 942, 1714), Spot(CENTER, -224, 182, 596))
 
     @Test fun aStripThatGetsWiderTakesItsRoomAfterTheStripsThatMoveOrNarrowForIt() {
         val order = BarRules.givingWayFirst(grown, mapOf(RIGHT to 896, LEFT to 131, CENTER to 182))
         assertEquals(listOf(LEFT, CENTER, RIGHT), order.map { it.area })
         assertEquals("the same spots", grown.toSet(), order.toSet())
         // Left grows and the Middle narrows for it: the Middle first, though Left comes before it in room order.
-        val left = listOf(Spot(RIGHT, 112, 300, 1714), Spot(LEFT, 82, 700, 1400), Spot(CENTER, 40, 120, 108))
+        val left = listOf(Spot(LEFT, 82, 700, 1400), Spot(RIGHT, 112, 300, 1714), Spot(CENTER, 40, 120, 108))
         assertEquals(listOf(RIGHT, CENTER, LEFT), BarRules.givingWayFirst(left, mapOf(RIGHT to 300, LEFT to 400, CENTER to 250)).map { it.area })
     }
 
@@ -462,14 +469,14 @@ class ArrangeTest {
         val widths = listOf(0, 1, 40, 150, 400)
         var pairs = 0
         for (w in 42..600 step 9) for (inUse in subsets.filter { it.isNotEmpty() }) for (pill in listOf(false, true))
-            for (r in widths) for (l in widths) for (m in widths) for (blankRight in listOf(false, true)) {
+            for (r in widths) for (l in widths) for (m in widths) for (blankLeft in listOf(false, true)) {
                 val bar = Bar(1921, 700, 700 + w)
                 val lo = lo(bar, pill)
                 val hi = hi(bar, pill)
                 if (hi - lo < one.least) continue
-                val strips = mapOf(RIGHT to if (blankRight) blank(r) else drawing(r), LEFT to drawing(l), CENTER to drawing(m))
+                val strips = mapOf(RIGHT to drawing(r), LEFT to if (blankLeft) blank(l) else drawing(l), CENTER to drawing(m))
                 val a = arrange(bar, ROOM_ORDER.first { it in inUse }, inUse, strips, pill)
-                val say = { "free $w wide, in use $inUse, pill=$pill, right $r${if (blankRight) " (blank)" else ""}, left $l, middle $m: $a" }
+                val say = { "free $w wide, in use $inUse, pill=$pill, right $r, left $l${if (blankLeft) " (blank)" else ""}, middle $m: $a" }
                 a.spots.forEachIndexed { i, s ->
                     val left = s.left(bar.screenW)
                     // The first is never cut, as the one strip never was: wider than the room, it lies over its neighbours.

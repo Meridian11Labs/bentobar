@@ -1,6 +1,7 @@
 package com.meridian11.books.bentobar.ui
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import com.meridian11.books.bentobar.bar.Contrast
 import org.junit.Assert.assertEquals
@@ -65,6 +66,46 @@ class PaletteContrastTest {
             assertTrue("accent track on chrome, $theme", Contrast.ratio(p.accent, p.chrome) >= OUTLINE)
             assertTrue("thumb on accent, $theme", Contrast.ratio(p.onPrimary, p.accent) >= OUTLINE)
             assertTrue("thumb on edge, $theme", Contrast.ratio(p.panel, p.edge) >= OUTLINE)
+        }
+    }
+
+    /**
+     * The red button (Remove from the bar, Discard, a key taken off the device): its words and glyph in the danger
+     * colour on a ground of that colour over the card ([DANGER_VEIL], the trash's with a row over it), which stands
+     * off the card at least as a tonal button's ground does. Under the pointer and pressed the control's veil, in the
+     * same colour, lies on that ground ([states]): each state is a step from the one before and the words hold on
+     * every one, in light and dark; with the keyboard in it the ring is the accent on the panel.
+     */
+    @Test fun theRedButtonHoldsAtRestUnderThePointerPressedAndWithTheKeyboard() {
+        val table = mapOf("light" to listOf(5.53f, 5.07f, 4.72f), "dark" to listOf(7.73f, 6.77f, 6.10f))
+        for ((theme, p) in listOf("light" to Palette.Light, "dark" to Palette.Dark)) {
+            val rest = p.danger.copy(alpha = DANGER_VEIL).compositeOver(p.panel)
+            val grounds = listOf("at rest" to rest, "under the pointer" to p.danger.copy(alpha = VEIL_HOVER).compositeOver(rest),
+                "pressed" to p.danger.copy(alpha = VEIL_PRESSED).compositeOver(rest))
+            val ratios = grounds.map { (_, ground) -> Contrast.ratio(p.danger, ground) }
+            grounds.forEachIndexed { i, (state, _) ->
+                assertTrue("danger on the red button's ground $state, $theme: ${ratios[i]} is under ${Contrast.MIN}", ratios[i] >= Contrast.MIN)
+                assertTrue("danger on the red button's ground $state, $theme: ${ratios[i]}, the table says ${table.getValue(theme)[i]}", abs(ratios[i] - table.getValue(theme)[i]) < 0.06f)
+            }
+            assertTrue("the ground at rest stands off the card as a tonal button's does, $theme", Contrast.ratio(rest, p.panel) >= Contrast.ratio(p.sunk, p.panel))
+            for (i in 1..2) assertTrue("${grounds[i].first} the ground is a step stronger, $theme", Contrast.ratio(grounds[i].second, p.panel) > Contrast.ratio(grounds[i - 1].second, p.panel) + 0.05f)
+            assertTrue("the focus ring on panel, $theme", Contrast.ratio(p.accent, p.panel) >= OUTLINE)
+        }
+    }
+
+    /**
+     * The trash under the Bar page's list: at rest its glyph and words are ink2 on the sunk ground; with a row over it
+     * they are the danger colour on that colour's veil over the card ([TRASH_VEIL]), inside a border of the same red,
+     * which must show against the card and against the veil's own ground.
+     */
+    @Test fun theTrashHoldsAtRestAndWithARowOverIt() {
+        for ((theme, p) in listOf("light" to Palette.Light, "dark" to Palette.Dark)) {
+            assertTrue("ink2 on sunk, $theme", Contrast.ratio(p.ink2, p.sunk) >= Contrast.MIN)
+            val ground = p.danger.copy(alpha = TRASH_VEIL).compositeOver(p.panel)
+            val ratio = Contrast.ratio(p.danger, ground)
+            assertTrue("danger on the trash's veil, $theme: $ratio", ratio >= Contrast.MIN)
+            assertTrue("the trash's border on the card, $theme", Contrast.ratio(p.danger, p.panel) >= OUTLINE)
+            assertTrue("the trash's border on its own ground, $theme", Contrast.ratio(p.danger, ground) >= OUTLINE)
         }
     }
 

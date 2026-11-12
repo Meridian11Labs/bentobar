@@ -12,7 +12,6 @@ import androidx.compose.ui.res.stringResource
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Kept
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.InUseRules.Click
 import com.meridian11.books.bentobar.ui.SwitchRow
@@ -180,7 +179,7 @@ object InUseItem : ItemType("inuse", R.string.item_inuse_title, Sym.VIDEOCAM, R.
     }
 
     override fun settle(why: Settle) {
-        val placed = Store.config.value.items.any { it.type == type && it.section != Section.OFF }
+        val placed = Store.config.value.items.any { it.type == type }
         mute.settle(why, placed)
     }
 
@@ -270,7 +269,7 @@ internal class MuteKeeper(
     }
 
     /**
-     * [why] came ([ItemType.settle]); [placed]: an item of the type is outside Off. A mute of ours is given back when
+     * [why] came ([ItemType.settle]); [placed]: the layout has an item of the type. A mute of ours is given back when
      * [InUseRules.undoMute] says so; one somebody undid is forgotten; one that stays is known as ours again after a restart.
      * The note on disk is asked whether it exists, which reads nothing ([Kept.has]).
      */

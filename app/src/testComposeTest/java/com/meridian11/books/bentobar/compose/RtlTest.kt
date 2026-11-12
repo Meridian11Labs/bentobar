@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
@@ -122,6 +123,25 @@ class RtlTest {
         assertTrue(bounds("bracket:CENTER").left < bounds("bracket:RIGHT").left)
     }
 
+    @Test fun aLanesTrashStaysAtItsHeadsEndWhichIsNowItsLeft() {
+        page(null)
+        for ((area, name, row) in listOf(Triple(Position.LEFT, R.string.areas_left, "w"), Triple(Position.CENTER, R.string.areas_middle, "t"), Triple(Position.RIGHT, R.string.areas_right, "a"))) {
+            val head = rule.onNode(isHeading() and hasText(str(name))).fetchSemanticsNode().boundsInRoot
+            val trash = bounds("remove-area:$area")
+            assertTrue("$area: the trash ends the head, left of its words", trash.right <= head.left)
+            // Its glyph stands in line with the rows' ends; the button around it is a target and reaches a little further.
+            assertTrue("$area: and it is the lane's own, over its rows", trash.center.x > bounds("row:$row").left && trash.center.x < bounds("row:$row").center.x)
+        }
+    }
+
+    @Test fun fromLeftToRightALanesTrashEndsItsHeadAtTheRight() {
+        page(null, LayoutDirection.Ltr)
+        for ((area, name) in listOf(Position.LEFT to R.string.areas_left, Position.CENTER to R.string.areas_middle, Position.RIGHT to R.string.areas_right)) {
+            val head = rule.onNode(isHeading() and hasText(str(name))).fetchSemanticsNode().boundsInRoot
+            assertTrue("$area", bounds("remove-area:$area").left >= head.right)
+        }
+    }
+
     @Test fun thePreviewIsMirroredAroundAreasThatKeepTheirSidesAndTheHeadsSayWhatIsBesideEach() {
         page(null)
         // The picture: the clock at the right, the system's icons at the left, Left's strip still on the left.
@@ -180,6 +200,39 @@ class RtlTest {
         rule.waitForIdle()
         assertEquals(Position.LEFT, now("a").area)
         assertTrue(bounds("strip:LEFT").left < bounds("strip:RIGHT").left)
+    }
+
+    @Test fun aRowCarriedOntoTheTrashIsRemovedAndTheStripLiesUnderTheListBesideThePanel() {
+        page(null)
+        val layout = Store.config.value
+        val card = bounds("bar-list")
+        val from = bounds("row:m").center
+        rule.onRoot().performMouseInput { moveTo(from); press(); for (i in 1..6) moveBy(Offset(0f, 5f)) }
+        rule.waitForIdle()
+        // The copy hangs from the pointer, on the pointer's side of the window.
+        val pointer = from + Offset(0f, 30f)
+        assertTrue("the carried row is under the pointer at $pointer: ${bounds("drag-row")}", bounds("drag-row").contains(pointer))
+        val trash = bounds("trash")
+        assertEquals("as wide as the list's card", card.left to card.right, trash.left to trash.right)
+        assertEquals(card.bottom, trash.bottom)
+        assertTrue("the panel, at the page's start, is beside it and no part of it", bounds("panel").right <= trash.left)
+        // Every end of the strip takes the row, also the one under Left's lane.
+        for (x in listOf(trash.left + 8f, trash.right - 8f, trash.center.x)) {
+            rule.onRoot().performMouseInput { moveTo(Offset(x, trash.center.y - 80f)); moveTo(Offset(x, trash.center.y)) }
+            rule.waitForIdle()
+            rule.onNodeWithTag("preview-line").assert(hasText(app.getString(R.string.bar_drop_off, app.getString(R.string.item_memory_title))))
+        }
+        // Over the panel nothing would change.
+        rule.onRoot().performMouseInput { moveTo(bounds("panel").center) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("preview-line").assert(hasText(str(R.string.bar_drop_none)))
+        rule.onRoot().performMouseInput { moveTo(trash.center + Offset(0f, -80f)); moveTo(trash.center); release() }
+        rule.waitForIdle()
+        assertTrue(Store.config.value.items.none { it.id == "m" })
+        rule.onNodeWithTag("trash").assertDoesNotExist()
+        rule.runOnIdle { Undo.undo() }
+        rule.waitForIdle()
+        assertEquals(layout, Store.config.value)
     }
 
     @Test fun altWithAnArrowMovesARowTheWayTheArrowPointsOnScreen() {

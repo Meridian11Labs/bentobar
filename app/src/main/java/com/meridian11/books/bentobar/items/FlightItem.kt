@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Online
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.FlightRules.Tracked
 import com.meridian11.books.bentobar.items.FlightSamples.Staged
@@ -21,7 +20,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Flight: follows one flight, whose number the user enters in the item's menu. The bar counts down to
@@ -71,13 +69,10 @@ object FlightItem : ItemType("flight", R.string.item_flight_title, Sym.FLIGHT, R
      */
     private val fresh = HashMap<String, Tracked>()
 
-    /** The items whose flight was just taken and is not noted yet: [keepsOwn] is asked from any thread, so this is not [fresh]. */
-    private val taking: MutableSet<String> = ConcurrentHashMap.newKeySet()
-
-    /** The flight an item follows is kept under its id, outside the layout: with one, the item is a setup, and Remove keeps it as a line. */
-    override fun keepsOwn(item: ItemConfig): Boolean = item.id in taking || FlightLoad.follows(item.id)
-
-    /** A line was forgotten and Undo has let it go: nothing is held for it, and what was kept for it on the device goes. */
+    /**
+     * The flight an item follows is kept under its id, outside the layout. The item was removed and no Undo can bring
+     * it back: nothing is held for it, and what was kept for it on the device goes.
+     */
     override fun forgetOwn(id: String) {
         tracker.forget(id)
         fresh.remove(id)
@@ -101,7 +96,7 @@ object FlightItem : ItemType("flight", R.string.item_flight_title, Sym.FLIGHT, R
     /** What [item] shows in the real thing's place, if a sample is staged and it is the first Flight item. */
     internal fun stagedFor(item: ItemConfig): Staged? = staged?.takeIf { first()?.id == item.id }
 
-    private fun first(): ItemConfig? = Store.config.value.items.firstOrNull { it.type == type && it.section != Section.OFF }
+    private fun first(): ItemConfig? = Store.config.value.items.firstOrNull { it.type == type }
 
     // ---- the words and the clock for the pure rules
 
@@ -373,8 +368,7 @@ object FlightItem : ItemType("flight", R.string.item_flight_title, Sym.FLIGHT, R
         takes++
         val now = Now.wall()
         tracker.forget(id)
-        taking += id
-        Background.executor(type).execute { try { FlightLoad.take(id, found, now) } finally { taking -= id } }
+        Background.executor(type).execute { FlightLoad.take(id, found, now) }
         tracker.want(id)
         // What Track found is the one-flight question's word or the timetable's plan; the coming hours' list has the flight as it is.
         if (FlightRules.askAtOnce(found, Instant.ofEpochMilli(now))) tracker.refresh(id, afterRunning = true)
@@ -452,7 +446,7 @@ object FlightItem : ItemType("flight", R.string.item_flight_title, Sym.FLIGHT, R
         for (item in Store.config.value.items) {
             if (item.type != type) continue
             val known = tracker.peek(item.id) ?: continue
-            val waited = item.section != Section.OFF && FlightRules.waitsForKey(known, now)
+            val waited = FlightRules.waitsForKey(known, now)
             // What is known is read back from what is kept, which has lost the old key's count; until then the item shows it without.
             fresh[item.id] = known.copy(left = null)
             reread(item.id)
@@ -499,9 +493,9 @@ object FlightItem : ItemType("flight", R.string.item_flight_title, Sym.FLIGHT, R
 
     /**
      * At the app's start: nothing stays kept for an item the layout no longer has. Neither [onIdle] nor
-     * [forgetOwn] sees every way an item goes: a line that was forgotten never made the type idle, and
-     * a process that ended while Undo still held it, or inside the half minute after the last item
-     * went, never got to clear. No Undo outlives the process, so there is nothing to wait for here.
+     * [forgetOwn] sees every way an item goes: a pasted layout tells neither while another Flight
+     * item stays, and a process that ended while Undo still held it, or inside the half minute after
+     * the last item went, never got to clear. No Undo outlives the process, so there is nothing to wait for here.
      */
     internal fun sweepAtStart() {
         Background.executor(type).execute { runCatching { FlightLoad.sweep(ids()) } }

@@ -71,7 +71,7 @@ internal object StripContent {
     /**
      * The area whose strip may draw the empty capsule: the [home] area's, or, when the home area has no window ([owed]: it
      * has no room), the first strip's ([carrier], the first in room order that has one). The home area is looked for
-     * Right, Middle, Left and room goes Right, Left, Middle, so a Middle at home can be owed while Left has a strip: the
+     * Left, Middle, Right and room goes Left, Right, Middle, so a Middle at home can be owed while Right has a strip: the
      * capsule is there then, where the one-strip bar always had one.
      */
     fun capsuleArea(home: Position, carrier: Position, owed: Set<Position>): Position = if (home in owed) carrier else home

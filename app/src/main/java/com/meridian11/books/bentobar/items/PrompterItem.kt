@@ -82,18 +82,14 @@ object PrompterItem : ItemType("prompter", R.string.item_prompter_title, Sym.SUB
         }
     }
 
-    /** A script makes the item a setup: Remove keeps it as a line in the library, and the script with it. Any thread; it reads no file. */
-    override fun keepsOwn(item: ItemConfig): Boolean =
-        scripts.value[item.id]?.isNotBlank() == true || runCatching { Kept.own(OWN).has(item.id) }.getOrDefault(false)
-
-    /** A line was forgotten and Undo has let it go: its script goes, from memory and from the device. */
+    /** The item was removed and no Undo can bring it back: its script goes, from memory and from the device. */
     override fun forgetOwn(id: String) {
         scripts.update { it - id }
         runs.update { it - id }
         unsaved -= id
         Background.executor(type).execute {
             runCatching { Kept.own(OWN).remove(id) }
-            // A read that was on its way when the line went must not bring the script back into memory.
+            // A read that was on its way when the item went must not bring the script back into memory.
             scripts.update { it - id }
         }
     }
@@ -107,7 +103,7 @@ object PrompterItem : ItemType("prompter", R.string.item_prompter_title, Sym.SUB
                 scripts.update { it.filterKeys { id -> id in keep } }
                 Background.executor(type).execute { runCatching { Kept.own(OWN).keepOnly(keep) } }
             }
-            // A line keeps its script, but nowhere to stand: it opens at the top when it comes back.
+            // An item Undo brings back has its script, but nowhere to stand: it opens at the top.
             Settle.LEFT_LAYOUT -> runs.value = emptyMap()
             Settle.SERVICE_ENDING -> {}
         }

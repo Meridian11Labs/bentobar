@@ -7,7 +7,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
-/** Where an item lives: in the bar, hidden behind ‹, or off. */
+/**
+ * Where an item lives: in the bar, or hidden (waiting for its rule, or behind ‹). OFF is what a layout up to 2.1 could
+ * say of an item taken out of the bar: it is still read, and such an item is dropped ([withoutOff]), so no layout the app
+ * holds has one.
+ */
 @Serializable
 enum class Section { SHOWN, HIDDEN, OFF }
 
@@ -27,11 +31,14 @@ enum class Display {
 @Serializable
 enum class Position { RIGHT, CENTER, LEFT }
 
-/** Who gets room first, and the order the bar holds its strips in: Right, then Left, then Middle. */
-val ROOM_ORDER = listOf(Position.RIGHT, Position.LEFT, Position.CENTER)
+/**
+ * The areas in the order they stand in the bar, which is the order of the settings window's lanes, and the order the
+ * home area is looked for in ([homeArea]): Left, where a new bar starts, then Middle, then Right.
+ */
+val BAR_ORDER = listOf(Position.LEFT, Position.CENTER, Position.RIGHT)
 
-/** Where the home area is looked for ([homeArea]): Right, the place a strip has by default, then Middle, then Left. */
-val HOME_ORDER = listOf(Position.RIGHT, Position.CENTER, Position.LEFT)
+/** Who gets room first, and the order the bar holds its strips in: Left, then Right, then Middle. */
+val ROOM_ORDER = listOf(Position.LEFT, Position.RIGHT, Position.CENTER)
 
 @Serializable
 enum class ColorMode { AUTO, LIGHT, DARK }
@@ -204,7 +211,7 @@ enum class HiddenMode { SHOW_ALL, CLICK, HOVER }
 /**
  * Version 3 replaced the ‹ switch and "reveal on hover" with [HiddenMode]. With ‹ off, a hidden
  * item without a rule never showed; under SHOW_ALL it would, so those move to Off and the bar looks
- * the same as before.
+ * the same as before. (What is in Off leaves the layout as it is read, [withoutOff].)
  */
 fun BarConfig.migrateToV3(): BarConfig = if (version >= 3) this else copy(
     version = 3,
@@ -222,12 +229,12 @@ fun BarConfig.migrateToV4(): BarConfig =
 /**
  * Whether an item is drawn right now: the one rule for the strip and, through [couldShow], for the ticker, so what is drawn
  * is what is sampled. While presenting, only a type that [presents][ItemType.presents] and has something to say, whatever
- * its section but Off. A type this version doesn't know (a pasted layout, a restore from a newer install) isn't drawn: it
+ * its section. A type this version doesn't know (a pasted layout, a restore from a newer install) isn't drawn: it
  * stays in the layout, marked in settings, so an update brings it back.
  */
 fun BarConfig.shows(item: ItemConfig, active: Boolean, type: ItemType? = Items.of(item.type)): Boolean = when {
     type == null -> false
-    presenting -> item.section != Section.OFF && type.presents && active
+    presenting -> type.presents && active
     else -> sectionShows(item, active)
 }
 
@@ -250,26 +257,26 @@ fun BarConfig.behindChevron(active: (ItemConfig) -> Boolean): List<ItemConfig> =
  * that's a rule item waiting for its rule, never a hidden item that is drawn.
  */
 fun BarConfig.notDrawn(active: (ItemConfig) -> Boolean): List<ItemConfig> =
-    items.filter { it.section != Section.OFF && Items.of(it.type) != null && !sectionShows(it, active(it)) }
+    items.filter { Items.of(it.type) != null && !sectionShows(it, active(it)) }
 
-/** Areas with an item outside Off of a type this version knows: the same two tests as [behindChevron] and [notDrawn]. */
+/** Areas with an item of a type this version knows: the same test as [behindChevron] and [notDrawn]. */
 fun BarConfig.areasInUse(): Set<Position> =
-    items.filter { it.section != Section.OFF && Items.of(it.type) != null }.map { it.area }.toSet()
+    items.filter { Items.of(it.type) != null }.map { it.area }.toSet()
 
 /**
  * Where the bar's one-off things go: Presenting's ‹, the empty capsule, a new item, the strip when nothing has room. A
  * layout with no items has no area to say it, so [BarConfig.position] does, as it did when the whole bar had one place.
  */
 fun BarConfig.homeArea(): Position = areasInUse().let { used ->
-    HOME_ORDER.firstOrNull { it in used } ?: items.firstOrNull()?.area ?: position
+    BAR_ORDER.firstOrNull { it in used } ?: items.firstOrNull()?.area ?: position
 }
 
-/** For Settings: more than one area holds an item outside Off. */
+/** For Settings: more than one area holds an item. */
 fun BarConfig.usesAreas(): Boolean = rowAreas().size > 1
 
 /**
- * For Look's Position row: the one area every item outside Off is in, or null; with none outside Off, the home area (with
- * no items at all, that is where [BarConfig.position] says).
+ * For Look's Position row: the one area every item is in, or null; with no items, the home area (that is where
+ * [BarConfig.position] says).
  */
 fun BarConfig.oneArea(): Position? = rowAreas().let { if (it.isEmpty()) homeArea() else it.singleOrNull() }
 

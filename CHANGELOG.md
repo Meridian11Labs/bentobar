@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.2.0 (2026-11-12)
+
+- **Shelf and Value from a URL are gone.** A layout that has one is read without it, and what they kept on the device
+  (a Shelf's texts and links, the addresses) is deleted at the first start. Five items go online again, each to a
+  service named in the code: no request can go to an address that isn't written there, Setup › Online services has no
+  "Your own addresses", and the strip takes no drops from other apps.
+- **Remove deletes.** An item you remove (the options' button, Delete, a drop on the trash, the bar's right-click
+  menu) is gone from the layout, whatever it was set to, and Undo brings it back as it was. Add items lists the types
+  and nothing else: no remembered setups under a type, no Forget. A layout that is read (stored, pasted, imported)
+  drops what an older version kept in Off, with no new layout version. A Flight's followed flight and a Prompter's
+  notes are deleted once the removal can no longer be undone: at the next change to the bar, or when the settings
+  window is closed, whichever comes first.
+- **A bar starts in Left.** A fresh install has its four items in Left, after the clock. A new item goes to the first
+  area in use of Left, Middle, Right (it was Right, Middle, Left), and when the status bar is short of room Left has
+  it first, then Right, then the Middle (it was Right, Left, Middle). A bar that is already set up stays where it is,
+  every item in the area it had. With items in several areas, what the bar has only once follows the new orders:
+  Presenting's ‹, the empty capsule, the one strip shown when nothing has room and "Add to"'s first choice stand in
+  the first area in use from the left (a bar in Right and Middle has them in the Middle, one in Right and Left in
+  Left; both had them in Right). With items in Left too, the keyboard's "BentoBar menu" opens under Left's strip, and
+  when room is short Left's items keep theirs before Right's do (it was the other way round).
+- **A trash to drop on.** While you drag a row of your bar a strip comes up along the lower edge of the list, "Drop
+  here to remove", at every window width; it turns red under the row, and letting go there removes the item (Undo
+  brings it back). The list scrolls under a dragged row only above the strip. The panel no longer takes a drop:
+  the library and an item's options stay as they are during a drag.
+- **Remove an area.** With items in several areas each area's head ends in a trash: it removes the area and every
+  item in it in one step, says what went ("Removed Left and its 3 items") with Undo, and the other areas take the
+  room.
+- **Notes with Undo stay three seconds.** "Removed…" in a row's place, the note for a closed or a removed area, the
+  library's "Added" and Look's line go by themselves after three seconds, or wait while the pointer or the keyboard
+  is on them. With a screen reader's touch exploration on they stay until the next change, as before. Ctrl+Z still
+  takes the change back afterwards.
+- **Remove is a red button.** "Remove from the bar" in an item's options is red words and a trash on a pale red
+  ground, beside Duplicate and as tall, with no keycap; Delete still removes the selected item. Look's Discard and
+  Setup's Remove key are the same button.
+- From right to left a dragged row hangs under the pointer (it hung mirrored across the window).
+
 ## 2.1.0 (2026-11-11)
 
 2.0.0 was only ever a test build; 2.1.0 is the release, without the Crypto and Clipboard items.

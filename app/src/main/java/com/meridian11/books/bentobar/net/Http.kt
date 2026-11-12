@@ -1,14 +1,12 @@
 package com.meridian11.books.bentobar.net
 
 import com.meridian11.books.bentobar.data.Online
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicIntegerArray
 import java.util.concurrent.atomic.AtomicLongArray
 
 /**
- * The only hosts BentoBar may ask by name. A request names one of these; there is no way to name another.
- * One call takes an address instead, [Http.getOwn], for an address the user typed (Value from a URL), and only as
- * narrow a one as [OwnAddress] lets through. Adding a host means adding it here, where it shows.
+ * The only hosts BentoBar may ask. A request names one of these; there is no way to name another,
+ * and no call anywhere that takes an address. Adding a host means adding it here, where it shows.
  */
 enum class Host(val domain: String, /** The query name this host takes the user's own key under ([Http.key]); null: it takes none. */ val keyName: String? = null) {
     /** Weather forecasts (Open-Meteo). */
@@ -40,7 +38,7 @@ sealed interface Reply {
     /** Whether a request really left the device: what a failure in a row counts by. Nothing goes out for a request that was [Why.OFF] or refused. */
     val sent: Boolean
 
-    /** The service answered with a 2xx status: its text (UTF-8, at most [Http.MAX_BYTES], or [Http.OWN_MAX_BYTES] from an [OwnAddress]). */
+    /** The service answered with a 2xx status: its text (UTF-8, at most [Http.MAX_BYTES]). */
     class Ok(val text: String) : Reply {
         override val sent: Boolean get() = true
         override fun toString() = "ok"
@@ -56,7 +54,7 @@ sealed interface Reply {
 }
 
 enum class Why {
-    /** Not asked at all: the service is switched off, no item that uses it is outside Off, nothing shows items, or this is the main thread. */
+    /** Not asked at all: the service is switched off, the layout has no item that uses it, nothing shows items, or this is the main thread. */
     OFF,
     /** No network, no route, no such name, or a connection that isn't the service's own (a public network's sign-in page). */
     OFFLINE,
@@ -64,7 +62,7 @@ enum class Why {
     TIMEOUT,
     /** A status outside 2xx. A redirect is one: it is never followed. 429 means "slow down". */
     STATUS,
-    /** More than [Http.MAX_BYTES] ([Http.OWN_MAX_BYTES] from an [OwnAddress]): refused, never cut. */
+    /** More than [Http.MAX_BYTES]. */
     TOO_LARGE,
     /** Anything else: a broken stream. Whether a reply's text makes sense is its reader's question. */
     UNREADABLE,
@@ -81,12 +79,11 @@ fun interface Transport {
  * The one way out of the device. Pure Kotlin (no Android), so its rules are unit-tested on the JVM;
  * the app wires [allowed], [connected], [onMain] and [log] once at start (`Env.init`).
  *
- * A request goes out only if [allowed] says so for its host: the service is switched on, an item
- * that uses it is outside Off, and something that shows items is on screen. Until the app has wired
+ * A request goes out only if [allowed] says so for its host: the service is switched on, the layout
+ * has an item that uses it, and something that shows items is on screen. Until the app has wired
  * it, nothing is allowed. HTTPS only, to the [Host]s; the user agent is [USER_AGENT]; no
  * cookies, no identifiers, no redirects. Nothing of a request but its host and path is ever logged,
- * and nothing at all of a reply. An address the user typed ([getOwn]) has the same gate as its own
- * ([ownAllowed]) and is logged as "own", never the address or its host.
+ * and nothing at all of a reply.
  */
 object Http {
     const val USER_AGENT = "BentoBar"
@@ -99,8 +96,6 @@ object Http {
      */
     const val TOTAL_MS = 15_000
     const val MAX_BYTES = 256 * 1024
-    /** The most a reply from an address the user typed ([OwnAddress]) may be: a value is a few characters, and a page is not one. */
-    const val OWN_MAX_BYTES = 64 * 1024
 
     /** Who may be asked right now. Closed until the app wires it. */
     @Volatile var allowed: (Host) -> Boolean = { false }
@@ -117,15 +112,6 @@ object Http {
     @Volatile var clock: () -> Long = { System.nanoTime() / 1_000_000 }
 
     /**
-     * Whether an address the user typed may be asked right now: "Your own addresses" ([Online.Service.OWN]) is switched on
-     * for this install, an item that asks one is outside Off, and something that shows items is on screen. Closed until
-     * the app wires it.
-     */
-    @Volatile var ownAllowed: () -> Boolean = { false }
-    /** What carries an address the user typed: net's own, as [transport] is. Only tests put a fake here. */
-    @Volatile internal var ownTransport: OwnTransport = HttpTransport()
-
-    /**
      * A 429 that names no time: long enough that the rest of one pass (ten stocks, in seconds) isn't sent. It does change
      * what a request held by it comes to (a held reply reads as a 429, so an item is told to slow down and waits its
      * service's slow-down pace), which is why it is short; a press of Try again is the soonest asked again (ten seconds).
@@ -133,20 +119,10 @@ object Http {
     private const val SLOW_DOWN_SEC = 10L
 
     private val counts = AtomicIntegerArray(Host.entries.size)
-    /** Requests to addresses the user typed: one count for all of them, which says nothing of where they went. */
-    private val ownCount = AtomicInteger()
     /** Per service, the moment by [clock] before which nothing is sent to it: set from a 429 or a Retry-After. 0: none. */
     private val notBefore = AtomicLongArray(Online.Service.entries.size)
     /** Per service, the status of the reply that set [notBefore], so that a held request answers with it and not with a 429 it was never given. */
     private val holdStatus = AtomicIntegerArray(Online.Service.entries.size)
-
-    /** A wait an address the user typed asked for: until [until] by [clock], with the [status] that asked. */
-    private class OwnWait(val until: Long, val status: Int)
-    /**
-     * The waits of addresses the user typed, per host: one user's server asking to wait holds that server and no other
-     * item's (they are separate machines, not one service). In memory only, never logged; guarded by itself.
-     */
-    private val ownWaits = HashMap<String, OwnWait>()
 
     /**
      * Asks, and waits for the answer: call it from a background load ([com.meridian11.books.bentobar.items.Refresher],
@@ -172,51 +148,6 @@ object Http {
         log("GET $request -> $reply")
         if (reply is Reply.Failed) noteWait(service, reply)
         return reply
-    }
-
-    /**
-     * Asks an address the user typed (Value from a URL) and waits for the answer, in [get]'s order and under its rules:
-     * never on the main thread, only while [ownAllowed] says so, not without a network, not while a reply asked to wait.
-     * A redirect is an answer, never followed; a reply over [OWN_MAX_BYTES] is refused. What it logs is "own" and what
-     * came of it: never the address, its host or the reply, which are the user's own (the address may hold a token).
-     * Call it from a background load only; `items/WebValueLoad.kt` is its one caller.
-     */
-    fun getOwn(address: OwnAddress): Reply {
-        if (onMain()) { log("GET $address refused: the main thread"); return Reply.Failed(Why.OFF, sent = false) }
-        if (!ownAllowed()) return Reply.Failed(Why.OFF, sent = false)
-        if (!connected()) return Reply.Failed(Why.OFFLINE, sent = false)
-        val host = address.host.lowercase(java.util.Locale.ROOT)
-        heldOwn(host, address.toString())?.let { return it }
-        ownCount.incrementAndGet()
-        val reply = try {
-            ownTransport.get(address)
-        } catch (t: Throwable) {
-            // A transport must not throw; if one does, its message stays here (it may hold the address).
-            Reply.Failed(Why.UNREADABLE)
-        }
-        log("GET $address -> $reply")
-        if (reply is Reply.Failed) noteOwnWait(host, reply)
-        return reply
-    }
-
-    /** [held] for the addresses of [host]. */
-    private fun heldOwn(host: String, what: String): Reply.Failed? {
-        val w = synchronized(ownWaits) { ownWaits[host] } ?: return null
-        val wait = w.until - clock()
-        if (wait <= 0) return null
-        log("GET $what held: the service asked to wait")
-        return Reply.Failed(Why.STATUS, w.status, retryAfterSec = (wait + 999) / 1000, sent = false)
-    }
-
-    /** [noteWait] for the addresses of [host]; waits that are over are dropped on the way. */
-    private fun noteOwnWait(host: String, reply: Reply.Failed) {
-        val seconds = waitSeconds(reply) ?: return
-        synchronized(ownWaits) {
-            val now = clock()
-            ownWaits.values.removeAll { it.until <= now }
-            val until = now + seconds * 1000
-            if (until > (ownWaits[host]?.until ?: 0)) ownWaits[host] = OwnWait(until, reply.status)
-        }
     }
 
     /**
@@ -257,14 +188,9 @@ object Http {
     /** How many requests really went out to [host] since the app started (or [resetCounts]): for the debug hook and for tests. */
     fun sent(host: Host): Int = counts.get(host.ordinal)
 
-    /** How many requests went out to addresses the user typed, all of them together, since the app started (or [resetCounts]). */
-    fun sentOwn(): Int = ownCount.get()
-
     fun resetCounts() {
         for (i in 0 until counts.length()) counts.set(i, 0)
-        ownCount.set(0)
         // And the waits: `net reset` starts over, and no test inherits another's 429.
         for (i in 0 until notBefore.length()) { notBefore.set(i, 0); holdStatus.set(i, 0) }
-        synchronized(ownWaits) { ownWaits.clear() }
     }
 }

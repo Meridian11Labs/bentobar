@@ -401,11 +401,11 @@
 
     <!-- barpage -->
     <string name="bar_undo">Undo</string>
-    <!-- What was removed, as the library names it: "Clock · Tokyo", or the type's name alone. -->
+    <!-- What was removed, by its type's name: "Removed Clock". -->
     <string name="bar_removed">Removed %1$s</string>
     <!-- The library: the panel's "Add items". -->
     <string name="library_filter">Filter items</string>
-    <!-- While filtering: rows shown, of all rows (types and remembered setups). -->
+    <!-- While filtering: types shown, of all types. -->
     <plurals name="add_filter_count">
         <item quantity="one">%1$d of %2$d shown.</item>
         <item quantity="other">%1$d of %2$d shown.</item>
@@ -413,8 +413,6 @@
     <string name="library_in_bar">In your bar</string>
     <!-- A type's + button, read out: "Add Clock". -->
     <string name="library_add">Add %1$s</string>
-    <!-- A screen reader's action on a remembered setup's line. -->
-    <string name="add_add">Add</string>
     <!-- On a type's row right after its +, and on the bar's new row; with what the item waits for ("Added · shows when hot"). -->
     <string name="add_added">Added</string>
     <string name="add_added_rule">Added · %1$s</string>
@@ -425,18 +423,8 @@
     <string name="library_adds_to">Adds to %1$s · %2$s</string>
     <string name="add_added_to">Added to %1$s</string>
     <string name="add_added_to_rule">Added to %1$s · %2$s</string>
-    <!-- A remembered setup: its type, then its own words ("Clock · London"); read out, "Clock, London". -->
-    <string name="library_setup">%1$s · %2$s</string>
-    <string name="library_setup_spoken">%1$s, %2$s</string>
-    <string name="library_add_setup">Add %1$s, %2$s</string>
+    <!-- With several areas on screen, a type's + button, read out: "Add Clock to Left". -->
     <string name="library_add_to">Add %1$s to %2$s</string>
-    <string name="library_add_setup_to">Add %1$s, %2$s to %3$s</string>
-    <string name="library_forget">Forget</string>
-    <string name="library_forget_setup">Forget %1$s, %2$s</string>
-    <string name="library_forgot">Forgot %1$s</string>
-    <!-- A setup's words when it has none of its own: a type that waits on its rule, kept in the bar for good; and one that differs only in options with no short name. -->
-    <string name="library_always">always in the bar</string>
-    <string name="library_as_set_up">as you set it up</string>
     <!-- The bar's list and the panel beside it. -->
     <string name="bar_empty">Nothing in the bar yet. Add an item to start.</string>
     <!-- The line under the preview while an item is dragged: what letting go does. %1$s is the item, %2$s the item beside its new place. The second of each pair is for a finger. -->
@@ -457,15 +445,15 @@
     <string name="bar_drop_when_active_touch">Drop to show %1$s only when active. Let go outside to cancel.</string>
     <string name="bar_drop_behind">Drop to put %1$s behind ‹. Esc cancels.</string>
     <string name="bar_drop_behind_touch">Drop to put %1$s behind ‹. Let go outside to cancel.</string>
-    <!-- Over the library with a row of the bar. -->
+    <!-- Over the trash with a row of the bar. -->
     <string name="bar_drop_off">Drop to remove %1$s from the bar. Esc cancels.</string>
     <string name="bar_drop_off_touch">Drop to remove %1$s from the bar. Let go outside to cancel.</string>
     <!-- Over nothing that takes a drop. -->
     <string name="bar_drop_none">Nothing changes if you let go here.</string>
     <!-- A type from the library over the lower part, which its type can't wait in. -->
     <string name="bar_drop_no_rule_add">%1$s has no Show when… rule, so it can only go above the line.</string>
-    <!-- In the place of the library's filter while a row of the bar is dragged. -->
-    <string name="library_drop_off">Drop here to remove it from the bar</string>
+    <!-- The trash: the strip along the lower edge of the bar's list while a row of the bar is dragged. -->
+    <string name="bar_trash">Drop here to remove</string>
     <string name="panel_select_item">Select an item</string>
     <string name="row_needs_calendar">needs calendar access</string>
     <!-- A row whose service gave no answer: when what it still shows was fetched ("last updated 9:12 AM"). -->
@@ -491,7 +479,6 @@
     <string name="order_rd">%1$drd</string>
     <string name="order_th">%1$dth</string>
     <string name="key_alt">Alt</string>
-    <string name="key_del">Del</string>
     <string name="key_ctrl">Ctrl</string>
     <string name="key_esc">Esc</string>
     <string name="key_f">F</string>
@@ -637,7 +624,7 @@
     <string name="setup_listener_title">Notification access</string>
     <string name="setup_listener_text">For Now playing: the title, artist and artwork. BentoBar tells Android to send it no notifications.</string>
     <string name="setup_online_title">Online services</string>
-    <string name="setup_online_text">Six items go online, and only after you set them up: Weather and Air quality &amp; UV ask Open-Meteo and Exchange rates asks Frankfurter; Flight asks AirLabs and US stocks asks Finnhub, each with your own key; Value from a URL asks the address you type. Everything else stays offline.</string>
+    <string name="setup_online_text">Five items go online, and only after you set them up: Weather and Air quality &amp; UV ask Open-Meteo and Exchange rates asks Frankfurter; Flight asks AirLabs and US stocks asks Finnhub, each with your own key. Everything else stays offline.</string>
     <string name="setup_online_weather">Weather, Air quality &amp; UV (Open-Meteo)</string>
     <string name="setup_online_flights">Flights (AirLabs)</string>
     <string name="setup_online_weather_first">Search for a city, or choose My location, in a Weather or Air quality item first</string>
@@ -646,28 +633,24 @@
     <string name="setup_online_stocks_first">Save a Finnhub key in a US stocks item first</string>
     <string name="setup_online_fx">Exchange rates (Frankfurter)</string>
     <string name="setup_online_fx_first">Turn on Exchange rates in an Exchange rates item first</string>
-    <string name="setup_online_own">Your own addresses (Value from a URL)</string>
-    <string name="setup_online_own_first">Turn on Your own addresses in a Value from a URL item first</string>
     <string name="setup_online_off_note">Off stops requests at once and deletes what was fetched.</string>
     <string name="about_version">BentoBar %1$s</string>
     <string name="about_tagline">Add, hide and organize items in your Googlebook\'s status bar.</string>
     <string name="about_privacy">Privacy</string>
-    <string name="about_privacy_text">BentoBar goes online for six items only, and only after you set them up: Weather and Air quality &amp; UV ask Open-Meteo about the city you search for (or, with My location, about where the device is, rounded to about 10 km), Exchange rates asks Frankfurter for the European Central Bank\'s reference rates, Value from a URL asks the address you type and nothing else, Flight asks AirLabs about the flight you enter, and US stocks asks Finnhub about the stocks you follow, the last two with a key of your own. BentoBar sends nothing else anywhere: not your layout, your calendar, your clipboard, your notifications, the camera\'s picture, what\'s playing or anything it measures. It has no accounts of its own, no ads and no analytics, and it sends its developer nothing. Its accessibility service reads the status bar (its layout and its clock\'s color) and where windows are on the screen, never what is in them. Some items read more, each only while it is in use and only with the access you give it: Notification icons reads other apps\' notifications, Mirror shows the camera\'s picture, and with Usage access on BentoBar reads how much data and storage each app uses, for the Network and Storage menus, and for Screen time when the screen was on and which apps were in front. None of that is stored or sent.</string>
+    <string name="about_privacy_text">BentoBar goes online for five items only, and only after you set them up: Weather and Air quality &amp; UV ask Open-Meteo about the city you search for (or, with My location, about where the device is, rounded to about 10 km), Exchange rates asks Frankfurter for the European Central Bank\'s reference rates, Flight asks AirLabs about the flight you enter, and US stocks asks Finnhub about the stocks you follow, the last two with a key of your own. BentoBar sends nothing else anywhere: not your layout, your calendar, your clipboard, your notifications, the camera\'s picture, what\'s playing or anything it measures. It has no accounts of its own, no ads and no analytics, and it sends its developer nothing. Its accessibility service reads the status bar (its layout and its clock\'s color) and where windows are on the screen, never what is in them. Some items read more, each only while it is in use and only with the access you give it: Notification icons reads other apps\' notifications, Mirror shows the camera\'s picture, and with Usage access on BentoBar reads how much data and storage each app uses, for the Network and Storage menus, and for Screen time when the screen was on and which apps were in front. None of that is stored or sent.</string>
     <string name="about_privacy_weather">Weather sends Open-Meteo the city you search for. For the forecast it sends the coordinates of the city you pick, rounded to about a kilometer: about every 30 minutes while the bar is on screen, and when you open its menu or press Refresh. With My location it sends where this device is instead, rounded to about 10 km: BentoBar asks Android for the approximate location only while such an item is in the bar or waits in Hidden to show for rain or snow, or while BentoBar\'s settings window is open, and keeps it and its forecast in memory only. Open-Meteo sees your IP address, as any website does, and may keep it in its logs for 90 days.</string>
     <string name="about_privacy_air">Air quality &amp; UV sends Open-Meteo what Weather does: the city you search for, then the coordinates of the city you pick, or with My location where this device is, rounded in the same way. It asks about every 30 minutes while the bar is on screen, and when you open its menu or press Refresh, and keeps its readings in memory only. Weather\'s switch in Setup › Online services covers it too.</string>
     <string name="about_privacy_stocks">US stocks sends Finnhub your own key with the symbol of each stock you follow: every 2 minutes while the market is open and the bar is on screen, once after the close, and when you open its menu, press Refresh or save a new key. Its search sends what you type when you press Search. Finnhub sees your IP address and can tie requests to your key\'s account. BentoBar ships no key.</string>
     <string name="about_privacy_fx">Exchange rates asks Frankfurter (api.frankfurter.dev) for the European Central Bank\'s reference table of currencies about once an hour while the bar is on screen, and when you open its menu or press Refresh; a failed try is repeated sooner. No key is needed, and the pairs you follow are calculated on your device. Frankfurter sees your IP address, as any website does.</string>
-    <string name="about_privacy_own">Value from a URL asks the address you typed and nothing else, as often as you set (after a try that found no connection sooner at first, never more than once a minute), only while the bar is on screen; BentoBar adds nothing about you or the device. Only HTTPS, never an address with a name or password in it, never a redirect, and never a reply over 64 KB. The address stays on this device, in no layout and no backup, and of a reply only the value is kept, in memory. Whoever runs that address sees your IP address.</string>
     <string name="about_privacy_flight">Flight sends AirLabs the flight number and your own key: when you track a flight, when you press Refresh or save a new key, and while it follows the flight, about every 3 hours until 3 hours before departure, then every 30 minutes or sooner until it lands; a failed try is repeated sooner. Once it knows the flight has landed it stops asking; after sleeping through a landing it asks once more. AirLabs sees your IP address and can tie lookups to your key\'s account. BentoBar ships no key. Open flight page opens FlightAware in your browser.</string>
     <string name="about_privacy_media">Now playing, with notification access, reads the title, artist and artwork your media players publish. Through that entry BentoBar tells Android to send it no notifications, and receives none. Nothing is stored or sent.</string>
     <string name="about_privacy_notices">Notification icons has an entry of its own in Android\'s Notification access list, BentoBar notification icons, off until you turn it on. With it, BentoBar reads other apps\' notifications: the app, the title, the text, the icon and a progress. It is connected to them only while an item that shows them is on screen, keeps them in memory only and forgets them when that item goes. The bar shows the apps\' icons, never their words; the popup lists them, by app and title alone if you switch What they say off. Nothing is stored, logged or sent.</string>
     <string name="about_privacy_mirror">Mirror shows the camera\'s picture in its popup, with the Camera permission, which it asks for when you first open it. The camera runs only while that popup is open. The picture is drawn there and nothing else happens to it: it is never recorded, stored or sent.</string>
     <string name="about_privacy_inuse">Camera and mic learns from Android that a camera or a microphone is in use: not which app uses it, and nothing of what is seen or heard. Its button mutes the microphone for every app, and only when you press it; BentoBar unmutes when you remove the item or turn BentoBar off, and leaves a mute that Android or another app made as it is. It can\'t switch a camera off.</string>
     <string name="about_privacy_screentime">Screen time, with Usage access, reads when the screen went on and off today. While its menu is open it also reads which apps were in front and for how long, and lists those that have a launcher entry. None of it is stored or sent, and it is forgotten when the menu closes or the item goes.</string>
-    <string name="about_privacy_shelf">Shelf keeps the text and links you drop on it, on this device only: not in your layout, not in a copied layout and not in a backup. They are never sent, and Forget in Add items deletes them.</string>
     <string name="about_privacy_prompter">Prompter keeps the notes you write on this device only: not in your layout, not in a copied layout and not in a backup. They are never sent.</string>
     <string name="about_privacy_others">Device batteries, Heat, External displays, World clock, the volume slider, Headphones and output, Connection, Keyboard light, Day progress, Sunset and Break reminder use only what Android tells every app. They ask you for no access and send nothing; Sunset works from the device\'s time zone, not from where it is. Focus switches Do Not Disturb on and off, with Do Not Disturb access, and Brightness sets the screen\'s brightness, with Android\'s Modify system settings access; neither reads anything with it. Live activity shows what your other items can tell: it keeps the ones you switch on in its options at work, each with the access that item has, and reads nothing of its own. New event hands the chosen time to your calendar app.</string>
-    <string name="about_privacy_backup">If you use Android\'s backup, Android keeps a copy of BentoBar\'s settings in your Google account. Your AirLabs and Finnhub keys, the online switches, the addresses of Value from a URL, a Prompter\'s notes, what a Shelf holds, a Focus session, your answer to the accessibility explanation, a running timer and keep awake are left out of it.</string>
+    <string name="about_privacy_backup">If you use Android\'s backup, Android keeps a copy of BentoBar\'s settings in your Google account. Your AirLabs and Finnhub keys, the online switches, a Prompter\'s notes, a Focus session, your answer to the accessibility explanation, a running timer and keep awake are left out of it.</string>
     <string name="about_privacy_policy">Privacy policy</string>
     <string name="about_privacy_items">Privacy, item by item</string>
     <string name="about_privacy_others_title">Other items</string>

@@ -111,15 +111,15 @@ class StripContentTest {
     }
 
     /**
-     * The home area is looked for Right, Middle, Left, room goes Right, Left, Middle: a Middle at home can have no room
-     * while Left has a strip. The capsule is then the first strip's, so a bar with nothing to show still shows one.
+     * The home area is looked for Left, Middle, Right, room goes Left, Right, Middle: a Middle at home can have no room
+     * while Right has a strip. The capsule is then the first strip's, so a bar with nothing to show still shows one.
      */
     @Test fun theEmptyCapsuleGoesToTheFirstStripWhenTheHomeAreaHasNoWindow() {
-        assertEquals(Position.LEFT, StripContent.capsuleArea(home = Position.CENTER, carrier = Position.LEFT, owed = setOf(Position.CENTER)))
-        assertEquals(Position.CENTER, StripContent.capsuleArea(home = Position.CENTER, carrier = Position.LEFT, owed = emptySet()))
-        assertEquals(Position.RIGHT, StripContent.capsuleArea(home = Position.RIGHT, carrier = Position.RIGHT, owed = setOf(Position.LEFT)))
+        assertEquals(Position.RIGHT, StripContent.capsuleArea(home = Position.CENTER, carrier = Position.RIGHT, owed = setOf(Position.CENTER)))
+        assertEquals(Position.CENTER, StripContent.capsuleArea(home = Position.CENTER, carrier = Position.RIGHT, owed = emptySet()))
+        assertEquals(Position.LEFT, StripContent.capsuleArea(home = Position.LEFT, carrier = Position.LEFT, owed = setOf(Position.RIGHT)))
         // The one-strip bar with no room for a ‹ places the home area alone: it is no owed area, and keeps the capsule.
-        assertEquals(Position.CENTER, StripContent.capsuleArea(home = Position.CENTER, carrier = Position.CENTER, owed = setOf(Position.LEFT)))
+        assertEquals(Position.CENTER, StripContent.capsuleArea(home = Position.CENTER, carrier = Position.CENTER, owed = setOf(Position.RIGHT)))
     }
 
     /** The strip asks [StripContent.capsuleArea], never the home area alone. */

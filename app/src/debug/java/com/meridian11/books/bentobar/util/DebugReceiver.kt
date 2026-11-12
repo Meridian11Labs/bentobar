@@ -106,17 +106,15 @@ class DebugReceiver : BroadcastReceiver() {
                 }
                 "net" -> { // how many requests went out, per host, and whether each service may be asked right now
                     if (args.getOrNull(1) == "reset") Http.resetCounts()
-                    // Addresses the user typed are counted together, as "own": never an address or a host.
-                    Host.entries.joinToString(" ") { "${it.domain}=${Http.sent(it)}" } + " own=${Http.sentOwn()} | " +
+                    Host.entries.joinToString(" ") { "${it.domain}=${Http.sent(it)}" } + " | " +
                         Online.Service.entries.joinToString(" ") { s ->
-                            "${s.id}: on=${Online.on(s)} setUp=${Online.setUp(s)} mayAsk=${if (s.hosts.isEmpty()) Http.ownAllowed() else Http.allowed(s.hosts.first())}"
+                            "${s.id}: on=${Online.on(s)} setUp=${Online.setUp(s)} mayAsk=${Http.allowed(s.hosts.first())}"
                         }
                 }
-                "online" -> { // online weather|flights|stocks|fx|own on|off (on only works once the item was set up here, as in Setup)
+                "online" -> { // online weather|flights|stocks|fx on|off (on only works once the item was set up here, as in Setup)
                     val s = when (args[1]) {
                         "weather" -> Online.Service.OPEN_METEO; "flights" -> Online.Service.AIRLABS; "stocks" -> Online.Service.FINNHUB; "fx" -> Online.Service.FRANKFURTER
-                        "own" -> Online.Service.OWN
-                        else -> error("weather, flights, stocks, fx or own")
+                        else -> error("weather, flights, stocks or fx")
                     }
                     if (args.getOrNull(2) == "on") Online.turnOn(s) else Online.turnOff(s)
                     "${s.id} on=${Online.on(s)}"
@@ -161,7 +159,7 @@ class DebugReceiver : BroadcastReceiver() {
 
     /** What the type's hook says to [words], or, for a state it refused, what it can stage: a hook answers null, and the usage is said here. */
     private fun ask(type: ItemType, words: List<String>): String? = type.debug(words)
-        ?: type.stages.takeIf { it.isNotEmpty() }?.let { "not staged: no such state, or no such item outside Off. It takes: ${it.joinToString(" | ")}" }
+        ?: type.stages.takeIf { it.isNotEmpty() }?.let { "not staged: no such state, or no such item. It takes: ${it.joinToString(" | ")}" }
 
     /** An area by the word the user reads; "center" is the stored name, which older scripts send. */
     private fun area(word: String): Position = when (word.lowercase()) {

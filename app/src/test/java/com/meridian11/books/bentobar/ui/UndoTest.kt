@@ -7,11 +7,9 @@ import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.hide
-import com.meridian11.books.bentobar.data.layoutJson
 import com.meridian11.books.bentobar.data.moved
 import com.meridian11.books.bentobar.data.oneArea
 import com.meridian11.books.bentobar.data.putAllIn
-import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.show
 import com.meridian11.books.bentobar.data.without
 import com.meridian11.books.bentobar.data.fresh
@@ -46,6 +44,21 @@ class UndoTest {
         assertEquals(layout, Store.config.value)
     }
 
+    /** The settings window closed for good: its Undo ends with it, and a window opened later has nothing to take back. */
+    @Test fun whenTheWindowIsClosedTheChangeCanBeTakenBackNoMoreAndItsNoteIsGone() {
+        assertTrue(Undo.change(removed = "a") { it.without("a") })
+        Undo.noteOver(Undo.last.value!!)
+        Undo.end()
+        assertNull(Undo.last.value)
+        assertNull(Undo.over.value)
+        assertEquals(emptySet<String>(), Undo.held("nope"))
+        assertFalse(Undo.undo())
+        assertEquals(listOf("b", "c"), ids())
+        // With nothing kept it does nothing.
+        Undo.end()
+        assertEquals(listOf("b", "c"), ids())
+    }
+
     @Test fun looksCommandIsOneChangeTakenBackInOneStepWithAreasAndOrderAsTheyWere() {
         val three = BarConfig(items = listOf(a.copy(area = Position.LEFT), b.copy(area = Position.CENTER), c.copy(area = Position.RIGHT)), position = Position.RIGHT)
         Store.update { three }
@@ -68,13 +81,35 @@ class UndoTest {
 
     /** What Undo holds for a type's kept text: the items the last change can bring back, and none once it can't. */
     @Test fun whatUndoHoldsIsLetGoOnceTheChangeCanNoLongerBeOffered() {
-        assertTrue(Undo.change(forgot = "b") { it.without("b") })
-        assertEquals("the forgotten line can still come back", setOf("a", "b", "c"), Undo.held("nope"))
+        assertTrue(Undo.change(removed = "b") { it.without("b") })
+        assertEquals("the removed item can still come back", setOf("a", "b", "c"), Undo.held("nope"))
         assertEquals(emptySet<String>(), Undo.held("clock"))
         // Arranged otherwise since: Undo offers it no more, and holds nothing for it.
         Store.update { it.hide("a") }
         assertFalse(Undo.offered(Undo.last.value!!, Store.config.value))
         assertEquals(emptySet<String>(), Undo.held("nope"))
+    }
+
+    /**
+     * Between the layout losing an item and the change being kept, another thread's sweep must still be told the item
+     * can come back: asked in the middle of the save, which is after the layout changed and before the change is kept.
+     */
+    @Test fun aRemovedItemIsHeldFromTheMomentItLeavesTheLayoutNotOnlyOnceTheChangeIsKept() {
+        val prefs = MapPrefs()
+        Store.open(prefs) { }
+        Store.update { BarConfig(items = listOf(a, ItemConfig("f", "flight"), ItemConfig("g", "flight"))) }
+        Undo.last.value = null
+        var during: Set<String>? = null
+        prefs.onPut = { if (Store.config.value.items.none { it.id == "f" }) during = Undo.held("flight") }
+        assertTrue(Undo.change(removed = "f") { it.without("f") })
+        assertTrue("held while the change is being written: $during", "f" in during.orEmpty())
+        assertEquals("and once it is kept", setOf("f", "g"), Undo.held("flight"))
+        // What is held is that one change's: a change that changed nothing, and one taken back, leave nothing behind.
+        assertFalse(Undo.change { it })
+        assertTrue(Undo.undo())
+        prefs.onPut = null
+        assertEquals(emptySet<String>(), Undo.held("flight"))
+        assertNull(Undo.pending)
     }
 
     @Test fun aChangeThatChangesNothingIsNotKeptAndTheOneBeforeItStaysToBeUndone() {
@@ -84,19 +119,32 @@ class UndoTest {
         assertEquals(layout, Store.config.value)
     }
 
-    @Test fun aRemovedItemComesBackWhereItWasWhetherItWasForgottenOrKeptAsASetup() {
-        // As the + made it: it leaves the layout. With a setup of its own (and a type this version doesn't know): kept, out of the bar.
+    @Test fun aRemovedItemIsGoneFromTheLayoutAndComesBackWhereItWasAsItWas() {
+        // As the + made it, with options of its own, of a type this version doesn't know, waiting on its rule: all the same.
         val plain = Items.of("memory")!!.fresh("m", Position.RIGHT)
-        val four = layout.copy(items = listOf(a, plain, b, c))
-        for (id in listOf("m", "b")) {
-            Store.update { four }
-            assertTrue(Undo.change(removed = id) { it.removed(id) })
-            assertTrue(Store.config.value.items.none { it.id == id && it.section != Section.OFF })
+        val waits = Items.of("timer")!!.fresh("t", Position.LEFT).copy(section = Section.HIDDEN, whenActive = true, options = mapOf("k" to "v"))
+        val five = layout.copy(items = listOf(a, plain, b, waits, c))
+        for (id in listOf("m", "b", "t", "c")) {
+            Store.update { five }
+            assertTrue(Undo.change(removed = id) { it.without(id) })
+            assertEquals(five.items.map { it.id } - id, ids())
             assertEquals(id, Undo.last.value?.removed)
             assertTrue(Undo.undo())
-            assertEquals(four, Store.config.value)
+            assertEquals(five, Store.config.value)
         }
-        assertEquals("the plain one was gone, not kept", listOf("a", "b", "c"), four.removed("m").items.map { it.id })
+    }
+
+    @Test fun aRemoveWithNoUndoLeavesNothingToTakeBackOnceTheLayoutIsArrangedOtherwise() {
+        // The bar's own menu: the item goes, and the change the window kept is over, since it can be offered no more.
+        assertTrue(Undo.change { it.hide("a") })
+        Undo.removeForGood("b")
+        assertEquals(listOf("a", "c"), ids())
+        assertNull(Undo.last.value)
+        assertFalse(Undo.undo())
+        // An item the layout does not have: nothing happens, and a kept change stays.
+        assertTrue(Undo.change { it.show("a") })
+        Undo.removeForGood("nope")
+        assertTrue(Undo.undo())
     }
 
     @Test fun anOptionChangedSinceIsKeptByTheUndo() {
@@ -108,7 +156,7 @@ class UndoTest {
     }
 
     @Test fun aLayoutArrangedOtherwiseSinceIsLeftAloneAndTheChangeIsDropped() {
-        Undo.change(removed = "b") { it.removed("b") }
+        Undo.change(removed = "b") { it.without("b") }
         // The bar's own menu, with the settings window open.
         Store.update { it.show("c") }
         val now = Store.config.value
@@ -134,33 +182,6 @@ class UndoTest {
         assertTrue(Undo.change { it.show("a") })
         assertNull(Undo.last.value?.added)
         assertNull(Undo.added(Undo.last.value, Store.config.value))
-    }
-
-    @Test fun aForgottenSetupIsKnownWhileItCanComeBack() {
-        val setUp = ItemConfig("s", "nope", Section.OFF, options = mapOf("k" to "1"))
-        Store.update { it.copy(items = it.items + setUp) }
-        assertNull("a removal forgets nothing", Undo.forgotten(Undo.Kept(layout, layout.removed("b")), layout.removed("b")))
-        assertNull("nor does a change that Forget did not make", Undo.forgotten(Undo.Kept(Store.config.value, layout), layout))
-        assertTrue(Undo.change(forgot = "s") { it.without("s") })
-        assertEquals(setUp, Undo.forgotten(Undo.last.value, Store.config.value))
-        // Arranged otherwise since: there is nothing to offer.
-        Store.update { it.hide("a") }
-        assertNull(Undo.forgotten(Undo.last.value, Store.config.value))
-        assertNull(Undo.forgotten(null, Store.config.value))
-    }
-
-    @Test fun anOffItemAChangeDroppedBecauseItCarriedNoSetupWasNotForgotten() {
-        // A layout from 1.8 as it is opened: an Off item as it came is there until the first change, which drops it.
-        val bare = Items.of("timer")!!.fresh("t", Position.RIGHT).copy(section = Section.OFF)
-        val stored = layout.copy(items = layout.items + bare)
-        Store.open(MapPrefs(mapOf("bar" to layoutJson.encodeToString(BarConfig.serializer(), stored)))) { }
-        assertEquals(stored, Store.config.value)
-        assertTrue(Undo.change { it.hide("a") })
-        assertEquals(listOf("a", "b", "c"), ids())
-        assertNull("nobody pressed Forget", Undo.forgotten(Undo.last.value, Store.config.value))
-        // The change is taken back, and what carried nothing stays gone.
-        assertTrue(Undo.undo())
-        assertEquals(layout, Store.config.value)
     }
 
     @Test fun whatTheStoreDidItselfIsNotedAndTakenBack() {

@@ -292,7 +292,8 @@ class BarRulesTest {
         assertNotEquals(g, BarRules.geometry(layout.copy(pill = com.meridian11.books.bentobar.data.Pill.SOLID)))
         assertNotEquals(g, BarRules.geometry(layout.copy(spacing = layout.spacing + 2)))
         assertNotEquals(g, BarRules.geometry(layout.copy(items = layout.items + com.meridian11.books.bentobar.data.ItemConfig("u", "text"))))
-        assertNotEquals(g, BarRules.geometry(layout.copy(items = layout.items.map { it.copy(section = com.meridian11.books.bentobar.data.Section.OFF) })))
+        assertNotEquals(g, BarRules.geometry(layout.copy(items = layout.items.map { it.copy(section = com.meridian11.books.bentobar.data.Section.HIDDEN) })))
+        assertNotEquals(g, BarRules.geometry(layout.copy(items = emptyList())))
     }
 
     @Test fun whatTheStripOnlyDrawsIsNotGeometry() {
