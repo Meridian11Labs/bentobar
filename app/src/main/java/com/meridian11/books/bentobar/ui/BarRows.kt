@@ -303,6 +303,9 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     val density = LocalDensity.current
     val scroll = rememberScrollState()
     val kept by Undo.last.collectAsState()
+    val over by Undo.over.collectAsState()
+    // The last change while its note stands: a slip with Undo goes after its time, and the change stays the one to undo.
+    val noted = Undo.noted(kept, over)
     val setup by Setup.state.collectAsState()
     val overflow by BarOverflow.ids.collectAsState()
     val narrow = LocalWindowLayout.current.kind == WindowClass.NARROW
@@ -320,15 +323,17 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     if (had[0] != lanes.on.size) { had[0] = lanes.on.size; travel.ms = Motion.AREA }
     LaunchedEffect(lanes.on.size) { delay(Motion.AREA.toLong()); travel.ms = Motion.NEIGHBOURS }
     SideEffect { travel.standing = true }
-    val entries = remember(cfg, shown, kept, dragging != null, lanes, abreast) {
+    // The lane stays closed when its note has gone: only the slip that says so leaves.
+    val fold = lanes.fold.takeIf { noted != null }
+    val entries = remember(cfg, shown, noted, dragging != null, lanes, abreast) {
         // A lane that closed says so above the list; the removed row's own slip would stand in a lane that is gone.
         // The slip is asked of the Store's layout and stands in the list as shown: what is carried changes the
         // arrangement on screen only, and a slip that left for that long would move every row under it by a row.
-        listEntries(shown, slipOf(kept, cfg).takeIf { lanes.fold == null }, dragging != null, lanes.on, abreast, lanes.fold, lanes.noRoom)
+        listEntries(shown, slipOf(noted, cfg).takeIf { lanes.fold == null }, dragging != null, lanes.on, abreast, fold, lanes.noRoom)
     }
     val order = remember(entries) { entries.mapNotNull { it.lane }.distinct() }
     val added = Undo.added(kept, cfg)?.id
-    val moved = if (lanes.fold != null) movedBy(kept) else null
+    val moved = if (fold != null) movedBy(kept) else null
     val grabbing = remember { PointerIcon(android.view.PointerIcon.TYPE_GRABBING) }
     Column(modifier.clip(RoundedCornerShape(Radius.large)).background(c.panel)
         .pointerInput(edit) { detectTapGestures { edit.letGo() } }
@@ -516,11 +521,16 @@ private fun EmptyLane(area: Position, lanes: List<Position>, edit: BarEdit, modi
     }
 }
 
-/** A lane closed with its last item: which one, across the top of the list, with the Undo that brings both back. */
+/**
+ * A lane closed with its last item: which one, across the top of the list, with the Undo that brings both back. The
+ * note stands its time ([NoteTime]); the lane stays closed after it.
+ */
 @Composable
 private fun FoldSlip(area: Position, edit: BarEdit, modifier: Modifier) {
     val c = Bento.colors
     val requester = remember { FocusRequester() }
+    val hold = remember { NoteHold() }
+    NoteTime(hold)
     LaunchedEffect(edit.focusFold) {
         if (!edit.focusFold) return@LaunchedEffect
         withFrameNanos { }
@@ -528,7 +538,7 @@ private fun FoldSlip(area: Position, edit: BarEdit, modifier: Modifier) {
         edit.focusFold = false
     }
     Row(modifier.fillMaxWidth().padding(start = ROW_INSET, end = ROW_INSET, bottom = Space.xs).heightIn(min = Target.row).background(c.sunk, ROW_SHAPE)
-        .padding(start = 14.dp, end = Space.xs).testTag("fold"), verticalAlignment = Alignment.CenterVertically) {
+        .holdsNote(hold).padding(start = 14.dp, end = Space.xs).testTag("fold"), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.areas_folded, stringResource(areaRes(area))), Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
             style = Bento.type.small, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
         BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.focusRequester(requester).onFocusChanged { edit.slipFocused = it.hasFocus },
@@ -590,13 +600,18 @@ private fun DropOpening(id: String, reorder: Reorder, modifier: Modifier) {
         .background(tint.copy(alpha = 0.08f)).border(1.dp, tint.copy(alpha = 0.35f), ROW_SHAPE))
 }
 
-/** A removed row's place: what was removed, by its type's name, and the one Undo. It closes with the next change. */
+/**
+ * A removed row's place: what was removed, by its type's name, and the one Undo. It closes with the next change, or
+ * when it has stood its time ([NoteTime]): the rows under it then travel up into its place.
+ */
 @Composable
 private fun SlipRow(slip: Slip, edit: BarEdit, modifier: Modifier) {
     val c = Bento.colors
     val res = LocalResources.current
+    val hold = remember { NoteHold() }
+    NoteTime(hold)
     Row(modifier.animatePlacement().fillMaxWidth().padding(horizontal = ROW_INSET).heightIn(min = Target.row).background(c.sunk, ROW_SHAPE)
-        .padding(start = Space.l, end = Space.xs).testTag("slip"), verticalAlignment = Alignment.CenterVertically) {
+        .holdsNote(hold).padding(start = Space.l, end = Space.xs).testTag("slip"), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.bar_removed, itemName(res, slip.item)), Modifier.weight(1f), style = Bento.type.small, color = c.ink2,
             maxLines = lines(), overflow = TextOverflow.Ellipsis)
         BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.onFocusChanged { edit.slipFocused = it.hasFocus }, kind = ButtonKind.TEXT)

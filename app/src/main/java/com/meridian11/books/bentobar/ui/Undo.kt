@@ -15,7 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * command goes through [change], so Ctrl+Z, the Undo in a removed row's place, the library's and the one under Look's
  * control are the same step, [undone]: order, part, rule and area of every item as they were, an option changed since
  * kept. A removed item is deleted from the layout, and this is what has it meanwhile: it comes back as it was, and what
- * its type keeps for it outside the layout stays until the removal can be undone no more ([letGo]).
+ * its type keeps for it outside the layout stays until the removal can be undone no more ([letGo]). What a page says
+ * of the change, with an Undo to click, goes after a few seconds ([over]); the step itself stays until the next change.
  */
 object Undo {
     /**
@@ -27,6 +28,26 @@ object Undo {
     data class Kept(val before: BarConfig, val after: BarConfig, val removed: String? = null, val added: String? = null, val allTo: Position? = null)
 
     val last = MutableStateFlow<Kept?>(null)
+
+    /**
+     * The change whose note is over: what a page said of it (the slip in a removed row's place, a closed area's, the
+     * library's "Added", Look's line, each with its Undo) stood its time ([NoteClock]) and went. Only the note: the
+     * change is still [last], Ctrl+Z still takes it back and what a removed item's type keeps for it still stays.
+     * It is the window's and not a page's, so a note that went is gone on every page and after the window was made
+     * again, and it is that one change, never one equal to it ([noted]).
+     */
+    val over = MutableStateFlow<Kept?>(null)
+
+    /** [kept]'s note has stood its time. Nothing if another change has been made since. */
+    fun noteOver(kept: Kept) {
+        if (last.value !== kept) return
+        // A flow keeps the value it has when given an equal one, and an equal change from before is not this one.
+        over.value = null
+        over.value = kept
+    }
+
+    /** [kept] while a page still says it with its Undo: null once its note is [over]. */
+    fun noted(kept: Kept?, over: Kept?): Kept? = kept?.takeIf { it !== over }
 
     /** Makes [step] the layout's next change and keeps it to be undone. False if it changed nothing: then nothing is kept. */
     fun change(removed: String? = null, added: String? = null, allTo: Position? = null, step: (BarConfig) -> BarConfig): Boolean {
@@ -41,6 +62,7 @@ object Undo {
         if (after == before) return false
         val old = last.value
         last.value = Kept(before, after, removed, added, allTo)
+        over.value = null
         letGo(old)
         return true
     }
@@ -79,6 +101,7 @@ object Undo {
         val old = last.value
         if (old != null && !offered(old, now)) {
             last.value = null
+            over.value = null
             letGo(old)
         }
         Items.of(item.type)?.forgetOwn(id)
@@ -106,6 +129,7 @@ object Undo {
         // The layout first: until the item is back in it, what is kept for it is held by this change being the last.
         if (back) Store.update { it.undone(kept.before, kept.after) ?: it }
         last.value = null
+        over.value = null
         letGo(kept)
         return back
     }

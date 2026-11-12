@@ -27,6 +27,11 @@ object Motion {
     const val BACK = 200
     /** An area starts or closes: the rows travel to their lanes, or back into the one list. */
     const val AREA = 200
+    /**
+     * A note with Undo (a removed row's slip, a closed or removed area's, the library's "Added", Look's line) stands
+     * this long, then only the note goes: the change can still be undone. [NoteClock] says what holds it meanwhile.
+     */
+    const val NOTE = 3000
 
     /** "No animations" is set. */
     val off: Boolean get() = Store.config.value.noAnimations

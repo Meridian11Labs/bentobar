@@ -1,0 +1,344 @@
+package com.meridian11.books.bentobar.compose
+
+import android.app.Application
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.InputModeManager
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.AccessibilityManager
+import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
+import androidx.compose.ui.test.withKeyDown
+import androidx.test.core.app.ApplicationProvider
+import com.meridian11.books.bentobar.R
+import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.ItemConfig
+import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.data.Store
+import com.meridian11.books.bentobar.data.oneArea
+import com.meridian11.books.bentobar.data.without
+import com.meridian11.books.bentobar.items.Env
+import com.meridian11.books.bentobar.ui.BarKeys
+import com.meridian11.books.bentobar.ui.BarPage
+import com.meridian11.books.bentobar.ui.LocalWindowLayout
+import com.meridian11.books.bentobar.ui.LookPage
+import com.meridian11.books.bentobar.ui.Motion
+import com.meridian11.books.bentobar.ui.SettingsTheme
+import com.meridian11.books.bentobar.ui.Undo
+import com.meridian11.books.bentobar.ui.windowLayout
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/**
+ * A note with Undo stands three seconds ([Motion.NOTE]) and then goes, with the clock held: the slip in a removed
+ * row's place, the one for a closed lane, the library's "Added", Look's line. The pointer over it or the keyboard in
+ * it holds it. Only the note goes: Ctrl+Z still takes the change back, and a note that went does not come again.
+ */
+@OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [37], qualifiers = "w1200dp-h800dp-mdpi")
+class NoteTimeTest {
+    @get:Rule val rule = createComposeRule()
+    private val app get() = ApplicationProvider.getApplicationContext<Application>()
+    private lateinit var before: BarConfig
+    private lateinit var inputMode: InputModeManager
+    private var selected by mutableStateOf<String?>(null)
+    private var shown by mutableStateOf(true)
+    private var look by mutableStateOf(false)
+
+    @Before fun env() { Env.init(app); before = Store.config.value; Undo.last.value = null; Undo.over.value = null }
+    @After fun forget() { Store.update { before }; Undo.last.value = null; Undo.over.value = null }
+
+    private fun item(id: String, type: String, area: Position = Position.RIGHT) = ItemConfig(id, type, area = area)
+    private val three = listOf(item("a", "clock"), item("b", "memory"), item("c", "battery"))
+    private val lanes = listOf(item("a", "clock", Position.LEFT), item("b", "memory"), item("c", "battery"))
+
+    /** The Bar page (or Look) with the clock held. [times]: what a person's settings make of a time to read and act in. */
+    private fun page(items: List<ItemConfig> = three, still: Boolean = false, times: Int = 1) {
+        Store.update { BarConfig(items = items, position = Position.RIGHT, noAnimations = still) }
+        rule.mainClock.autoAdvance = false
+        val manager = object : AccessibilityManager {
+            override fun calculateRecommendedTimeoutMillis(originalTimeoutMillis: Long, containsIcons: Boolean, containsText: Boolean, containsControls: Boolean): Long {
+                assertTrue("a note is words and a control", containsText && containsControls)
+                return originalTimeoutMillis * times
+            }
+        }
+        rule.setContent {
+            inputMode = LocalInputModeManager.current
+            CompositionLocalProvider(LocalWindowLayout provides windowLayout(1200), LocalAccessibilityManager provides manager) {
+                SettingsTheme(dark = false) { Box(Modifier.fillMaxSize()) { if (look) LookPage() else if (shown) BarPage(selected, onSelect = { selected = it }) } }
+            }
+        }
+        frames()
+    }
+
+    /** Another tab and back, as a window made again (a rotation, a new size) does it: the page is composed anew. */
+    private fun show(page: Boolean) { rule.runOnUiThread { shown = page }; rule.waitForIdle(); frames(4) }
+    private fun frames(n: Int = 2) = repeat(n) { rule.mainClock.advanceTimeByFrame() }
+    private fun pass(ms: Long) { rule.mainClock.advanceTimeBy(ms); frames() }
+    private fun keyboard() { rule.runOnUiThread { assertTrue(inputMode.requestInputMode(InputMode.Keyboard)) }; frames() }
+    private fun str(id: Int, vararg args: Any) = app.getString(id, *args)
+    private fun tag(tag: String) = rule.onNodeWithTag(tag)
+    private fun ids() = Store.config.value.items.map { it.id }
+    private fun at(id: String): Offset = tag("row:$id").fetchSemanticsNode().boundsInRoot.topLeft
+    private fun remove(id: String) { rule.runOnUiThread { assertTrue(Undo.change(removed = id) { it.without(id) }) }; frames() }
+    private fun undoIn(tag: String) = rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and hasAnyAncestor(hasTestTag(tag)))
+    private fun ctrlZ() { tag("bar-list").performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.Z) } }; frames() }
+
+    /** The note [tag] is there until just before its time and gone when the time is up. */
+    private fun standsItsTime(tag: String, time: Long = Motion.NOTE.toLong()) {
+        tag(tag).assertExists()
+        // Two frames have passed since it came.
+        rule.mainClock.advanceTimeBy(time - 100)
+        tag(tag).assertExists()
+        pass(100)
+        tag(tag).assertDoesNotExist()
+    }
+
+    @Test fun aRemovedRowsSlipIsGoneAtThreeSecondsAndNotAtTwoPointNine() {
+        page()
+        remove("b")
+        standsItsTime("slip")
+        assertEquals("only the note went", listOf("a", "c"), ids())
+        assertNotNull("the change is still the one to undo", Undo.last.value)
+    }
+
+    @Test fun ctrlZAfterTheNoteWentStillBringsTheItemBackAndTheSystemsListStillShowsUndo() {
+        page()
+        keyboard()
+        tag("row:a").requestFocus()
+        frames()
+        remove("b")
+        pass(Motion.NOTE + 100L)
+        tag("slip").assertDoesNotExist()
+        assertTrue(BarKeys.UNDO in BarKeys.listed())
+        ctrlZ()
+        assertEquals(listOf("a", "b", "c"), ids())
+        tag("row:b").assertExists()
+        tag("slip").assertDoesNotExist()
+    }
+
+    @Test fun thePointerOverTheNoteHoldsItAndTheTimeStartsAgainWhenItLeaves() {
+        page()
+        remove("b")
+        pass(2000)
+        tag("slip").performMouseInput { moveTo(center) }
+        frames()
+        pass(10_000)
+        tag("slip").assertExists()
+        // Over its Undo it is over the note too.
+        undoIn("slip").performMouseInput { moveTo(center) }
+        pass(10_000)
+        tag("slip").assertExists()
+        tag("row:a").performMouseInput { moveTo(center) }
+        frames()
+        standsItsTime("slip")
+    }
+
+    @Test fun theKeyboardInTheNoteHoldsItAndTheTimeStartsAgainWhenItLeaves() {
+        page()
+        keyboard()
+        remove("b")
+        pass(2000)
+        undoIn("slip").requestFocus()
+        frames()
+        pass(10_000)
+        tag("slip").assertExists()
+        undoIn("slip").assertIsFocused()
+        tag("row:c").requestFocus()
+        frames()
+        standsItsTime("slip")
+        // The slip's neighbour had the keyboard and keeps it.
+        tag("row:c").assertIsFocused()
+    }
+
+    @Test fun aNewChangeReplacesTheNoteAndHasItsOwnTime() {
+        page()
+        remove("b")
+        pass(2000)
+        remove("c")
+        assertEquals(1, rule.onAllNodes(hasTestTag("slip")).fetchSemanticsNodes().size)
+        rule.onNode(hasText(str(R.string.bar_removed, str(R.string.item_battery_title))) and hasAnyAncestor(hasTestTag("slip"))).assertExists()
+        standsItsTime("slip")
+    }
+
+    @Test fun theRowsUnderTheSlipTravelUpIntoItsPlace() {
+        page()
+        remove("b")
+        val under = at("c")
+        pass(Motion.NOTE - 100L)
+        assertEquals(under, at("c"))
+        // The note goes, and the row under it sets off.
+        rule.mainClock.advanceTimeBy(100)
+        var steps = 0
+        while (rule.onAllNodes(hasTestTag("slip")).fetchSemanticsNodes().isNotEmpty() && steps++ < 4) rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(Motion.NEIGHBOURS / 2L)
+        val half = at("c")
+        assertTrue("half way it is between its places: $under, $half", half.y < under.y)
+        rule.mainClock.advanceTimeBy(1000)
+        val rest = at("c")
+        assertTrue("$half, $rest", rest.y < half.y)
+        assertEquals("a row up, into the slip's place", at("a").y + (under.y - at("a").y) / 2, rest.y, 1f)
+    }
+
+    @Test fun withNoAnimationsTheRowsUnderTheSlipAreThereAtOnce() {
+        page(still = true)
+        remove("b")
+        val under = at("c")
+        pass(Motion.NOTE + 100L)
+        tag("slip").assertDoesNotExist()
+        val then = at("c")
+        assertTrue(then.y < under.y)
+        rule.mainClock.advanceTimeBy(1000)
+        assertEquals(then, at("c"))
+    }
+
+    @Test fun aNoteThatWentDoesNotComeAgainWhenThePageIsMadeAgain() {
+        page()
+        remove("b")
+        pass(Motion.NOTE + 100L)
+        tag("slip").assertDoesNotExist()
+        show(false)
+        tag("bar-list").assertDoesNotExist()
+        show(true)
+        tag("bar-list").assertExists()
+        tag("slip").assertDoesNotExist()
+        pass(Motion.NOTE + 100L)
+        tag("slip").assertDoesNotExist()
+        keyboard()
+        tag("row:a").requestFocus()
+        frames()
+        ctrlZ()
+        assertEquals(listOf("a", "b", "c"), ids())
+    }
+
+    @Test fun aNoteThatWasNotOnScreenHasItsTimeWhenItIs() {
+        page()
+        remove("b")
+        pass(1000)
+        show(false)
+        pass(10_000)
+        show(true)
+        standsItsTime("slip")
+    }
+
+    @Test fun theTimeIsTheOneAPersonsSettingsAskFor() {
+        page(times = 4)
+        remove("b")
+        standsItsTime("slip", time = 4L * Motion.NOTE)
+    }
+
+    @Test fun aClosedLanesSlipGoesTheSameWayAndTheLaneStaysClosed() {
+        page(lanes)
+        keyboard()
+        tag("row:b").requestFocus()
+        frames()
+        remove("a")
+        tag("slip").assertDoesNotExist()
+        rule.onNode(hasText(str(R.string.areas_folded, str(R.string.areas_left)))).assertExists()
+        standsItsTime("fold")
+        // What went is the note: no slip stands in its stead in a lane that is gone, and the lane is not back.
+        tag("slip").assertDoesNotExist()
+        rule.onNode(hasText(str(R.string.areas_left_where), substring = true) and hasAnyAncestor(hasTestTag("bar-list"))).assertDoesNotExist()
+        ctrlZ()
+        assertEquals(lanes, Store.config.value.items)
+        tag("row:a").assertExists()
+    }
+
+    @Test fun theLibrarysAddedWithItsUndoGoesAndTheItemStays() {
+        page()
+        keyboard()
+        tag("row:a").requestFocus()
+        frames()
+        tag("add:cpu").performScrollTo()
+        frames()
+        tag("add:cpu").performClick()
+        frames()
+        assertEquals(4, ids().size)
+        tag("library-undo").assertExists()
+        standsItsTime("added")
+        tag("library-undo").assertDoesNotExist()
+        assertEquals(4, ids().size)
+        ctrlZ()
+        assertEquals(listOf("a", "b", "c"), ids())
+    }
+
+    @Test fun thePointerOrTheKeyboardOnTheLibrarysNoteHoldsItAndThePlusThatWasPressedDoesNot() {
+        page()
+        keyboard()
+        tag("add:cpu").performScrollTo()
+        frames()
+        // The pointer is on the + it clicked and stays there, and the keyboard is there too: neither is in the note.
+        tag("add:cpu").performMouseInput { moveTo(center) }
+        tag("add:cpu").requestFocus()
+        frames()
+        tag("add:cpu").performMouseInput { click() }
+        frames()
+        standsItsTime("added")
+        tag("add:cpu").performMouseInput { click() }
+        frames()
+        pass(1000)
+        tag("added").performMouseInput { moveTo(center) }
+        frames()
+        pass(10_000)
+        tag("added").assertExists()
+        tag("library-undo").requestFocus()
+        frames()
+        tag("add:cpu").performMouseInput { moveTo(center) }
+        frames()
+        pass(10_000)
+        tag("library-undo").assertIsFocused()
+        tag("add:cpu").requestFocus()
+        frames()
+        standsItsTime("added")
+    }
+
+    @Test fun looksLineGoesAndItsChangeCanStillBeTakenBack() {
+        look = true
+        page(lanes)
+        rule.onNode(hasText(str(R.string.areas_middle)) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)).performClick()
+        frames()
+        assertEquals(Position.CENTER, Store.config.value.oneArea())
+        standsItsTime("look-moved")
+        // What Ctrl+Z asks on Look, and what it does there.
+        assertEquals(Position.CENTER, Undo.allTo(Undo.last.value, Store.config.value))
+        rule.runOnUiThread { assertTrue(Undo.undo()) }
+        assertEquals(lanes, Store.config.value.items)
+    }
+}

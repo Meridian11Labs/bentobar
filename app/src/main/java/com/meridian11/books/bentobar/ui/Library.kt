@@ -118,7 +118,9 @@ internal fun Library(cfg: BarConfig, edit: BarEdit, lanes: Lanes, reorder: Reord
     val c = Bento.colors
     val res = LocalResources.current
     val kept by Undo.last.collectAsState()
-    val added = Undo.added(kept, cfg)
+    val over by Undo.over.collectAsState()
+    // What the + just added, while its note stands.
+    val added = Undo.added(Undo.noted(kept, over), cfg)
     val shelves = remember(cfg, res) { shelvesOf(cfg, { res.getString(it.titleRes) }, { res.getString(it.blurbRes) }) }
     val query = edit.filter
     val shown = remember(shelves, query) { shelves.matching(query) }
@@ -204,7 +206,9 @@ private fun GroupHead(group: ItemGroup) {
 
 /**
  * A type: glyph, name ("In your bar" after it), what it is, and for a type that comes waiting on its rule where its +
- * puts it. Right after a + it says "Added" in the description's place, with Undo. Its + always adds a fresh item.
+ * puts it. Right after a + it says "Added" in the description's place, with Undo, for a note's time ([NoteTime]:
+ * the pointer over those words or the keyboard in that Undo holds it; the + itself, where both are after the press,
+ * does not). Its + always adds a fresh item.
  * [to] is the area's name while "Add to" is on screen: the + and both lines then say it.
  */
 @Composable
@@ -214,6 +218,8 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
     val (bring, plus) = sought(Seek.type(type.type), edit)
     val source = From.TYPE to type.type
     val carried = reorder.carried?.let { it.from == From.TYPE && it.type == type.type } == true
+    val hold = remember { NoteHold() }
+    if (added != null) NoteTime(hold)
     Row(Modifier.bringIntoViewRequester(bring).testTag("type:${type.type}").fillMaxWidth().heightIn(min = TYPE_ROW)
         .onGloballyPositioned { reorder.sources[source] = it }.alpha(if (carried) CARRIED_ALPHA else 1f)
         .padding(start = Space.xs, top = Space.xs, bottom = Space.xs), verticalAlignment = Alignment.CenterVertically) {
@@ -226,7 +232,7 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
             }
             if (added != null) {
                 val rule = if (added.whenActive && cfg.partOf(added) == Part.LOWER) type.trigger?.short(added) ?: stringResource(R.string.row_when_active) else null
-                Row(Modifier.testTag("added"), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.holdsNote(hold).testTag("added"), verticalAlignment = Alignment.CenterVertically) {
                     SymIcon(Sym.CHECK, size = 14.sp, color = c.accent)
                     Spacer(Modifier.width(Space.xs))
                     val at = if (to != null) stringResource(areaRes(added.area)) else null
@@ -252,7 +258,7 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
         }
         Spacer(Modifier.width(Space.m).onGloballyPositioned { reorder.stops[source] = it })
         if (added != null) {
-            LibraryUndo(edit)
+            LibraryUndo(edit, hold)
             Spacer(Modifier.width(2.dp))
         }
         BentoIconButton(Sym.ADD, if (to != null) stringResource(R.string.library_add_to, shelf.name, to) else stringResource(R.string.library_add, shelf.name),
@@ -262,10 +268,10 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
 
 /** The one Undo, where the library says what it just did. */
 @Composable
-private fun LibraryUndo(edit: BarEdit) {
+private fun LibraryUndo(edit: BarEdit, hold: NoteHold) {
     var focused by remember { mutableStateOf(false) }
     BentoButton(stringResource(R.string.bar_undo), { edit.undo(focused) },
-        Modifier.onFocusChanged { focused = it.isFocused }.testTag("library-undo"), kind = ButtonKind.TEXT)
+        Modifier.holdsNote(hold).onFocusChanged { focused = it.isFocused }.testTag("library-undo"), kind = ButtonKind.TEXT)
 }
 
 /** A type's row at its lowest: a name and one line of help. */
