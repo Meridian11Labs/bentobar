@@ -479,7 +479,6 @@
     <string name="order_rd">%1$drd</string>
     <string name="order_th">%1$dth</string>
     <string name="key_alt">Alt</string>
-    <string name="key_del">Del</string>
     <string name="key_ctrl">Ctrl</string>
     <string name="key_esc">Esc</string>
     <string name="key_f">F</string>

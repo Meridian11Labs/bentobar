@@ -129,7 +129,7 @@ fun orderWords(res: Resources, cfg: BarConfig, item: ItemConfig, several: Boolea
 /**
  * The selected item's options, in the panel: its name, what it waits for, then Area (first, as a three-way choice with
  * its keys, while [several] lanes are on screen; else last, as a menu), Visibility with its rule, Order, Show as and the type's own options;
- * Duplicate and Remove from the bar at the card's foot. Every command is [edit]'s, the same one the keys and a row's
+ * Duplicate and Remove from the bar (the red button) at the card's foot. Every command is [edit]'s, the same one the keys and a row's
  * screen-reader actions use.
  */
 @Composable
@@ -206,8 +206,9 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
                 BentoButton(stringResource(R.string.detail_duplicate), { edit.duplicate(item.id) })
                 Spacer(Modifier.width(Space.s))
             }
-            BentoButton(stringResource(R.string.detail_remove), { edit.remove(item.id) }, kind = ButtonKind.PLAIN)
-            BarKeys.REMOVE.caps(res).forEach { Keycap(it) }
+            // Red, with a trash: the one command here that takes something away. Its keys (Delete, Backspace) are in the
+            // system's list of shortcuts and not beside it.
+            BentoButton(stringResource(R.string.detail_remove), { edit.remove(item.id) }, kind = ButtonKind.DANGER, icon = Sym.DELETE)
         }
     }
 }

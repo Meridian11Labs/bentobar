@@ -8,6 +8,9 @@ import android.graphics.Canvas
 import android.view.View
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.hasClickAction
+import com.meridian11.books.bentobar.ui.BarKeys
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
@@ -125,6 +128,34 @@ class OptionsPicturesTest {
             val palette = if (isDark) Palette.Dark else Palette.Light
             assertEquals("the field's ground", Integer.toHexString(palette.sunk.toArgb()), Integer.toHexString(bitmap.getPixel(field.right.toInt() - 8, field.center.y.toInt())))
         }
+    }
+
+    @Test fun removeIsTheRedButtonWithATrashBeforeItsWordsAndNoKeycapBesideIt() {
+        show("clock")
+        val words = str(R.string.detail_remove)
+        assertEquals("Remove from the bar", words)
+        for (isDark in listOf(false, true)) {
+            dark = isDark
+            val bitmap = picture("options-remove-${if (isDark) "dark" else "light"}")
+            val palette = if (isDark) Palette.Dark else Palette.Light
+            val button = rule.onNode(hasText(words) and hasClickAction() and inOptions()).fetchSemanticsNode().boundsInRoot
+            val text = rule.onNode(hasText(words) and inOptions(), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            fun count(color: Color, from: Float, to: Float): Int {
+                var n = 0
+                for (y in button.top.toInt() until button.bottom.toInt()) for (x in from.toInt() until to.toInt()) if (bitmap.getPixel(x, y) == color.toArgb()) n++
+                return n
+            }
+            val theme = if (isDark) "dark" else "light"
+            assertTrue("the words are in the danger colour, $theme", count(palette.danger, text.left, text.right) > 0)
+            assertEquals("and not in the ink, $theme", 0, count(palette.ink, button.left, button.right))
+            assertTrue("a trash stands before them, $theme", text.left - button.left >= 18f && count(palette.danger, button.left, text.left) > 0)
+        }
+        // No keycap beside it: the keys still remove, and the system's list of shortcuts says which.
+        rule.onNode(hasText("Del") and inOptions()).assertDoesNotExist()
+        assertTrue(BarKeys.REMOVE in BarKeys.listed())
+        val foot = rule.onNode(hasText(words) and hasClickAction() and inOptions()).fetchSemanticsNode().boundsInRoot
+        val edge = rule.onNodeWithTag("options-edge").fetchSemanticsNode().boundsInRoot
+        assertTrue("the button is the last thing in the foot", rule.onAllNodes(inOptions()).fetchSemanticsNodes().none { it.boundsInRoot.top >= edge.bottom && it.boundsInRoot.left >= foot.right })
     }
 
     @Test fun aServiceThatGaveNoAnswerSaysSoOverTheOptionsWithTryAgainAndTheRowSaysWhenItWasLastUpdated() {

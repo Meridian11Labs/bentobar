@@ -112,7 +112,6 @@ internal data class Binding(val key: Key, val alt: Boolean = false, val ctrl: Bo
         Key.DirectionRight -> "→"
         Key.DirectionUp -> "↑"
         Key.DirectionDown -> "↓"
-        Key.Delete -> res.getString(R.string.key_del)
         Key.Escape -> res.getString(R.string.key_esc)
         Key.F -> res.getString(R.string.key_f)
         else -> android.view.KeyEvent.keyCodeToString(keycode).removePrefix("KEYCODE_")

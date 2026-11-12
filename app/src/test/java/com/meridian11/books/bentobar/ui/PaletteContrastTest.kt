@@ -1,6 +1,7 @@
 package com.meridian11.books.bentobar.ui
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import com.meridian11.books.bentobar.bar.Contrast
 import org.junit.Assert.assertEquals
@@ -65,6 +66,23 @@ class PaletteContrastTest {
             assertTrue("accent track on chrome, $theme", Contrast.ratio(p.accent, p.chrome) >= OUTLINE)
             assertTrue("thumb on accent, $theme", Contrast.ratio(p.onPrimary, p.accent) >= OUTLINE)
             assertTrue("thumb on edge, $theme", Contrast.ratio(p.panel, p.edge) >= OUTLINE)
+        }
+    }
+
+    /**
+     * The red button (Remove from the bar, Discard): its words and glyph in the danger colour on the panel, with no
+     * ground of its own. Under the pointer and pressed the control's veil is that colour at 6% and 10% over the panel
+     * ([states]), and the words must still hold on it; with the keyboard in it the ring is the accent on the panel.
+     */
+    @Test fun theRedButtonHoldsAtRestUnderThePointerPressedAndWithTheKeyboard() {
+        for ((theme, p) in listOf("light" to Palette.Light, "dark" to Palette.Dark)) {
+            assertTrue("danger on panel, $theme", Contrast.ratio(p.danger, p.panel) >= Contrast.MIN)
+            for ((state, depth) in listOf("hover" to 0.06f, "pressed" to 0.10f)) {
+                val ground = p.danger.copy(alpha = depth).compositeOver(p.panel)
+                val ratio = Contrast.ratio(p.danger, ground)
+                assertTrue("danger on its $state veil, $theme: $ratio", ratio >= Contrast.MIN)
+            }
+            assertTrue("the focus ring on panel, $theme", Contrast.ratio(p.accent, p.panel) >= OUTLINE)
         }
     }
 
