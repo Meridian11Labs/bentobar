@@ -29,12 +29,12 @@ internal fun laneBeside(lanes: List<Position>, area: Position, right: Boolean): 
 }
 
 /**
- * Which arrow moves an item into the empty lane [area], as the lane says it: → when every other lane stands left of
- * it, ← otherwise, so between two it names the way from Right, where the bar's items are first.
+ * Which arrow moves an item into the empty lane [area], as the lane says it: → when a lane stands left of it, ←
+ * otherwise, so between two it names the way from Left, where the bar's items are first.
  */
 internal fun leadsRight(lanes: List<Position>, area: Position): Boolean {
     val at = BAR_ORDER.indexOf(area)
-    return lanes.none { BAR_ORDER.indexOf(it) > at } && lanes.any { it != area }
+    return lanes.any { BAR_ORDER.indexOf(it) < at }
 }
 
 /**

@@ -226,14 +226,17 @@ object Store {
 object Defaults {
     /**
      * A calm first bar, left to right: the next meeting (only when one is near), the calendar, a
-     * timer and keep awake. Everything else is one click away in the library.
+     * timer and keep awake. Everything else is one click away in the library. It starts in Left, after the clock, and
+     * says so for each item and for the layout: the fields' own defaults ([ItemConfig.area], [BarConfig.position]) are
+     * Right and stay Right, since they are what a stored layout that names no area is read by.
      */
     fun config() = BarConfig(
         items = listOf(
-            ItemConfig(Store.newId(), "event", Section.HIDDEN, whenActive = true),
-            ItemConfig(Store.newId(), "calendar", Section.SHOWN, display = Display.ICON),
-            ItemConfig(Store.newId(), "timer", Section.SHOWN, display = Display.ICON),
-            ItemConfig(Store.newId(), "caffeine", Section.SHOWN, display = Display.ICON),
+            ItemConfig(Store.newId(), "event", Section.HIDDEN, whenActive = true, area = Position.LEFT),
+            ItemConfig(Store.newId(), "calendar", Section.SHOWN, display = Display.ICON, area = Position.LEFT),
+            ItemConfig(Store.newId(), "timer", Section.SHOWN, display = Display.ICON, area = Position.LEFT),
+            ItemConfig(Store.newId(), "caffeine", Section.SHOWN, display = Display.ICON, area = Position.LEFT),
         ),
+        position = Position.LEFT,
     )
 }

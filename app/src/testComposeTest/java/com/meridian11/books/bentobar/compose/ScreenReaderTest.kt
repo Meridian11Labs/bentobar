@@ -322,9 +322,10 @@ class ScreenReaderTest {
     @Config(qualifiers = "w1180dp-h780dp-mdpi")
     @Test fun theLibrarysAddToSaysEachAreaWithWhatItIsFor() {
         window(HiddenMode.SHOW_ALL, three) {
-            val to = rule.onNode(hasContentDescription("${str(R.string.areas_add_to)} ${str(R.string.areas_right)}") and hasAnyAncestor(hasTestTag("add-to")))
+            // What is chosen as the window opens is the home area: Left, where a new item goes.
+            val to = rule.onNode(hasContentDescription("${str(R.string.areas_add_to)} ${str(R.string.areas_left)}") and hasAnyAncestor(hasTestTag("add-to")))
             to.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)).assertIsSelected()
-            rule.onNode(hasContentDescription("${str(R.string.areas_add_to)} ${str(R.string.areas_left)}") and hasAnyAncestor(hasTestTag("add-to"))).assertIsNotSelected()
+            rule.onNode(hasContentDescription("${str(R.string.areas_add_to)} ${str(R.string.areas_right)}") and hasAnyAncestor(hasTestTag("add-to"))).assertIsNotSelected()
         }
     }
 

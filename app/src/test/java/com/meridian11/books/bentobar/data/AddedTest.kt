@@ -55,11 +55,11 @@ class AddedTest {
     @Test fun anAreaTheCallerNamesIsTheNewItemsArea() {
         Store.open(MapPrefs()) { }
         Store.update { BarConfig(items = listOf(item("r", "clock", Position.RIGHT), item("l", "cpu", Position.LEFT))) }
-        val id = Store.add("timer", area = Position.LEFT)
-        assertEquals(Position.LEFT, Store.config.value.items.single { it.id == id }.area)
-        assertEquals(listOf("r", id, "l"), Store.config.value.items.map { it.id })
-        // Without one it is the home area, here Right.
+        val id = Store.add("timer", area = Position.RIGHT)
+        assertEquals(Position.RIGHT, Store.config.value.items.single { it.id == id }.area)
+        assertEquals(listOf(id, "r", "l"), Store.config.value.items.map { it.id })
+        // Without one it is the home area, here Left.
         val home = Store.add("memory", Section.HIDDEN)
-        assertEquals(Position.RIGHT, Store.config.value.items.single { it.id == home }.area)
+        assertEquals(Position.LEFT, Store.config.value.items.single { it.id == home }.area)
     }
 }

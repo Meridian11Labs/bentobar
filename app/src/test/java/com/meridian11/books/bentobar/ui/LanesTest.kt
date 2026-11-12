@@ -51,7 +51,8 @@ class LanesTest {
         assertEquals(true, leadsRight(listOf(left, right), right))
         assertEquals("the Middle from Right", false, leadsRight(listOf(middle, right), middle))
         assertEquals("the Middle from Left", true, leadsRight(listOf(left, middle), middle))
-        assertEquals("between two, from the side the bar fills first", false, leadsRight(listOf(left, middle, right), middle))
+        assertEquals("between two, from the side the bar fills first", true, leadsRight(listOf(left, middle, right), middle))
+        assertEquals("one lane leads nowhere", false, leadsRight(listOf(middle), middle))
     }
 
     @Test fun looksCommandClosesLanesWithoutASlipAndMarksNoRow() {
@@ -98,31 +99,31 @@ class LanesTest {
         val none: (ItemConfig) -> Boolean = { false }
         assertEquals(setOf(middle), noRoomAreas(cfg, setOf("m1", "m2"), none))
         assertEquals("one of its items is in the bar: its rows say which are not", emptySet<Position>(), noRoomAreas(cfg, setOf("m1"), none))
-        assertEquals(setOf(left, middle), noRoomAreas(cfg, setOf("l", "m1", "m2"), none))
-        assertEquals("Right takes the space first: what does not fit there is behind its arrow", emptySet<Position>(), noRoomAreas(cfg, setOf("r"), none))
+        assertEquals(setOf(right, middle), noRoomAreas(cfg, setOf("r", "m1", "m2"), none))
+        assertEquals("Left takes the space first: what does not fit there is behind its arrow", emptySet<Position>(), noRoomAreas(cfg, setOf("l"), none))
         assertEquals(emptySet<Position>(), noRoomAreas(cfg, emptySet(), none))
         assertEquals("with one area in use there is no lane to say it in", emptySet<Position>(), noRoomAreas(layout(item("m1", middle)), setOf("m1"), none))
         // The areas its notice names: the ones in use that take the space before it.
-        assertEquals(listOf(right, left), roomAhead(cfg, middle))
-        assertEquals(listOf(right), roomAhead(cfg, left))
-        assertEquals(listOf(left), roomAhead(layout(item("l", left), item("m", middle)), middle))
-        assertEquals(emptyList<Position>(), roomAhead(cfg, right))
+        assertEquals(listOf(left, right), roomAhead(cfg, middle))
+        assertEquals(listOf(left), roomAhead(cfg, right))
+        assertEquals(listOf(right), roomAhead(layout(item("r", right), item("m", middle)), middle))
+        assertEquals(emptyList<Position>(), roomAhead(cfg, left))
     }
 
     /**
      * An item of a type this version doesn't know has a row and a lane, but takes no room in the bar ([areasInUse]): with
-     * one alone in Right the bar's first strip is Left's, so what Left can't fit is behind Left's own ‹, and the page
-     * never says Left has no room; nor does Middle's notice name Right.
+     * one alone in Left the bar's first strip is Right's, so what Right can't fit is behind Right's own ‹, and the page
+     * never says Right has no room; nor does Middle's notice name Left.
      */
     @Test fun anItemOfATypeThisVersionDoesntKnowHasALaneButTakesNoRoom() {
-        val newer = ItemConfig("u", "from-a-newer-version", area = right)
-        val cfg = layout(newer, item("l", left), item("m1", middle), item("m2", middle))
+        val newer = ItemConfig("u", "from-a-newer-version", area = left)
+        val cfg = layout(newer, item("r", right), item("m1", middle), item("m2", middle))
         val none: (ItemConfig) -> Boolean = { false }
         assertEquals(listOf(left, middle, right), lanesOnScreen(cfg, emptySet()))
         assertEquals(listOf(left, middle, right), cfg.rowAreas())
-        assertEquals("Left is the bar's first strip", setOf(middle), noRoomAreas(cfg, setOf("l", "m1", "m2"), none))
-        assertEquals(listOf(left), roomAhead(cfg, middle))
-        assertEquals(emptyList<Position>(), roomAhead(cfg, left))
+        assertEquals("Right is the bar's first strip", setOf(middle), noRoomAreas(cfg, setOf("r", "m1", "m2"), none))
+        assertEquals(listOf(right), roomAhead(cfg, middle))
+        assertEquals(emptyList<Position>(), roomAhead(cfg, right))
         // With nothing else in use there is one area, and no lane to say it in.
         assertEquals(emptySet<Position>(), noRoomAreas(layout(newer, item("m1", middle)), setOf("m1"), none))
     }

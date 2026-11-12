@@ -166,24 +166,24 @@ class StripPlanTest {
      * own to bring out it never looks open, opened bar or not.
      */
     @Test fun theCarriersChevronForAnOwedAreaIsAnOverflowChevronAndNeverLooksOpenWhileAnotherAreaHasHiddenItems() {
-        val c = BarConfig(hiddenMode = HiddenMode.CLICK, items = listOf(clock.at(right), clock.at(left, "c2"), memory.at(left)))
-        assertFalse("Right has nothing behind a ‹ of its own", plan(c, right).chevron)
+        val c = BarConfig(hiddenMode = HiddenMode.CLICK, items = listOf(clock.at(left), clock.at(right, "c2"), memory.at(right)))
+        assertFalse("Left has nothing behind a ‹ of its own", plan(c, left).chevron)
         for (expanded in listOf(false, true)) {
-            val carrier = plan(c, right, expanded = expanded, overflow = true)
+            val carrier = plan(c, left, expanded = expanded, overflow = true)
             assertTrue(carrier.chevron)
             assertFalse(carrier.chevronAlways)
             assertFalse("expanded=$expanded", carrier.open)
             assertEquals(listOf("c"), ids(carrier.visible))
             assertEquals(emptyList<String>(), ids(carrier.revealed))
         }
-        // While presenting, the home area's ‹ on a carrier that is not the home area is the same ‹: Right is not in use,
-        // so the Middle is home and Left is placed first.
-        val presenting = BarConfig(presenting = true, items = listOf(clock.at(left), clock.at(middle, "c2")))
-        val stand = plan(presenting, left, overflow = true)
+        // While presenting, the home area's ‹ on a carrier that is not the home area is the same ‹: Left is not in use,
+        // so the Middle is home and Right is placed first.
+        val presenting = BarConfig(presenting = true, items = listOf(clock.at(right), clock.at(middle, "c2")))
+        val stand = plan(presenting, right, overflow = true)
         assertTrue(stand.chevron)
         assertFalse(stand.chevronAlways)
         assertFalse(stand.open)
-        assertFalse("without the home area owed, Left has no ‹ while presenting", plan(presenting, left).chevron)
+        assertFalse("without the home area owed, Right has no ‹ while presenting", plan(presenting, right).chevron)
     }
 
     /** As it always was in one strip: the bar is open, its last hidden item went away, and a ‹ still drawn shows as open. */
@@ -202,33 +202,33 @@ class StripPlanTest {
 
     @Test fun whilePresentingOnlyTheHomeAreaHasTheChevronAndKeepsRoomForIt() {
         val timer = ItemConfig("t", "timer", Section.HIDDEN)
-        val c = BarConfig(hiddenMode = HiddenMode.CLICK, presenting = true, items = listOf(clock.at(right), timer.at(left), memory.at(left)))
-        assertEquals(right, c.homeArea())
-        assertTrue(plan(c, right).chevron)
-        assertTrue(plan(c, right).chevronAlways)
-        assertFalse(plan(c, left).chevron)
-        assertFalse(plan(c, left).chevronAlways)
+        val c = BarConfig(hiddenMode = HiddenMode.CLICK, presenting = true, items = listOf(clock.at(left), timer.at(right), memory.at(right)))
+        assertEquals(left, c.homeArea())
+        assertTrue(plan(c, left).chevron)
+        assertTrue(plan(c, left).chevronAlways)
+        assertFalse(plan(c, right).chevron)
+        assertFalse(plan(c, right).chevronAlways)
         assertFalse("an area nothing is in", plan(c, middle).chevron)
         // What presents shows in its own area, and nothing waits behind a ‹ anywhere.
         val running = { item: ItemConfig -> item.id == "t" }
-        assertEquals(listOf("t"), ids(plan(c, left, active = running).visible))
-        assertEquals(emptyList<String>(), ids(plan(c, right, active = running).visible))
-        assertEquals(emptyList<String>(), ids(plan(c, left, expanded = true).hidden))
-        assertFalse(plan(c, left, active = running).chevron)
-        assertFalse("presenting's ‹ only opens the menu", plan(c, right, expanded = true).open)
+        assertEquals(listOf("t"), ids(plan(c, right, active = running).visible))
+        assertEquals(emptyList<String>(), ids(plan(c, left, active = running).visible))
+        assertEquals(emptyList<String>(), ids(plan(c, right, expanded = true).hidden))
+        assertFalse(plan(c, right, active = running).chevron)
+        assertFalse("presenting's ‹ only opens the menu", plan(c, left, expanded = true).open)
         // An area whose own item did not fit still gets a ‹ for it, with no room kept.
-        val full = plan(c, left, active = running, overflow = true)
+        val full = plan(c, right, active = running, overflow = true)
         assertTrue(full.chevron)
         assertFalse(full.chevronAlways)
     }
 
-    @Test fun presentingsChevronFollowsTheHomeAreaWhereRightIsNotInUse() {
-        val c = BarConfig(presenting = true, items = listOf(clock.at(left), clock.at(middle, "c2"), clock.at(right, "c3").copy(type = "from-the-future")))
+    @Test fun presentingsChevronFollowsTheHomeAreaWhereLeftIsNotInUse() {
+        val c = BarConfig(presenting = true, items = listOf(clock.at(right), clock.at(middle, "c2"), clock.at(left, "c3").copy(type = "from-the-future")))
         assertEquals(middle, c.homeArea())
         assertTrue(plan(c, middle).chevron)
         assertTrue(plan(c, middle).chevronAlways)
-        assertFalse(plan(c, left).chevron)
         assertFalse(plan(c, right).chevron)
+        assertFalse(plan(c, left).chevron)
     }
 
     @Test fun nextMeetingComesFirstInItsOwnAreaOnly() {

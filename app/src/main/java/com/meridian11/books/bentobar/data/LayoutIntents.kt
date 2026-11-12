@@ -29,9 +29,6 @@ fun BarConfig.hide(id: String): BarConfig = putIn(id, Section.HIDDEN)
 fun BarConfig.putInArea(id: String, area: Position): BarConfig =
     if (items.none { it.id == id && it.area != area }) this else copy(items = items.map { if (it.id == id) it.copy(area = area) else it })
 
-/** The areas in the order they stand in the bar, which is the order of the settings window's lanes. */
-val BAR_ORDER = listOf(Position.LEFT, Position.CENTER, Position.RIGHT)
-
 /**
  * Into [area] by a click or a key (Area in the options, Alt with an arrow): the item keeps its part and its section, and
  * lands where it came in from. Moving right it is the first of its part there, moving left the last, so a row that

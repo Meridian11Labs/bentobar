@@ -76,6 +76,9 @@ learned the hard way" says why. Run it again on every new draft.
   none in the morning.
 - **Menus.** The ‹ chevron and an item open their menus at the right width (not cut off, not pushed under the chevron);
   a click outside closes them; the glass and its shadow sit together.
+- **Where a bar starts.** A fresh install (or the app's data cleared) has its four items in Left, after the clock, and
+  the next item added goes there. An install updated from 2.1 or earlier keeps its bar where it was, its items in the
+  areas they had, and what is added to a bar in Right alone still goes to Right.
 - **One area.** Look › Where BentoBar sits puts every item in Left, Middle or Right and shows that one as chosen. In each
   the bar is one strip that looks and behaves as the previous release did there, and no row in Settings names an area.
   With every item removed and a pill background, the row still shows a place as chosen, a press on another moves the
@@ -83,26 +86,27 @@ learned the hard way" says why. Run it again on every new draft.
 - **Three areas.** Put items in Left, Middle and Right (an item's detail › Area): rows name their areas and Look shows
   none as chosen, with a line under the row's title saying that choosing one moves every item there (with one area, or
   no items, the row has no such line). The strips do not overlap, and a press in a gap between them reaches the status
-  bar. A ticking item or a timer in Right moves neither Left nor the Middle; a Right that grows (a long Now playing
-  title) pushes the Middle aside smoothly, never in a jump, and it returns to the centre; in a recording no frame has
-  Right's first item in the place the Middle has not left yet. The picture on the Bar page
-  shows the areas where the bar has them; in a narrow settings window Right keeps its room longest, then Left, then the
+  bar. A ticking item or a timer in Left moves neither Right nor the Middle; a Left or a Right that grows (a long Now
+  playing title) pushes the Middle aside smoothly, never in a jump, and it returns to the centre; in a recording no
+  frame has the grown area's item in the place the Middle has not left yet. The picture on the Bar page
+  shows the areas where the bar has them; in a narrow settings window Left keeps its room longest, then Right, then the
   Middle, and the line under the picture counts every item not drawn, once.
-- **An area that comes and goes.** Left holding only a Hidden timer with Show when on: starting the timer brings Left up
-  within a second, stopping it takes Left away, and the other areas do not move either time and go on ticking. The same
-  with Presenting on. Start and stop the timer several times within a second or two: Left never shows blank or at
-  another width for a frame (a recording), and with `debug trace on` no more than one `left width` line follows each
-  return.
-- **No room.** Narrow the free part of the status bar (snap windows, or a larger display size) until an area has no room:
+- **An area that comes and goes.** Right holding only a Hidden timer with Show when on: starting the timer brings Right
+  up within a second, stopping it takes Right away, and the other areas do not move either time and go on ticking. The
+  same with Presenting on. Start and stop the timer several times within a second or two: Right never shows blank or at
+  another width for a frame (a recording), and with `debug trace on` no more than one `right width` line follows each
+  return. Then the same with Left, the first strip, as the one that comes and goes.
+- **No room.** Narrow the free part of the status bar (snap windows, or a larger display size) until an area has no room
+  (Left keeps its room, then Right, and the Middle is the first to go):
   its items are in the first strip's ‹ menu and their rows in Settings say they don't fit right now; the other strips do
   not move when that ‹ comes and goes, and nothing flickers at the edge of room. With Presenting on, a ‹ that ends it
-  stays on screen. An area with no room whose items are all Hidden (Right: a clock; Left: two Hidden items; hidden items
+  stays on screen. An area with no room whose items are all Hidden (Left: a clock; Right: two Hidden items; hidden items
   on a click) still gives the bar a ‹: the first strip draws one, and a press on it opens the menu that lists them. With
   room for nothing, the home area's ‹ is drawn as it was with one strip, and the keyboard's "BentoBar menu" opens it.
   Give the room back: the areas return and the rows clear.
 - **One bar across areas.** With hidden items out, a click on another app folds them, once; a click on an item in
   another area opens its popup and folds nothing. A click on another app folds them also while the first strip draws
-  nothing (Right holding only a spacer with no line, Left with a Hidden item: click Left's ‹, then another app). A press
+  nothing (Left holding only a spacer with no line, Right with a Hidden item: click Right's ‹, then another app). A press
   on another area's item closes an open popup and opens its own (one click): the first dissolves while the second
   unfolds. A ‹ menu closed under one area and at once opened from another area's ‹ opens under that one, not turned
   round under the first. The pointer moving from one strip straight to the next keeps hidden items out, takes the highlight with

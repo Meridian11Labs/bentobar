@@ -20,14 +20,14 @@ class AreasTest {
         assertEquals(emptySet<Position>(), BarConfig().areasInUse())
     }
 
-    @Test fun theHomeAreaIsRightWhileRightIsInUse() {
-        assertEquals(Position.RIGHT, layout(item("l", Position.LEFT), item("m", Position.CENTER), item("r", Position.RIGHT, Section.HIDDEN)).homeArea())
+    @Test fun theHomeAreaIsLeftWhileLeftIsInUse() {
+        assertEquals(Position.LEFT, layout(item("r", Position.RIGHT), item("m", Position.CENTER), item("l", Position.LEFT, Section.HIDDEN)).homeArea())
     }
 
-    @Test fun withoutRightTheHomeAreaIsMiddleAndOnlyThenLeft() {
-        assertEquals(Position.CENTER, layout(item("l", Position.LEFT), item("m", Position.CENTER)).homeArea())
+    @Test fun withoutLeftTheHomeAreaIsMiddleAndOnlyThenRight() {
+        assertEquals(Position.CENTER, layout(item("r", Position.RIGHT), item("m", Position.CENTER)).homeArea())
         assertEquals(Position.CENTER, layout(item("m", Position.CENTER)).homeArea())
-        assertEquals(Position.LEFT, layout(item("l", Position.LEFT)).homeArea())
+        assertEquals(Position.RIGHT, layout(item("r", Position.RIGHT)).homeArea())
     }
 
     @Test fun withOnlyItemsOfTypesThisVersionDoesntKnowTheHomeAreaIsTheFirstItemsArea() {
@@ -73,8 +73,15 @@ class AreasTest {
         for (position in Position.entries) assertEquals(position, BarConfig(position = position).oneArea())
     }
 
-    @Test fun roomGoesRightLeftMiddleAndHomeGoesRightMiddleLeft() {
-        assertEquals(listOf(Position.RIGHT, Position.LEFT, Position.CENTER), ROOM_ORDER)
-        assertEquals(listOf(Position.RIGHT, Position.CENTER, Position.LEFT), HOME_ORDER)
+    /** The home area is looked for in the bar's own order, so the two are one list. */
+    @Test fun roomGoesLeftRightMiddleAndHomeGoesLeftMiddleRightAsTheBarStands() {
+        assertEquals(listOf(Position.LEFT, Position.RIGHT, Position.CENTER), ROOM_ORDER)
+        assertEquals(listOf(Position.LEFT, Position.CENTER, Position.RIGHT), BAR_ORDER)
+    }
+
+    /** The fields' own defaults are what a stored layout that names no area is read by: they stay Right, whatever a new bar starts with. */
+    @Test fun anItemAndALayoutThatNameNoAreaAreInRight() {
+        assertEquals(Position.RIGHT, ItemConfig("a", "clock", Section.SHOWN).area)
+        assertEquals(Position.RIGHT, BarConfig().position)
     }
 }

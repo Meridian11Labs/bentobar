@@ -28,6 +28,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.bar.BarOverflow
 import com.meridian11.books.bentobar.bar.BarStatus
 import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.Defaults
 import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.ItemConfig
@@ -162,10 +163,14 @@ class WindowPicturesTest {
     @Config(qualifiers = "w700dp-h780dp-mdpi")
     @Test fun theBarPageAt700() = barPictures(700)
 
-    /** Look, Setup and About, and what a first run shows before BentoBar is on: the Bar page, Setup and the disclosure. */
+    /**
+     * Look, Setup and About, and what a first run shows before BentoBar is on: the Bar page, Setup and the disclosure. The
+     * first run has the bar a fresh install has ([Defaults.config]): four items in Left, after the clock.
+     */
     @Config(qualifiers = "w1180dp-h1100dp-mdpi")
     @Test fun theOtherPagesAndAFirstRun() {
         var shown by mutableStateOf("look")
+        val fresh = Defaults.config()
         Store.update { layout(1) }
         rule.setContent {
             view = LocalView.current
@@ -186,10 +191,12 @@ class WindowPicturesTest {
             }
         }
         for (name in listOf("look", "setup", "about", "first-run-bar", "first-run-setup", "first-run-disclosure")) for (night in listOf(false, true)) {
+            if (name == "first-run-bar" && !night) rule.runOnUiThread { Store.update { fresh } }
             shown = name
             dark = night
             rule.waitForIdle()
             large("$name-${if (night) "dark" else "light"}")
+            if (name == "first-run-bar") fresh.items.forEach { rule.onNodeWithTag("row:${it.id}").assertExists() }
         }
         rule.onNodeWithTag("disclosure").assertExists()
     }

@@ -168,7 +168,10 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     `migrateToV4` puts each item where the strip was. `BarConfig.position` is read by that and, in a layout with no
     items, by `homeArea()` (so by `oneArea()`: the empty bar stands where it says, the first item goes there, and Look's
     row writes it through `putAllIn`; `without`, the one removal, writes it when the last item goes, so the bar stays
-    where it was); nothing outside `data/` reads it. Consent lives in a
+    where it was); nothing outside `data/` reads it. A fresh install starts in Left: `Defaults.config()` names Left for
+    each of its items and for `position`. The two fields' own defaults are Right and must stay Right: a stored layout
+    that names no area is read by them, so a bar from before Left was the start stays where it is (`AreasTest`,
+    `StoreOpenTest`). Consent lives in a
     no-backup file (`Store.loadConsent`). `Online.kt`
     holds what belongs to one install and never travels: whether each online service is switched on
     and the user's own key for one, in a file in Android's no-backup directory (so in no backup, no
@@ -322,7 +325,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   `BarPagePicturesTest` the Bar page in each of its states (with the mock clock at one time, `LocalPreviewClock`: its width is the
   areas' room, and at 640 dp an hour of two digits left Left none), `LookPageTest`, `SetupPageTest` and `OptionsPicturesTest` the other
   pages and an item's options (and `MenuCompositionTest` the right-click menu), `WindowPicturesTest` the Bar page at 1180, 960 and
-  700 dp with one, two and three areas, the other pages and a first run, in light and dark, at twice the text size and from right
+  700 dp with one, two and three areas, the other pages and a first run (with the bar a fresh install has), in light and dark, at twice the text size and from right
   to left, each holding that no text is cut off; nothing compares pictures, so a look beside the design is a person's;
   with `BENTOBAR_PICTURES=<directory>` (and `--rerun`) they write the pictures there as PNGs, to look at beside a design. It asks
   the view to draw into a bitmap; `captureToImage` came out one change behind, or blank, when every Compose test ran. A test
@@ -567,10 +570,12 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
 - **The bar is one, in up to three windows.** Every item has an area (Left, Middle, Right) and each area in use (one
   with an item of a type this version knows) has a strip window of its own: "BentoBar" is Right's, "BentoBar left" and "BentoBar middle"
   the others'. A layout in one area is the one strip there always was, to the pixel; hold every change to that.
-  The words: the **home area** (`homeArea`) is the first in use of Right, Middle, Left, and where the bar's one-off things
-  go (Presenting's ‹, the empty capsule, a new item, the strip when nothing has room). Room goes to Right first, then
-  Left, then the Middle (`BarRules.arrange`); the first strip placed in that order is the **carrier** in the code, and
-  does what the bar does once. The windows are asked for in another order (`BarRules.givingWayFirst`): a strip that gets
+  The words: the **home area** (`homeArea`) is the first in use of Left, Middle, Right (`BAR_ORDER`, the order the areas
+  stand in), and where the bar's one-off things
+  go (Presenting's ‹, the empty capsule, a new item, the strip when nothing has room). Room goes to Left first, then
+  Right, then the Middle (`ROOM_ORDER`, said there and nowhere else: `BarRules.arrange` asks in that order and
+  `BarRules.lane` gives an area what the ones asked before it leave); the first strip placed in that order is the
+  **carrier** in the code, and does what the bar does once. Up to 2.1 both orders began with Right. The windows are asked for in another order (`BarRules.givingWayFirst`): a strip that gets
   wider, or comes, last, after whatever moves or narrows for it; the other way round it stood for some frames in room
   its neighbour had not left. An area in use with less room than a ‹ and its ends need has no window and is
   **owed**: what it would draw now (`owedIds`) is behind the first strip's ‹, in its menu and in Settings' rows as not

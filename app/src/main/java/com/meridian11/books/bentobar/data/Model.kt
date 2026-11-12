@@ -31,11 +31,14 @@ enum class Display {
 @Serializable
 enum class Position { RIGHT, CENTER, LEFT }
 
-/** Who gets room first, and the order the bar holds its strips in: Right, then Left, then Middle. */
-val ROOM_ORDER = listOf(Position.RIGHT, Position.LEFT, Position.CENTER)
+/**
+ * The areas in the order they stand in the bar, which is the order of the settings window's lanes, and the order the
+ * home area is looked for in ([homeArea]): Left, where a new bar starts, then Middle, then Right.
+ */
+val BAR_ORDER = listOf(Position.LEFT, Position.CENTER, Position.RIGHT)
 
-/** Where the home area is looked for ([homeArea]): Right, the place a strip has by default, then Middle, then Left. */
-val HOME_ORDER = listOf(Position.RIGHT, Position.CENTER, Position.LEFT)
+/** Who gets room first, and the order the bar holds its strips in: Left, then Right, then Middle. */
+val ROOM_ORDER = listOf(Position.LEFT, Position.RIGHT, Position.CENTER)
 
 @Serializable
 enum class ColorMode { AUTO, LIGHT, DARK }
@@ -265,7 +268,7 @@ fun BarConfig.areasInUse(): Set<Position> =
  * layout with no items has no area to say it, so [BarConfig.position] does, as it did when the whole bar had one place.
  */
 fun BarConfig.homeArea(): Position = areasInUse().let { used ->
-    HOME_ORDER.firstOrNull { it in used } ?: items.firstOrNull()?.area ?: position
+    BAR_ORDER.firstOrNull { it in used } ?: items.firstOrNull()?.area ?: position
 }
 
 /** For Settings: more than one area holds an item. */
