@@ -18,7 +18,7 @@
   Presenting's ‹, the empty capsule, the one strip shown when nothing has room and "Add to"'s first choice stand in
   the first area in use from the left (a bar in Right and Middle has them in the Middle, one in Right and Left in
   Left; both had them in Right). With items in Left too, the keyboard's "BentoBar menu" opens under Left's strip, and
-  when room is short it is Right's items that go behind ‹ first (it was Left's).
+  when room is short Left's items keep theirs before Right's do (it was the other way round).
 - **A trash to drop on.** While you drag a row of your bar a strip comes up along the lower edge of the list, "Drop
   here to remove", at every window width; it turns red under the row, and letting go there removes the item (Undo
   brings it back). The list scrolls under a dragged row only above the strip. The panel no longer takes a drop:
