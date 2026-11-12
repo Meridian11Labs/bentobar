@@ -8,9 +8,11 @@ import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasAnyAncestor
@@ -34,6 +36,7 @@ import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.ui.BarPage
@@ -262,6 +265,149 @@ class AreasTest {
         assertEquals(Position.RIGHT, now("a").area)
         rule.onNodeWithTag("fold").assertDoesNotExist()
         assertEquals(listOf(1, 0, 1), heads())
+    }
+
+    // ---- Remove an area ----
+
+    private fun trash(area: Position) = rule.onNodeWithTag("remove-area:$area")
+    private fun plural(id: Int, count: Int, vararg args: Any) = app.resources.getQuantityString(id, count, *args)
+    private fun noteUndo() = rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and hasAnyAncestor(hasTestTag("area-removed")))
+    private val twoLanes = arrayOf(item("a", "clock", Position.LEFT), item("b", "memory"), item("d", "timer", Position.LEFT).copy(section = Section.HIDDEN, whenActive = true),
+        item("c", "battery"), item("e", "cpu", Position.LEFT))
+
+    @Test fun withSeveralLanesEachHeadEndsInATrashThatSaysWhatItTakesAndWithOneLaneThereIsNone() {
+        page("b", *twoLanes)
+        trash(Position.LEFT).assert(hasContentDescription(plural(R.plurals.areas_remove, 3, str(R.string.areas_left), 3)) and hasClickAction())
+        assertEquals("Remove Left and its 3 items", plural(R.plurals.areas_remove, 3, str(R.string.areas_left), 3))
+        trash(Position.RIGHT).assert(hasContentDescription("Remove Right and its 2 items"))
+        trash(Position.CENTER).assertDoesNotExist()
+        // The head's own end: after the name, and with one item it says so.
+        assertTrue(left("remove-area:LEFT") >= rule.onNode(hasText(str(R.string.areas_left)) and hasAnyAncestor(hasTestTag("bar-list"))).fetchSemanticsNode().boundsInRoot.right)
+        press(Key.Delete)
+        trash(Position.RIGHT).assert(hasContentDescription("Remove Right and its item"))
+        press(Key.CtrlLeft, Key.Z)
+        // One lane: nothing of areas, so no trash either.
+        rule.runOnUiThread { Store.update { c -> c.copy(items = c.items.map { it.copy(area = Position.RIGHT) }) } }
+        rule.waitForIdle()
+        assertEquals(listOf(0, 0, 0), heads())
+        for (area in Position.entries) trash(area).assertDoesNotExist()
+    }
+
+    @Test fun removeAnAreaTakesEveryItemOfItInOneStepSaysSoAboveTheListAndCtrlZBringsThemAllBackWithTheLane() {
+        val layout = page("b", *twoLanes)
+        trash(Position.LEFT).performClick()
+        rule.waitForIdle()
+        assertEquals(listOf("b", "c"), Store.config.value.items.map { it.id })
+        assertEquals("one step, which says what it was", Undo.Kept(layout, Store.config.value, area = Position.LEFT), Undo.last.value)
+        rule.onNodeWithTag("area-removed").assertExists()
+        rule.onNode(hasText("Removed Left and its 3 items") and hasAnyAncestor(hasTestTag("area-removed"))).assertExists()
+        assertEquals("a polite live region", LiveRegionMode.Polite, rule.onNode(hasText("Removed Left and its 3 items")).fetchSemanticsNode().config.getOrNull(SemanticsProperties.LiveRegion))
+        // Not also "Left is empty now, so it closed", nor a slip for one of its rows.
+        rule.onNodeWithTag("fold").assertDoesNotExist()
+        rule.onNode(hasText(str(R.string.areas_folded, str(R.string.areas_left)))).assertDoesNotExist()
+        rule.onNodeWithTag("slip").assertDoesNotExist()
+        assertEquals("one lane is left, and nothing of areas with it", listOf(0, 0, 0), heads())
+        for (area in Position.entries) trash(area).assertDoesNotExist()
+        rule.onNodeWithTag("bracket:RIGHT").assertDoesNotExist()
+        // The note is where a closed lane's slip stands: across the top, over the list's head.
+        val note = rule.onNodeWithTag("area-removed").fetchSemanticsNode().boundsInRoot
+        assertTrue(note.bottom <= rule.onNodeWithTag("row:b").fetchSemanticsNode().boundsInRoot.top)
+        assertTrue(note.bottom <= rule.onNodeWithTag("add-area").fetchSemanticsNode().boundsInRoot.top + 1f)
+
+        row("b").assertIsFocused()
+        press(Key.CtrlLeft, Key.Z)
+        assertEquals("every item back where it was, in its part and order", layout, Store.config.value)
+        rule.onNodeWithTag("area-removed").assertDoesNotExist()
+        assertEquals(listOf(1, 0, 1), heads())
+        for (id in listOf("a", "d", "e")) assertTrue(left("row:$id") < left("row:b"))
+        assertTrue("under the line again", rule.onNodeWithTag("row:d").fetchSemanticsNode().boundsInRoot.top > rule.onNodeWithTag("row:e").fetchSemanticsNode().boundsInRoot.top)
+        assertNull(Undo.last.value)
+    }
+
+    @Test fun theNotesUndoBringsTheAreaBackTooAndASelectedItemThatWasInItIsLetGo() {
+        val layout = page("a", *twoLanes)
+        rule.onNodeWithTag("options", useUnmergedTree = true).assertExists()
+        trash(Position.LEFT).performClick()
+        rule.waitForIdle()
+        assertNull("the selected item went with its area", selected)
+        rule.onNodeWithTag("options", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("library", useUnmergedTree = true).assertExists()
+        noteUndo().performClick()
+        rule.waitForIdle()
+        assertEquals(layout, Store.config.value)
+        assertEquals(listOf(1, 0, 1), heads())
+        assertNull("and it is not selected again by itself", selected)
+        // An item of another area stays selected.
+        click("row:b")
+        trash(Position.LEFT).performClick()
+        rule.waitForIdle()
+        assertEquals("b", selected)
+        rule.onNodeWithTag("options", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun anOpenedLaneThatIsStillEmptySimplyClosesWithNoNoteAndNoStepOfUndo() {
+        val layout = page(null, *three)
+        open(Position.CENTER)
+        trash(Position.CENTER).assert(hasContentDescription("Remove Middle"))
+        trash(Position.RIGHT).assert(hasContentDescription("Remove Right and its 3 items"))
+        trash(Position.CENTER).performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("lane:CENTER").assertDoesNotExist()
+        assertEquals(listOf(0, 0, 0), heads())
+        rule.onNodeWithTag("area-removed").assertDoesNotExist()
+        rule.onNodeWithTag("fold").assertDoesNotExist()
+        assertNull(Undo.last.value)
+        assertEquals(layout, Store.config.value)
+        // The library adds to the area in use again.
+        toLibrary()
+        rule.onNodeWithTag("add-to").assertDoesNotExist()
+    }
+
+    @Test fun byKeyTheKeyboardGoesToTheNotesUndoAndFromAnEmptyLaneBackToAddAnArea() {
+        val layout = page("b", *twoLanes)
+        trash(Position.LEFT).requestFocus()
+        press(Key.Enter, on = "remove-area:LEFT")
+        assertEquals(listOf("b", "c"), Store.config.value.items.map { it.id })
+        noteUndo().assertIsFocused()
+        press(Key.Enter, on = "area-removed")
+        assertEquals(layout, Store.config.value)
+        row("a").assertIsFocused()
+        // An empty lane: it closes, and the keyboard is on what opened it.
+        open(Position.CENTER)
+        trash(Position.CENTER).requestFocus()
+        press(Key.Enter, on = "remove-area:CENTER")
+        rule.onNodeWithTag("lane:CENTER").assertDoesNotExist()
+        rule.onNodeWithTag("add-area").assertIsFocused()
+        assertEquals(layout, Store.config.value)
+    }
+
+    @Test fun theAreaWithTheBarsLastItemsLeavesTheEmptyBarWithItsNoteAndUndoBringsThemBack() {
+        val layout = page(null, item("a", "clock", Position.LEFT), item("b", "memory", Position.LEFT))
+        open(Position.CENTER)
+        trash(Position.LEFT).performClick()
+        rule.waitForIdle()
+        assertEquals(BarConfig(position = Position.LEFT), Store.config.value)
+        rule.onNode(hasText("Removed Left and its 2 items")).assertExists()
+        rule.onNode(hasText(str(R.string.bar_empty))).assertExists()
+        // The empty bar has one lane: the one opened beside it closed too, and nothing of areas is left.
+        rule.onNodeWithTag("lane:CENTER").assertDoesNotExist()
+        assertEquals(listOf(0, 0, 0), heads())
+        for (area in Position.entries) trash(area).assertDoesNotExist()
+        noteUndo().performClick()
+        rule.waitForIdle()
+        assertEquals(layout, Store.config.value)
+        rule.onNodeWithTag("area-removed").assertDoesNotExist()
+    }
+
+    @Test fun theEmptyBarsOwnLaneHasNoTrashBesideAnOpenedOne() {
+        page(null)
+        open(Position.LEFT)
+        trash(Position.LEFT).assertExists()
+        trash(Position.RIGHT).assertDoesNotExist()
+        // Nor a lane that only a removed row's slip keeps on screen.
+        trash(Position.LEFT).performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("lane:LEFT").assertDoesNotExist()
     }
 
     @Test fun anOpenedLaneThatWasNeverUsedIsGoneAfterLeavingTheBarTab() {

@@ -33,6 +33,7 @@ class BarRowsTest {
             is Entry.EmptyLane -> "lane ${it.area}"
             is Entry.Blank -> "nothing ${it.area}"
             is Entry.Fold -> "fold ${it.area}"
+            is Entry.Gone -> "gone ${it.area} ${it.items}"
             is Entry.NoRoom -> "no room ${it.area}"
             is Entry.Room -> if (it.zone.part == Part.LOWER) "room below" else "room"
         }
@@ -103,6 +104,16 @@ class BarRowsTest {
         val one = BarConfig(items = listOf(item("r")))
         assertEquals(listOf("fold LEFT", "head RIGHT", "r", "line"), abreast(one, fold = Position.LEFT))
         assertEquals("with one lane nothing is said of room", listOf("head RIGHT", "r", "line"), abreast(one, noRoom = setOf(Position.RIGHT)))
+    }
+
+    @Test fun aRemovedAreaIsSaidFirstTooAlsoOverTheLanesThatStayAndOverAnEmptyBar() {
+        val one = BarConfig(items = listOf(item("r")))
+        assertEquals(listOf("gone LEFT 3", "head RIGHT", "r", "line"), words(listEntries(one, null, dragging = false, gone = Gone(Position.LEFT, 3))))
+        val two = BarConfig(items = listOf(item("m", Position.CENTER), item("r")))
+        assertEquals(listOf("gone LEFT 1", "area CENTER first", "m", "one line", "nothing CENTER", "area RIGHT", "r", "nothing RIGHT"),
+            words(listEntries(two, null, dragging = false, lanes = lanesOnScreen(two, emptySet()), abreast = true, gone = Gone(Position.LEFT, 1))))
+        assertEquals("the bar's last items went with it", listOf("gone LEFT 2", "head LEFT", "empty"),
+            words(listEntries(BarConfig(position = Position.LEFT), null, dragging = false, gone = Gone(Position.LEFT, 2))))
     }
 
     @Test fun anEmptyBarSaysSoWhereItStands() {

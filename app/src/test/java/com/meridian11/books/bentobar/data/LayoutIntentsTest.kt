@@ -145,6 +145,40 @@ class LayoutIntentsTest {
         assertSame("an id that isn't in the layout changes nothing", spread, spread.without("nope"))
     }
 
+    // ---- Remove an area: every item of it, in one step ----
+
+    @Test fun removingAnAreaTakesEveryItemOfItAndLeavesTheOthersAsTheyWere() {
+        val unknown = ItemConfig("u", "a-type-from-later", Section.SHOWN, area = Position.LEFT)
+        val spread = BarConfig(position = Position.CENTER, items = listOf(
+            shown.copy(area = Position.LEFT), shown2, hidden.copy(area = Position.LEFT, whenActive = true), unknown,
+            ItemConfig("m", "clock", area = Position.CENTER)))
+        val rest = spread.withoutArea(Position.LEFT)
+        assertEquals("an item of a type this version doesn't know has its row there, and goes too", listOf("s2", "m"), rest.ids())
+        assertEquals(spread.copy(items = spread.items.filter { it.area != Position.LEFT }), rest)
+        assertEquals(listOf(Position.CENTER, Position.RIGHT), rest.rowAreas())
+        assertEquals("with items left, nothing else is written", Position.CENTER, rest.position)
+        // The step is taken back as any other: every item where it was, in its part and order.
+        assertEquals(spread, rest.undone(spread, rest))
+    }
+
+    @Test fun removingAnAreaWithNothingInItChangesNothing() {
+        assertSame(layout, layout.withoutArea(Position.LEFT))
+        val empty = BarConfig(position = Position.LEFT)
+        assertSame(empty, empty.withoutArea(Position.LEFT))
+    }
+
+    /** As [without] leaves it when the last item goes: the empty bar stands where the bar was, whatever `position` last said. */
+    @Test fun removingTheAreaThatHoldsTheBarsLastItemsLeavesTheEmptyBarWhereTheBarWas() {
+        for (area in Position.entries) {
+            val all = layout.putAllIn(area)
+            assertEquals(Position.RIGHT, all.position)
+            val empty = all.withoutArea(area)
+            assertEquals(BarConfig(position = area), empty)
+            assertEquals(area, empty.homeArea())
+            assertEquals(all, empty.undone(all, empty))
+        }
+    }
+
     // ---- Order and Visibility, as the bar's list asks: a place in a part of an area ----
 
     private val a = ItemConfig("a", "clock")

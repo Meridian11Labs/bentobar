@@ -43,13 +43,26 @@ internal fun leadsRight(lanes: List<Position>, area: Position): Boolean {
  * lane was on screen before the change, which the page knows (an opened lane is its own). With one lane nothing
  * closes: the bar's last row keeps its place with its own slip, and an item that takes the one area with it to another
  * has only moved the list. Nor does Look's command close one here ([Undo.Kept.allTo]): it emptied every other area on
- * purpose and says so itself, on Look.
+ * purpose and says so itself, on Look. Nor Remove an area ([Undo.Kept.area]): its own note says what went ([goneOf]).
  */
 internal fun foldOf(kept: Undo.Kept?, now: BarConfig, several: Boolean): Position? {
-    if (!several || kept == null || kept.allTo != null || !Undo.offered(kept, now)) return null
+    if (!several || kept == null || kept.allTo != null || kept.area != null || !Undo.offered(kept, now)) return null
     val after = kept.after.rowAreas()
     if (after.isEmpty()) return null
     return kept.before.rowAreas().singleOrNull { it !in after }
+}
+
+/** An area that Remove an area took out, and how many [items] went with it. */
+internal data class Gone(val area: Position, val items: Int)
+
+/**
+ * What the last change removed, if it was Remove an area and can still be taken back from [now]: the page says it
+ * above the list with Undo ("Removed Left and its 3 items"), where a closed lane's slip stands.
+ */
+internal fun goneOf(kept: Undo.Kept?, now: BarConfig): Gone? {
+    val area = kept?.area ?: return null
+    if (!Undo.offered(kept, now)) return null
+    return Gone(area, kept.before.items.count { it.area == area })
 }
 
 /**

@@ -77,6 +77,7 @@ import com.meridian11.books.bentobar.data.setWhenActive
 import com.meridian11.books.bentobar.data.show
 import com.meridian11.books.bentobar.data.stepped
 import com.meridian11.books.bentobar.data.without
+import com.meridian11.books.bentobar.data.withoutArea
 import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.items.ItemType
 import com.meridian11.books.bentobar.items.Items
@@ -220,8 +221,10 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     var landed: String? = null
     /** An empty lane that is to take the keyboard: the one just opened. */
     var focusLane by mutableStateOf<Position?>(null)
-    /** The slip that says a lane closed is to take the keyboard: its last row had it and was removed. */
+    /** The note above the list (a lane closed, an area was removed) is to take the keyboard: what had it went with the lane. */
     var focusFold by mutableStateOf(false)
+    /** "Add an area" is to take the keyboard: the empty lane it opened closed under it. */
+    var focusAddArea by mutableStateOf(false)
     private var serial = 0
     /** The last change, and whether several lanes were on screen before it. */
     private var judged: Pair<Undo.Kept, Boolean>? = null
@@ -286,6 +289,35 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         opened = opened + area
         addTo = area
         focusLane = area
+    }
+
+    /**
+     * Remove an area, by its head's trash or a screen reader's action there: every item of it leaves the bar in one
+     * step of [Undo] ([withoutArea]) and its lane closes; the page says what went above the list, with the Undo that
+     * brings them all back. A selected item that was there is let go. A lane that "Add an area" opened and that is still
+     * empty simply closes: nothing changed, so nothing is kept and nothing is said. With the bar's last items gone the
+     * page is the empty bar's, one lane, so the lanes opened beside it close too. [focus]: the keyboard was on the
+     * trash; from there or from a row of the lane it goes to the note's Undo, as after a lane closes, and with no note
+     * to "Add an area".
+     */
+    fun removeArea(area: Position, focus: Boolean = false) {
+        val ids = Store.config.value.items.filter { it.area == area }.map { it.id }
+        val inLane = focus || focusedRow in ids
+        said = null
+        if (ids.isEmpty()) {
+            if (area !in opened) return
+            opened = opened - area
+            if (addTo == area) addTo = null
+            if (inLane) focusAddArea = true
+            return
+        }
+        if (!Undo.change(area = area) { it.withoutArea(area) }) return
+        opened = if (Store.config.value.items.isEmpty()) emptySet() else opened - area
+        if (addTo == area) addTo = null
+        if (selected in ids) left()
+        if (inLane) focusFold = true
+        // The note is a live region and says it.
+        announced = ""
     }
 
     /** The area a + adds to: the one chosen in "Add to" while several lanes are on screen, else the area in use. */
@@ -416,14 +448,14 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     }
 
     /**
-     * Ctrl+Z, Undo in a removed row's place or in a closed lane's slip, and the library's Undo. A row that comes back, to
-     * the bar or to its lane, is followed; the library's
+     * Ctrl+Z, Undo in a removed row's place, in a closed lane's slip or in a removed area's note, and the library's Undo.
+     * A row that comes back, to the bar or to its lane, is followed, and of an area that comes back its first; the library's
      * Undo is gone with what it took back, so the keyboard, if it had it ([focus]), goes to the type's +.
      */
     fun undo(focus: Boolean = false): Boolean {
         said = null
         val kept = Undo.last.value
-        val back = kept?.removed ?: movedBy(kept)
+        val back = kept?.removed ?: movedBy(kept) ?: kept?.area?.let { area -> kept.before.parts(area).let { it.upper + it.lower }.firstOrNull()?.id }
         val row = focusedRow != null || slipFocused
         val added = kept?.added?.let(::item)
         if (!Undo.undo()) return false

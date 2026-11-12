@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsEnabled
@@ -339,6 +340,31 @@ class ScreenReaderTest {
                 // Under the preview the name alone would be a word with nothing around it.
                 assertEquals(str(R.string.areas_bracket_spoken, str(name)), said("bracket:$area"))
             }
+        }
+    }
+
+    @Config(qualifiers = "w1180dp-h780dp-mdpi")
+    @Test fun aLanesTrashSaysWhatItTakesAndItsHeadHasTheSameAsAnActionThatSaysWhatWent() {
+        window(HiddenMode.SHOW_ALL, three) {
+            fun plural(id: Int, count: Int, name: Int) = ApplicationProvider.getApplicationContext<Application>().resources.getQuantityString(id, count, str(name), count)
+            fun head(name: Int) = rule.onNode(isHeading() and hasText(str(name)))
+            fun headSays(name: Int) = head(name).fetchSemanticsNode().config.getOrNull(SemanticsActions.CustomActions).orEmpty().map { it.label }
+            for ((area, name, count) in listOf(Triple(Position.LEFT, R.string.areas_left, 2), Triple(Position.CENTER, R.string.areas_middle, 1), Triple(Position.RIGHT, R.string.areas_right, 3))) {
+                val words = plural(R.plurals.areas_remove, count, name)
+                assertEquals(words, said("remove-area:$area"))
+                assertEquals("the head's one action", listOf(words), headSays(name))
+            }
+            assertEquals("Remove Middle and its item", said("remove-area:CENTER"))
+
+            // The action is the button's command: the area goes with its items, and the note says so by itself.
+            val act = head(R.string.areas_left).fetchSemanticsNode().config[SemanticsActions.CustomActions].single()
+            rule.runOnUiThread { assertTrue(act.action()) }
+            rule.waitForIdle()
+            assertEquals(listOf("t", "a", "m", "h"), Store.config.value.items.map { it.id })
+            val note = rule.onNode(hasText(plural(R.plurals.areas_removed, 2, R.string.areas_left)))
+            assertEquals("Removed Left and its 2 items", plural(R.plurals.areas_removed, 2, R.string.areas_left))
+            assertEquals(LiveRegionMode.Polite, note.fetchSemanticsNode().config.getOrNull(SemanticsProperties.LiveRegion))
+            rule.onNodeWithTag("remove-area:LEFT").assertDoesNotExist()
         }
     }
 

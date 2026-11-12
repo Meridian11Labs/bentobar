@@ -79,6 +79,21 @@ fun BarConfig.without(id: String): BarConfig {
 }
 
 /**
+ * The layout without [area]: Remove an area on the Bar page. Every item of it goes, as [without] takes one: the ones
+ * under the line and one of a type this version doesn't know too (each has its row there, [rowAreas]); the other areas
+ * stay as they are. One step, so one Undo brings them all back, each in its part and place ([undone]). When they were
+ * the bar's last, the empty bar stays where the bar was, as [without] leaves it.
+ */
+fun BarConfig.withoutArea(area: Position): BarConfig {
+    val rest = items.filterNot { it.area == area }
+    return when {
+        rest.size == items.size -> this
+        rest.isEmpty() -> copy(items = rest, position = homeArea())
+        else -> copy(items = rest)
+    }
+}
+
+/**
  * The "Show when…" rule on or off. Only hidden items pop into the bar, so turning it on brings a shown item
  * into Hidden, and like every command it keeps the item's place in the list: it pops out where it stood in the bar. Turning
  * it off changes no section.

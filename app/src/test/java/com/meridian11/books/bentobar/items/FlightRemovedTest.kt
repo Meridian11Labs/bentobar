@@ -11,6 +11,7 @@ import com.meridian11.books.bentobar.data.fresh
 import com.meridian11.books.bentobar.data.hide
 import com.meridian11.books.bentobar.data.show
 import com.meridian11.books.bentobar.data.without
+import com.meridian11.books.bentobar.data.withoutArea
 import com.meridian11.books.bentobar.items.FlightRules.Tracked
 import com.meridian11.books.bentobar.ui.Undo
 import org.junit.After
@@ -84,6 +85,30 @@ class FlightRemovedTest {
         settled()
         assertEquals(emptySet<String>(), notes())
         assertEquals(listOf("c"), ids())
+    }
+
+    /** Remove an area takes every item of it in one step: each one's flight stays while that step can be undone, and not longer. */
+    @Test fun theFlightsOfARemovedAreasItemsStayWhileUndoCanBringThemBackAndGoWhenItNoLongerCan() {
+        Store.update { c -> c.copy(items = c.items.map { if (it.id == "f") it.copy(area = Position.LEFT) else it } + flight.copy(id = "h", area = Position.LEFT)) }
+        val before = Store.config.value
+        for (id in listOf("f", "g", "h")) follow(id)
+        assertTrue(Undo.change(area = Position.LEFT) { it.withoutArea(Position.LEFT) })
+        assertEquals(listOf("c", "g"), ids())
+        // Another Flight item is read, which lets go of what belongs to no item: the removed ones' flights are not that yet.
+        FlightLoad.kept("g", 2_000, FlightItem.ids())
+        settled()
+        assertEquals(setOf("f", "g", "h"), notes())
+        assertTrue(Undo.undo())
+        settled()
+        assertEquals("every item back where it was", before, Store.config.value)
+        assertEquals(setOf("f", "g", "h"), notes())
+        // Removed again: still there. Then something else changes: no Undo brings them back, and both flights go.
+        assertTrue(Undo.change(area = Position.LEFT) { it.withoutArea(Position.LEFT) })
+        settled()
+        assertEquals(setOf("f", "g", "h"), notes())
+        assertTrue(Undo.change { it.hide("c") })
+        settled()
+        assertEquals(setOf("g"), notes())
     }
 
     @Test fun aRemovalThatWasUndoneTakesNothingWithItWhateverChangesAfter() {

@@ -378,6 +378,20 @@ class BarPagePicturesTest {
         rule.onNodeWithTag("moved-mark", useUnmergedTree = true).assertExists()
     }
 
+    @Test fun aRemovedAreaIsSaidAcrossTheTopWithUndoAndTheLanesThatStayKeepTheirTrash() {
+        areas()
+        for (area in Position.entries) rule.onNodeWithTag("remove-area:$area").assertIsDisplayed()
+        click("remove-area:CENTER")
+        both("areas-removed") { bitmap ->
+            val note = bounds("area-removed")
+            assertColor("the note stands on the sunk ground", palette().sunk, bitmap, note.left.toInt() - 4, note.center.y.toInt())
+        }
+        assert(bounds("area-removed").bottom <= top("row:event")) { "the note stands above the lanes" }
+        rule.onNodeWithTag("row:timer").assertDoesNotExist()
+        rule.onNodeWithTag("remove-area:LEFT").assertIsDisplayed()
+        rule.onNodeWithTag("remove-area:RIGHT").assertIsDisplayed()
+    }
+
     @Test fun anAreaWithoutRoomSaysSoOnceAndTheBarsPictureShowsWhoHasItsPlace() {
         areas(select = "clock")
         BarOverflow.ids.value = setOf("timer", "caffeine", "clock")
@@ -402,6 +416,7 @@ class BarPagePicturesTest {
         both("narrow-areas")
         assert(bounds("row:event").bottom <= top("row:timer")) { "one column: the Middle's rows stand under Left's" }
         rule.onNodeWithTag("add-to:LEFT").assertIsDisplayed()
+        assert(bounds("remove-area:LEFT").left >= bounds("add-to:LEFT").right) { "a head's trash comes after its +" }
         rule.onNodeWithTag("bracket:LEFT").assertIsDisplayed()
     }
 

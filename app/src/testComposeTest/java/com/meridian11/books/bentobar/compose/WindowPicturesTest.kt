@@ -20,6 +20,8 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -151,7 +153,21 @@ class WindowPicturesTest {
                 rule.waitForIdle()
                 large("bar-$width-$areas-${if (night) "dark" else "light"}")
                 layout(areas).items.forEach { rule.onNodeWithTag("row:${it.id}").assertExists() }
+                // A lane's head ends in its trash while there are several, and with one lane there is none.
+                for (area in Position.entries) {
+                    val trash = rule.onNodeWithTag("remove-area:$area")
+                    if (areas > 1 && layout(areas).items.any { it.area == area }) trash.assertExists() else trash.assertDoesNotExist()
+                }
             }
+        }
+        // Remove an area: what went is said above the lanes that stay, with Undo.
+        rule.onNodeWithTag("remove-area:LEFT").performScrollTo().performClick()
+        for (night in listOf(false, true)) {
+            dark = night
+            rule.waitForIdle()
+            large("bar-$width-removed-${if (night) "dark" else "light"}")
+            rule.onNodeWithTag("area-removed").assertExists()
+            rule.onNodeWithTag("row:event").assertDoesNotExist()
         }
     }
 
@@ -218,6 +234,16 @@ class WindowPicturesTest {
         fontScale = 2f
         bar(three = true, mode = HiddenMode.CLICK, select = "weather")
         large("large-areas")
+    }
+
+    @Test fun atTwiceTheTextSizeTheLanesTrashAndWhatItSaysAfterwardsAreWhole() {
+        fontScale = 2f
+        bar(three = true)
+        large("large-lanes")
+        rule.onNodeWithTag("remove-area:LEFT").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("area-removed").assertExists()
+        large("large-area-removed")
     }
 
     @Config(qualifiers = "w640dp-h780dp-mdpi")

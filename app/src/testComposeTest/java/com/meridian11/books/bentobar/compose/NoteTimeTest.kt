@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyAncestor
@@ -115,10 +116,23 @@ class NoteTimeTest {
     private fun keyboard() { rule.runOnUiThread { assertTrue(inputMode.requestInputMode(InputMode.Keyboard)) }; frames() }
     private fun str(id: Int, vararg args: Any) = app.getString(id, *args)
     private fun tag(tag: String) = rule.onNodeWithTag(tag)
+    private val places = mutableMapOf<String, Offset>()
+    /** Where the middle of [tag] is, or with [gone] where it was when last asked. */
+    private fun tag(tag: String, gone: Boolean): Offset = if (gone) places.getValue(tag) else tag(tag).fetchSemanticsNode().boundsInRoot.center.also { places[tag] = it }
     private fun ids() = Store.config.value.items.map { it.id }
     private fun at(id: String): Offset = tag("row:$id").fetchSemanticsNode().boundsInRoot.topLeft
     private fun remove(id: String) { rule.runOnUiThread { assertTrue(Undo.change(removed = id) { it.without(id) }) }; frames() }
     private fun undoIn(tag: String) = rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and hasAnyAncestor(hasTestTag(tag)))
+    /**
+     * The pointer comes to a note's part as a hand brings it: it moves there, so the part sees it at more than one place.
+     * What the part then writes is the window's to pass on, between the frames this test counts by hand.
+     */
+    private fun point(part: SemanticsNodeInteraction) {
+        part.performMouseInput { moveTo(center - Offset(2f, 0f)) }
+        part.performMouseInput { moveTo(center) }
+        rule.waitForIdle()
+        frames()
+    }
     private fun ctrlZ() { tag("bar-list").performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.Z) } }; frames() }
 
     /** The note [tag] is there until just before its time and gone when the time is up. */
@@ -158,12 +172,12 @@ class NoteTimeTest {
         page()
         remove("b")
         pass(2000)
-        tag("slip").performMouseInput { moveTo(center) }
+        point(tag("slip"))
         frames()
         pass(10_000)
         tag("slip").assertExists()
         // Over its Undo it is over the note too.
-        undoIn("slip").performMouseInput { moveTo(center) }
+        point(undoIn("slip"))
         pass(10_000)
         tag("slip").assertExists()
         tag("row:a").performMouseInput { moveTo(center) }
@@ -281,6 +295,53 @@ class NoteTimeTest {
         tag("row:a").assertExists()
     }
 
+    @Test fun aRemovedAreasNoteGoesTheSameWayAlsoUnderAPointerThatOnlyRestsWhereItCame() {
+        page(lanes)
+        keyboard()
+        tag("row:a").requestFocus()
+        frames()
+        // The last lane's trash is where the note's Undo comes: the pointer that clicked rests on the note, and has not pointed at it.
+        tag("remove-area:RIGHT", gone = false)
+        tag("remove-area:RIGHT").performMouseInput { click() }
+        frames()
+        assertEquals(listOf("a"), ids())
+        val pointer = tag("remove-area:RIGHT", gone = true)
+        assertTrue("the pointer is where the note is now", tag("area-removed").fetchSemanticsNode().boundsInRoot.contains(pointer))
+        tag("row:a").assertIsFocused()
+        standsItsTime("area-removed")
+        // The area stays removed, nothing says a lane closed, and its items can still be brought back.
+        tag("fold").assertDoesNotExist()
+        tag("slip").assertDoesNotExist()
+        rule.onNode(hasText(str(R.string.areas_right_where), substring = true) and hasAnyAncestor(hasTestTag("bar-list"))).assertDoesNotExist()
+        ctrlZ()
+        assertEquals(lanes, Store.config.value.items)
+        tag("row:b").assertExists()
+    }
+
+    @Test fun aPointerThatMovesOnARemovedAreasNoteHoldsItAndSoDoesTheKeyboardInItsUndo() {
+        page(lanes)
+        keyboard()
+        tag("row:a").requestFocus()
+        frames()
+        tag("remove-area:RIGHT").performMouseInput { click() }
+        frames()
+        pass(2000)
+        // It moves, where it rested: now it points at the note.
+        point(tag("area-removed"))
+        frames()
+        pass(10_000)
+        tag("area-removed").assertExists()
+        undoIn("area-removed").requestFocus()
+        frames()
+        tag("row:a").performMouseInput { moveTo(center) }
+        frames()
+        pass(10_000)
+        tag("area-removed").assertExists()
+        tag("row:a").requestFocus()
+        frames()
+        standsItsTime("area-removed")
+    }
+
     @Test fun theLibrarysAddedWithItsUndoGoesAndTheItemStays() {
         page()
         keyboard()
@@ -314,7 +375,7 @@ class NoteTimeTest {
         tag("add:cpu").performMouseInput { click() }
         frames()
         pass(1000)
-        tag("added").performMouseInput { moveTo(center) }
+        point(tag("added"))
         frames()
         pass(10_000)
         tag("added").assertExists()

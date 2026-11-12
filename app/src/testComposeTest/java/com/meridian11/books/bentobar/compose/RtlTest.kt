@@ -122,6 +122,25 @@ class RtlTest {
         assertTrue(bounds("bracket:CENTER").left < bounds("bracket:RIGHT").left)
     }
 
+    @Test fun aLanesTrashStaysAtItsHeadsEndWhichIsNowItsLeft() {
+        page(null)
+        for ((area, name, row) in listOf(Triple(Position.LEFT, R.string.areas_left, "w"), Triple(Position.CENTER, R.string.areas_middle, "t"), Triple(Position.RIGHT, R.string.areas_right, "a"))) {
+            val head = rule.onNode(isHeading() and hasText(str(name))).fetchSemanticsNode().boundsInRoot
+            val trash = bounds("remove-area:$area")
+            assertTrue("$area: the trash ends the head, left of its words", trash.right <= head.left)
+            // Its glyph stands in line with the rows' ends; the button around it is a target and reaches a little further.
+            assertTrue("$area: and it is the lane's own, over its rows", trash.center.x > bounds("row:$row").left && trash.center.x < bounds("row:$row").center.x)
+        }
+    }
+
+    @Test fun fromLeftToRightALanesTrashEndsItsHeadAtTheRight() {
+        page(null, LayoutDirection.Ltr)
+        for ((area, name) in listOf(Position.LEFT to R.string.areas_left, Position.CENTER to R.string.areas_middle, Position.RIGHT to R.string.areas_right)) {
+            val head = rule.onNode(isHeading() and hasText(str(name))).fetchSemanticsNode().boundsInRoot
+            assertTrue("$area", bounds("remove-area:$area").left >= head.right)
+        }
+    }
+
     @Test fun thePreviewIsMirroredAroundAreasThatKeepTheirSidesAndTheHeadsSayWhatIsBesideEach() {
         page(null)
         // The picture: the clock at the right, the system's icons at the left, Left's strip still on the left.

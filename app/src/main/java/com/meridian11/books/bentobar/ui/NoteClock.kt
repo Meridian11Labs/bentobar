@@ -1,8 +1,5 @@
 package com.meridian11.books.bentobar.ui
 
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +13,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import kotlinx.coroutines.delay
 
@@ -23,7 +26,9 @@ import kotlinx.coroutines.delay
  * How long a note with Undo stands: the slip in a removed row's place, the one for a closed or a removed area, the
  * library's "Added", Look's line. One rule for all of them. A note goes [Motion.NOTE] after it appeared. The time waits
  * while the pointer is over the note or the keyboard is in it, and starts again, whole, when they have left: nobody
- * reaches for an Undo that goes under the hand. A new change replaces the note, as ever. When the time is up only the
+ * reaches for an Undo that goes under the hand. The pointer is over a note once it has moved there: a note that came
+ * under a pointer at rest (the one that clicked an area's trash, where the note's Undo then stands) is not pointed at
+ * and goes in its time. A new change replaces the note, as ever. When the time is up only the
  * note goes ([Undo.noteOver]): Ctrl+Z takes the change back until the next one.
  */
 internal object NoteClock {
@@ -31,7 +36,7 @@ internal object NoteClock {
     fun wait(held: Boolean, time: Long): Long? = if (held) null else time
 }
 
-/** What holds a note: the pointer over one of its parts ([holdsNote]: its words, its Undo), or the keyboard in one. */
+/** What holds a note: the pointer moving over one of its parts ([holdsNote]: its words, its Undo), or the keyboard in one. */
 @Stable
 internal class NoteHold {
     internal var parts by mutableIntStateOf(0)
@@ -55,15 +60,34 @@ internal fun NoteTime(hold: NoteHold) {
     }
 }
 
-/** A part of a note: the pointer over it, or the keyboard in it, holds the note ([NoteHold]). */
+/**
+ * A part of a note: the pointer over it, or the keyboard in it, holds the note ([NoteHold]). The pointer counts from
+ * its first move over the part, not from the moment the part is under it: the window tells a part that it came under
+ * a pointer at rest as it tells one the pointer came to, so the place is compared, in the window's own measure (a
+ * part that travels under a pointer at rest has not been pointed at either). A finger never hovers and holds nothing.
+ */
 internal fun Modifier.holdsNote(hold: NoteHold): Modifier = composed {
-    val source = remember { MutableInteractionSource() }
-    val hovered by source.collectIsHoveredAsState()
+    var pointed by remember { mutableStateOf(false) }
     var focused by remember { mutableStateOf(false) }
-    val on = hovered || focused
+    val place = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    val on = pointed || focused
     DisposableEffect(hold, on) {
         if (on) hold.parts++
         onDispose { if (on) hold.parts-- }
     }
-    hoverable(source).onFocusChanged { focused = it.hasFocus }
+    onGloballyPositioned { place[0] = it }.pointerInput(Unit) {
+        awaitPointerEventScope {
+            var came: Offset? = null
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull() ?: continue
+                val at = place[0]?.takeIf { it.isAttached }?.localToRoot(change.position) ?: change.position
+                when (event.type) {
+                    PointerEventType.Exit -> { pointed = false; came = null }
+                    PointerEventType.Enter -> came = at
+                    PointerEventType.Move -> if (!change.pressed) { if (came == null) came = at else if (at != came) pointed = true }
+                }
+            }
+        }
+    }.onFocusChanged { focused = it.hasFocus }
 }

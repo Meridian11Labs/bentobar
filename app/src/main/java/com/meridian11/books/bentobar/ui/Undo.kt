@@ -21,11 +21,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 object Undo {
     /**
      * A change to take back: the layout [before] it and [after] it, the item it took out of the bar, if it did, the
-     * item the library [added] with it, and the area Look's command put every item in ([allTo]). Each is what the
-     * command says it did, never worked out from the two layouts: one item moved on the Bar page can leave them all in
-     * one area too.
+     * item the library [added] with it, the area Look's command put every item in ([allTo]), and the [area] that
+     * Remove an area took out with every item of it. Each is what the command says it did, never worked out from the
+     * two layouts: one item moved on the Bar page can leave them all in one area too, and an area's one item removed
+     * is not the area removed.
      */
-    data class Kept(val before: BarConfig, val after: BarConfig, val removed: String? = null, val added: String? = null, val allTo: Position? = null)
+    data class Kept(val before: BarConfig, val after: BarConfig, val removed: String? = null, val added: String? = null, val allTo: Position? = null,
+                    val area: Position? = null)
 
     val last = MutableStateFlow<Kept?>(null)
 
@@ -50,18 +52,18 @@ object Undo {
     fun noted(kept: Kept?, over: Kept?): Kept? = kept?.takeIf { it !== over }
 
     /** Makes [step] the layout's next change and keeps it to be undone. False if it changed nothing: then nothing is kept. */
-    fun change(removed: String? = null, added: String? = null, allTo: Position? = null, step: (BarConfig) -> BarConfig): Boolean {
+    fun change(removed: String? = null, added: String? = null, allTo: Position? = null, area: Position? = null, step: (BarConfig) -> BarConfig): Boolean {
         val before = Store.config.value
         Store.update(step)
-        return note(before, removed, added, allTo)
+        return note(before, removed, added, allTo, area)
     }
 
     /** Keeps what the Store did since [before] as the change to undo (for a command that is the Store's own, like Duplicate). */
-    fun note(before: BarConfig, removed: String? = null, added: String? = null, allTo: Position? = null): Boolean {
+    fun note(before: BarConfig, removed: String? = null, added: String? = null, allTo: Position? = null, area: Position? = null): Boolean {
         val after = Store.config.value
         if (after == before) return false
         val old = last.value
-        last.value = Kept(before, after, removed, added, allTo)
+        last.value = Kept(before, after, removed, added, allTo, area)
         over.value = null
         letGo(old)
         return true

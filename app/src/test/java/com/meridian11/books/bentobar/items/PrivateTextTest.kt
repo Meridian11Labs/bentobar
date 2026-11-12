@@ -9,7 +9,9 @@ import com.meridian11.books.bentobar.data.MapPrefs
 import com.meridian11.books.bentobar.data.Online
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.hide
+import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.without
+import com.meridian11.books.bentobar.data.withoutArea
 import com.meridian11.books.bentobar.ui.Undo
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -133,6 +135,29 @@ class PrivateTextTest {
         assertEquals(script, PrompterItem.script("p"))
         // Removed again: still there. Then something else changes: no Undo brings it back, and the notes go, from memory too.
         assertTrue(Undo.change(removed = "p") { it.without("p") })
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
+        assertTrue(Undo.change { it.hide("c") })
+        settled(PrompterItem.type)
+        assertEquals(emptySet<String>(), Kept.own("prompter").names())
+        assertNull(PrompterItem.script("p"))
+    }
+
+    @Test fun aRemovedAreasPromptersNotesStayWhileUndoCanBringItBackAndGoWhenItNoLongerCan() {
+        Store.update { c -> c.copy(items = c.items.map { if (it.id == "p") it.copy(area = Position.LEFT) else it }) }
+        PrompterItem.edit("p", script)
+        PrompterItem.save("p")
+        settled(PrompterItem.type)
+        // Remove an area: the prompter goes with its area, as one step of Undo.
+        assertTrue(Undo.change(area = Position.LEFT) { it.withoutArea(Position.LEFT) })
+        assertEquals(listOf("c"), Store.config.value.items.map { it.id })
+        PrompterItem.settle(Settle.SERVICE_STARTED)
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
+        assertTrue(Undo.undo())
+        settled(PrompterItem.type)
+        assertEquals("with its notes", script, Kept.own("prompter").read("p")?.text)
+        assertTrue(Undo.change(area = Position.LEFT) { it.withoutArea(Position.LEFT) })
         settled(PrompterItem.type)
         assertEquals(setOf("p"), Kept.own("prompter").names())
         assertTrue(Undo.change { it.hide("c") })

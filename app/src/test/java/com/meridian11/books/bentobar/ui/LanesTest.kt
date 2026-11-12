@@ -8,6 +8,7 @@ import com.meridian11.books.bentobar.data.landedIn
 import com.meridian11.books.bentobar.data.putAllIn
 import com.meridian11.books.bentobar.data.rowAreas
 import com.meridian11.books.bentobar.data.without
+import com.meridian11.books.bentobar.data.withoutArea
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -79,6 +80,28 @@ class LanesTest {
         assertNull(foldOf(null, two, several = true))
         // Arranged otherwise since: the change can no longer be taken back, and nothing is said about it.
         assertNull(foldOf(kept(moved), moved.landedIn("r1", middle), several = true))
+    }
+
+    @Test fun removeAnAreaSaysWhatWentItselfAndNoLaneIsSaidToHaveClosed() {
+        val two = layout(item("l1", left), item("r1", right), item("l2", left, Section.HIDDEN), item("l3", left))
+        val rest = two.withoutArea(left)
+        val kept = Undo.Kept(two, rest, area = left)
+        assertEquals(Gone(left, 3), goneOf(kept, rest))
+        assertNull("not also \"Left is empty now, so it closed\"", foldOf(kept, rest, several = true))
+        assertNull(movedBy(kept))
+        assertNull("nor a removed row's slip: no one item was removed", slipOf(kept, rest))
+        // The same two layouts from the one row's Remove are a lane that closed, and no area removed.
+        val one = layout(item("l", left), item("r", right))
+        val last = Undo.Kept(one, one.without("l"), removed = "l")
+        assertNull(goneOf(last, last.after))
+        assertEquals(left, foldOf(last, last.after, several = true))
+        // Arranged otherwise since, or no change at all: nothing is said.
+        assertNull(goneOf(kept, rest.landedIn("r1", middle)))
+        assertNull(goneOf(null, rest))
+        // The bar's last items went with it: it is said all the same (a closed lane would not be).
+        val all = layout(item("a", middle), item("b", middle))
+        val none = all.withoutArea(middle)
+        assertEquals(Gone(middle, 2), goneOf(Undo.Kept(all, none, area = middle), none))
     }
 
     @Test fun withOneLaneOnScreenNothingClosesAndAnOpenedLaneCountsAsOne() {
