@@ -51,14 +51,31 @@ object Undo {
     /** [kept] while a page still says it with its Undo: null once its note is [over]. */
     fun noted(kept: Kept?, over: Kept?): Kept? = kept?.takeIf { it !== over }
 
+    /**
+     * The layout a change that is being made started from, from before it is written until it is kept ([change]). A
+     * type's sweep runs on its own thread ([held]), and in between the item a change removed is in no layout and in no
+     * kept change yet: without this its kept text could go while Undo was about to hold it. Never read on the main
+     * thread's behalf: there the write and the keeping are one step.
+     */
+    @Volatile var pending: BarConfig? = null
+        private set
+
     /** Makes [step] the layout's next change and keeps it to be undone. False if it changed nothing: then nothing is kept. */
     fun change(removed: String? = null, added: String? = null, allTo: Position? = null, area: Position? = null, step: (BarConfig) -> BarConfig): Boolean {
         val before = Store.config.value
-        Store.update(step)
-        return note(before, removed, added, allTo, area)
+        pending = before
+        try {
+            Store.update(step)
+            return note(before, removed, added, allTo, area)
+        } finally {
+            pending = null
+        }
     }
 
-    /** Keeps what the Store did since [before] as the change to undo (for a command that is the Store's own, like Duplicate). */
+    /**
+     * Keeps what the Store did since [before] as the change to undo (for a command that is the Store's own: Duplicate and
+     * the library's +, which only add, so nothing of [before] is out of the layout in between and nothing is [pending]).
+     */
     fun note(before: BarConfig, removed: String? = null, added: String? = null, allTo: Position? = null, area: Position? = null): Boolean {
         val after = Store.config.value
         if (after == before) return false
@@ -72,10 +89,15 @@ object Undo {
     /**
      * The ids of the items of [type] that the kept change can still bring back: what is kept for one outside the layout
      * stays that long. None once the change can no longer be [offered] (the layout was arranged otherwise since): a
-     * removed item's kept text then goes at the type's next sweep, not at the next start.
+     * removed item's kept text then goes at the type's next sweep, not at the next start. With them the items of a
+     * change that is being made right now ([pending]). Any thread.
      */
-    fun held(type: String): Set<String> =
-        last.value?.takeIf { offered(it, Store.config.value) }?.before?.items.orEmpty().filter { it.type == type }.mapTo(HashSet()) { it.id }
+    fun held(type: String): Set<String> {
+        // In this order, as a change sets them in the other: the one being made first, which is kept before it is pending no more.
+        val making = pending?.items.orEmpty()
+        val kept = last.value?.takeIf { offered(it, Store.config.value) }?.before?.items.orEmpty()
+        return (making + kept).filter { it.type == type }.mapTo(HashSet()) { it.id }
+    }
 
     /**
      * [old] is the change to undo no more. An item it had, before or after (one it removed, and one it brought in that

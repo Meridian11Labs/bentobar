@@ -75,6 +75,28 @@ class UndoTest {
         assertEquals(emptySet<String>(), Undo.held("nope"))
     }
 
+    /**
+     * Between the layout losing an item and the change being kept, another thread's sweep must still be told the item
+     * can come back: asked in the middle of the save, which is after the layout changed and before the change is kept.
+     */
+    @Test fun aRemovedItemIsHeldFromTheMomentItLeavesTheLayoutNotOnlyOnceTheChangeIsKept() {
+        val prefs = MapPrefs()
+        Store.open(prefs) { }
+        Store.update { BarConfig(items = listOf(a, ItemConfig("f", "flight"), ItemConfig("g", "flight"))) }
+        Undo.last.value = null
+        var during: Set<String>? = null
+        prefs.onPut = { if (Store.config.value.items.none { it.id == "f" }) during = Undo.held("flight") }
+        assertTrue(Undo.change(removed = "f") { it.without("f") })
+        assertTrue("held while the change is being written: $during", "f" in during.orEmpty())
+        assertEquals("and once it is kept", setOf("f", "g"), Undo.held("flight"))
+        // What is held is that one change's: a change that changed nothing, and one taken back, leave nothing behind.
+        assertFalse(Undo.change { it })
+        assertTrue(Undo.undo())
+        prefs.onPut = null
+        assertEquals(emptySet<String>(), Undo.held("flight"))
+        assertNull(Undo.pending)
+    }
+
     @Test fun aChangeThatChangesNothingIsNotKeptAndTheOneBeforeItStaysToBeUndone() {
         assertTrue(Undo.change { it.hide("a") })
         assertFalse(Undo.change { it.hide("a") })
