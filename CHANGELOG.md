@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.2.0 (2026-11-12)
 
 - **Shelf and Value from a URL are gone.** A layout that has one is read without it, and what they kept on the device
   (a Shelf's texts and links, the addresses) is deleted at the first start. Five items go online again, each to a
