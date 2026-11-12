@@ -1,5 +1,6 @@
 package com.meridian11.books.bentobar.ui
 
+import android.view.accessibility.AccessibilityManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +21,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalViewConfiguration
 import kotlinx.coroutines.delay
 
@@ -32,10 +34,17 @@ import kotlinx.coroutines.delay
  * and goes in its time. A new change replaces the note, as ever. When the time is up only the
  * note goes ([Undo.noteOver]): Ctrl+Z takes the change back until the next one. And in its first moment a note's Undo
  * takes no pointer's press ([deafAtFirst]).
+ *
+ * While a screen reader's touch exploration is on, a note does not go by itself: it stays until the next change. Someone
+ * who finds it by touch has no pointer over it, and a screen reader's focus is not the keyboard's, so nothing would hold
+ * it while it is read out and reached for.
  */
 internal object NoteClock {
-    /** What a note still waits, in milliseconds, counted from now: all of [time] again, or nothing to wait for (null) while it is [held]. */
-    fun wait(held: Boolean, time: Long): Long? = if (held) null else time
+    /**
+     * What a note still waits, in milliseconds, counted from now: all of [time] again, or nothing to wait for (null)
+     * while it is [held] or the screen is [explored] by touch.
+     */
+    fun wait(held: Boolean, explored: Boolean, time: Long): Long? = if (held || explored) null else time
 }
 
 /** What holds a note: the pointer moving over one of its parts ([holdsNote]: its words, its Undo), or the keyboard in one. */
@@ -56,10 +65,26 @@ internal fun NoteTime(hold: NoteHold) {
     val manager = LocalAccessibilityManager.current
     val time = manager?.calculateRecommendedTimeoutMillis(Motion.NOTE.toLong(), containsText = true, containsControls = true) ?: Motion.NOTE.toLong()
     val held = hold.held
-    LaunchedEffect(kept, held, time) {
-        delay(NoteClock.wait(held, time) ?: return@LaunchedEffect)
+    val explored = exploredByTouch()
+    LaunchedEffect(kept, held, explored, time) {
+        delay(NoteClock.wait(held, explored, time) ?: return@LaunchedEffect)
         Undo.noteOver(kept)
     }
+}
+
+/** Whether a screen reader's touch exploration is on, followed while this is composed: a note that stands when it comes on is held, and has its time, whole, when it goes off. */
+@Composable
+private fun exploredByTouch(): Boolean {
+    val context = LocalContext.current
+    val manager = remember(context) { context.getSystemService(AccessibilityManager::class.java) }
+    var explored by remember(manager) { mutableStateOf(manager?.isTouchExplorationEnabled == true) }
+    DisposableEffect(manager) {
+        val listener = AccessibilityManager.TouchExplorationStateChangeListener { explored = it }
+        manager?.addTouchExplorationStateChangeListener(listener)
+        explored = manager?.isTouchExplorationEnabled == true
+        onDispose { manager?.removeTouchExplorationStateChangeListener(listener) }
+    }
+    return explored
 }
 
 /**

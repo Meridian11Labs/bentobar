@@ -38,10 +38,17 @@ class NoteClockTest {
     @Test fun aNoteStandsThreeSeconds() = assertEquals(3000, Motion.NOTE)
 
     @Test fun theTimeIsWholeAgainWheneverNothingHoldsTheNoteAndThereIsNoneToWaitForWhileSomethingDoes() {
-        assertEquals(3000L, NoteClock.wait(held = false, time = 3000))
-        assertNull(NoteClock.wait(held = true, time = 3000))
+        assertEquals(3000L, NoteClock.wait(held = false, explored = false, time = 3000))
+        assertNull(NoteClock.wait(held = true, explored = false, time = 3000))
         // What a person's settings make of the three seconds is the time, whole, too.
-        assertEquals(10_000L, NoteClock.wait(held = false, time = 10_000))
+        assertEquals(10_000L, NoteClock.wait(held = false, explored = false, time = 10_000))
+    }
+
+    /** Found by touch, with a screen reader, a note has no pointer over it and no keyboard in it: it waits for the next change. */
+    @Test fun whileTheScreenIsExploredByTouchThereIsNoTimeToWaitForWhateverTheSettingsMakeOfIt() {
+        assertNull(NoteClock.wait(held = false, explored = true, time = 3000))
+        assertNull(NoteClock.wait(held = false, explored = true, time = 10_000))
+        assertNull(NoteClock.wait(held = true, explored = true, time = 3000))
     }
 
     @Test fun whenTheNoteIsOverTheChangeIsStillTheLastOneAndUndoStillTakesItBack() {

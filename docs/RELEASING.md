@@ -138,7 +138,9 @@ learned the hard way" says why. Run it again on every new draft.
   use Look's "Where BentoBar sits": each note with Undo is gone three seconds later, a row's slip closing up as the
   rows travel. Point at a note, or Tab to its Undo: it stays, and goes three seconds after the pointer or the
   keyboard left. After a note went, Ctrl+Z still takes the change back, and the keyboard's shortcut list still
-  shows Undo. With Android's "Time to take action" set longer, the notes stay that long.
+  shows Undo. With Android's "Time to take action" set longer, the notes stay that long. With a screen reader on
+  (touch exploration), a note is read out and stays until the next change: find it by touch and double-tap its Undo
+  well after three seconds.
 - **The red button.** An item's options end in "Remove from the bar": red words and a trash on a pale red ground,
   beside Duplicate and as tall, clearly a button in light and dark, with no keycap beside it; under the pointer and
   pressed its ground is a step stronger each time; Delete and Backspace still remove the selected item. Look's

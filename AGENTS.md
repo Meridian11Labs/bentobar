@@ -296,7 +296,10 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     Undo (a removed row's slip, the one for a closed or a removed area, the library's "Added", Look's line) stands 3 s
     (longer where Android's "Time to take action" asks for it) and goes (`ui/NoteClock.kt`: `NoteClock` is the pure rule, `NoteTime` runs it where the note is drawn,
     `Modifier.holdsNote` stops it): the time waits while the pointer has moved over the note or the keyboard is in it
-    and starts again, whole, when they left; a note that came under a pointer at rest is not held. A note comes where
+    and starts again, whole, when they left; a note that came under a pointer at rest is not held. While a screen
+    reader's touch exploration is on (`AccessibilityManager.isTouchExplorationEnabled`, followed in `NoteTime`) no note
+    goes by itself: it stays until the next change, since a screen reader's focus is no keyboard focus and holds
+    nothing (`NoteClock.wait`'s `explored`). A note comes where
     the hand is (a lane's trash stands where the note's Undo then does), so every note's Undo takes no pointer's
     press for the system's double-tap time after the note came (`Modifier.deafAtFirst`: the press is taken on its way
     down; Enter, Ctrl+Z and a screen reader's click are not held up; a Compose test that clicks an Undo waits it out,

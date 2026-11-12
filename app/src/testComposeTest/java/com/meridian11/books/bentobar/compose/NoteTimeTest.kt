@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.AccessibilityManager
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
@@ -34,6 +35,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.withKeyDown
@@ -64,6 +66,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -278,6 +281,68 @@ class NoteTimeTest {
         page(times = 4)
         remove("b")
         standsItsTime("slip", time = 4L * Motion.NOTE)
+    }
+
+    private fun exploring(on: Boolean) {
+        shadowOf(app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)).setTouchExplorationEnabled(on)
+        rule.waitForIdle()
+        frames()
+    }
+
+    /**
+     * Someone who finds the note by touch, with a screen reader, has no pointer over it and no keyboard in it: while
+     * touch exploration is on a note stays until the next change, as it did before notes went by themselves.
+     */
+    @Test fun whileTouchExplorationIsOnANoteStaysUntilTheNextChange() {
+        exploring(true)
+        try {
+            page()
+            remove("b")
+            pass(10L * Motion.NOTE)
+            tag("slip").assertExists()
+            rule.onNode(hasText(str(R.string.bar_removed, str(R.string.item_memory_title))) and hasAnyAncestor(hasTestTag("slip"))).assertExists()
+            // The next change has the note, and it stays as long.
+            remove("c")
+            assertEquals(1, rule.onAllNodes(hasTestTag("slip")).fetchSemanticsNodes().size)
+            rule.onNode(hasText(str(R.string.bar_removed, str(R.string.item_battery_title))) and hasAnyAncestor(hasTestTag("slip"))).assertExists()
+            pass(10L * Motion.NOTE)
+            tag("slip").assertExists()
+            // Its Undo is still there to be found, and works.
+            undoIn("slip").performSemanticsAction(SemanticsActions.OnClick)
+            frames()
+            assertEquals(listOf("a", "c"), ids())
+        } finally {
+            exploring(false)
+        }
+    }
+
+    @Test fun aNoteHeldForTouchExplorationHasItsTimeOnceExplorationIsOffAndOneThatStoodIsHeldWhenItComesOn() {
+        try {
+            page()
+            remove("b")
+            pass(2000)
+            exploring(true)
+            pass(10L * Motion.NOTE)
+            tag("slip").assertExists()
+            exploring(false)
+            standsItsTime("slip")
+        } finally {
+            exploring(false)
+        }
+    }
+
+    @Test fun looksLineIsHeldForTouchExplorationToo() {
+        exploring(true)
+        try {
+            look = true
+            page(lanes)
+            rule.onNode(hasText(str(R.string.areas_middle)) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)).performClick()
+            frames()
+            pass(10L * Motion.NOTE)
+            tag("look-moved").assertExists()
+        } finally {
+            exploring(false)
+        }
     }
 
     @Test fun aClosedLanesSlipGoesTheSameWayAndTheLaneStaysClosed() {
