@@ -139,6 +139,7 @@ class BarPageTest {
         slip.assertExists()
         rule.onNode(hasText(app.getString(R.string.bar_removed, app.getString(R.string.item_memory_title)))).assertExists()
 
+        rule.pastANotesFirstMoment()
         rule.onNode(hasText(app.getString(R.string.bar_undo)) and hasClickAction()).performClick()
         rule.waitForIdle()
         assertEquals(layout, Store.config.value)

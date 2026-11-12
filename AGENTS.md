@@ -291,7 +291,11 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     Undo (a removed row's slip, the one for a closed or a removed area, the library's "Added", Look's line) stands 3 s
     (longer where Android's "Time to take action" asks for it) and goes (`ui/NoteClock.kt`: `NoteClock` is the pure rule, `NoteTime` runs it where the note is drawn,
     `Modifier.holdsNote` stops it): the time waits while the pointer has moved over the note or the keyboard is in it
-    and starts again, whole, when they left; a note that came under a pointer at rest is not held. Only the note goes
+    and starts again, whole, when they left; a note that came under a pointer at rest is not held. A note comes where
+    the hand is (a lane's trash stands where the note's Undo then does), so every note's Undo takes no pointer's
+    press for the system's double-tap time after the note came (`Modifier.deafAtFirst`: the press is taken on its way
+    down; Enter, Ctrl+Z and a screen reader's click are not held up; a Compose test that clicks an Undo waits it out,
+    `pastANotesFirstMoment`). Only the note goes
     (`Undo.noteOver`, `Undo.noted`): Ctrl+Z and the system's shortcut list keep Undo until the next change. Rows travel to their
     places (`animatePlacement`, 200 ms while the lanes change: `ListTravel`), and a row the library's + added opens
     downwards. What scrolls (the list, the library, the options) has a thin thumb while it has more than fits

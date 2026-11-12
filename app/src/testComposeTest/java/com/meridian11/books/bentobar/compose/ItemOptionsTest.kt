@@ -307,6 +307,7 @@ class ItemOptionsTest {
         rule.waitForIdle()
         assertNotEquals(layout, Store.config.value)
         rule.onNodeWithTag("row:n").assertDoesNotExist()
+        rule.pastANotesFirstMoment()
         rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction()).performClick()
         rule.waitForIdle()
         assertEquals(layout, Store.config.value)

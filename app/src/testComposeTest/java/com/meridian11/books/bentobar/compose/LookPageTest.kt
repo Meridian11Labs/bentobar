@@ -158,6 +158,7 @@ class LookPageTest {
         // Another setting leaves it there; the Undo takes the areas back and the line goes with it.
         Store.update { it.copy(spacing = 14) }
         rule.waitForIdle()
+        rule.pastANotesFirstMoment()
         rule.onNode(hasText(str(R.string.bar_undo)) and hasAnyAncestor(line)).performClick()
         rule.waitForIdle()
         assertEquals(three.copy(spacing = 14), Store.config.value)

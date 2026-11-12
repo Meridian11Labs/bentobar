@@ -138,6 +138,7 @@ class BarLibraryTest {
         rule.onNode(hasText("Tokyo") and within("library")).assertDoesNotExist()
         // The slip names it by its type, and its Undo brings it back as it was.
         rule.onNode(hasText(str(R.string.bar_removed, title("clock"))) and within("bar-list")).assertExists()
+        rule.pastANotesFirstMoment()
         rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and within("bar-list")).performClick()
         rule.waitForIdle()
         assertEquals(layout, Store.config.value)
@@ -173,6 +174,7 @@ class BarLibraryTest {
         // The type's row says so, with the Undo; the bar's new row is marked.
         rule.onNode(hasText(str(R.string.add_added)) and within("type:clock")).assertExists()
         rule.onNode(hasText(str(R.string.add_added)) and within("row:${new.id}"), useUnmergedTree = true).assertExists()
+        rule.pastANotesFirstMoment()
         click("library-undo")
         assertEquals(layout, Store.config.value)
         tag("added").assertDoesNotExist()
@@ -186,6 +188,7 @@ class BarLibraryTest {
         Store.updateItem(new.id) { it.with("zone", "Asia/Tokyo") }
         rule.waitForIdle()
         rule.onNode(hasText(str(R.string.add_added)) and within("type:clock")).assertExists()
+        rule.pastANotesFirstMoment()
         click("library-undo")
         // Out of the layout, as it came in: nothing of it waits anywhere.
         assertEquals(layout, Store.config.value)
@@ -441,6 +444,7 @@ class BarLibraryTest {
         // The slip waits on "Your bar", one part to the left.
         switchPart(R.string.page_bar).performClick()
         rule.waitForIdle()
+        rule.pastANotesFirstMoment()
         rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and within("bar-list")).performClick()
         rule.waitForIdle()
         assertEquals(layout, Store.config.value)
@@ -466,6 +470,7 @@ class BarLibraryTest {
         assertNull(now("u"))
         tag("library").assertExists()
         lines.assertCountEquals(0)
+        rule.pastANotesFirstMoment()
         rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and within("bar-list")).performClick()
         rule.waitForIdle()
         assertEquals(layout, Store.config.value)

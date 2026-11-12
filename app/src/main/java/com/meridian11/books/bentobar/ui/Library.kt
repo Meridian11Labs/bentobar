@@ -248,7 +248,7 @@ private fun TypeRow(shelf: Shelf, cfg: BarConfig, added: ItemConfig?, edit: BarE
 private fun LibraryUndo(edit: BarEdit, hold: NoteHold) {
     var focused by remember { mutableStateOf(false) }
     BentoButton(stringResource(R.string.bar_undo), { edit.undo(focused) },
-        Modifier.holdsNote(hold).onFocusChanged { focused = it.isFocused }.testTag("library-undo"), kind = ButtonKind.TEXT)
+        Modifier.deafAtFirst().holdsNote(hold).onFocusChanged { focused = it.isFocused }.testTag("library-undo"), kind = ButtonKind.TEXT)
 }
 
 /** A type's row at its lowest: a name and one line of help. */

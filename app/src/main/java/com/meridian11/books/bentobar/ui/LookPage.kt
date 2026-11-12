@@ -189,7 +189,7 @@ private fun MovedAll(area: Position) {
         .holdsNote(hold).padding(start = 14.dp, end = Space.xs).testTag("look-moved"), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.areas_moved_all, stringResource(areaRes(area))), Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
             style = Bento.type.small, color = c.ink2)
-        BentoButton(stringResource(R.string.bar_undo), { Undo.undo() }, kind = ButtonKind.TEXT)
+        BentoButton(stringResource(R.string.bar_undo), { Undo.undo() }, Modifier.deafAtFirst(), kind = ButtonKind.TEXT)
     }
 }
 

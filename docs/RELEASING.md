@@ -127,8 +127,9 @@ learned the hard way" says why. Run it again on every new draft.
   "Remove Left and its 3 items" or the like). A click removes the lane and its items, the others take the room, and
   "Removed Left and its 3 items" stands above the list with Undo; Undo brings every item back where it was. The
   pointer rests where the trash was, which is where the note's Undo may then stand: the note still goes after three
-  seconds. Double-click a trash, the last lane's most of all: see whether the second click lands on the note's Undo
-  and takes back what the first did (no test can show it). With the keyboard (Tab to the trash, Enter) the keyboard
+  seconds. Double-click a trash, the last lane's most of all: the area stays removed (a note's Undo takes no click
+  for the system's double-tap time after the note came; a test holds it with an injected mouse, a real double click
+  and a double tap by finger are for a device), and a click on Undo a moment later brings it back. With the keyboard (Tab to the trash, Enter) the keyboard
   is then on the note's Undo; after a mouse click, see where Tab goes next. Remove the bar's last area: the empty
   bar's page with the note on top. An area opened with "Add an area" and still empty closes with no note.
 - **Notes go after three seconds.** Remove an item, close an area by moving its last row, add from the library, and

@@ -235,6 +235,7 @@ class AreasTest {
         rule.onNodeWithTag("lane:LEFT").assertDoesNotExist()
         row("a").assertIsFocused()
 
+        rule.pastANotesFirstMoment()
         rule.onNode(hasText(str(R.string.bar_undo)) and hasClickAction() and hasAnyAncestor(hasTestTag("fold"))).performClick()
         rule.waitForIdle()
         assertEquals(layout, Store.config.value)
@@ -332,6 +333,7 @@ class AreasTest {
         assertNull("the selected item went with its area", selected)
         rule.onNodeWithTag("options", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag("library", useUnmergedTree = true).assertExists()
+        rule.pastANotesFirstMoment()
         noteUndo().performClick()
         rule.waitForIdle()
         assertEquals(layout, Store.config.value)
@@ -393,6 +395,7 @@ class AreasTest {
         rule.onNodeWithTag("lane:CENTER").assertDoesNotExist()
         assertEquals(listOf(0, 0, 0), heads())
         for (area in Position.entries) trash(area).assertDoesNotExist()
+        rule.pastANotesFirstMoment()
         noteUndo().performClick()
         rule.waitForIdle()
         assertEquals(layout, Store.config.value)

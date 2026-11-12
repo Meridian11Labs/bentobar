@@ -625,7 +625,7 @@ private fun TopNote(text: String, tag: String, edit: BarEdit, modifier: Modifier
         .holdsNote(hold).padding(start = 14.dp, end = Space.xs).testTag(tag), verticalAlignment = Alignment.CenterVertically) {
         Text(text, Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
             style = Bento.type.small, color = c.ink2, maxLines = lines(), overflow = TextOverflow.Ellipsis)
-        BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.focusRequester(requester).onFocusChanged { edit.slipFocused = it.hasFocus },
+        BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.deafAtFirst().focusRequester(requester).onFocusChanged { edit.slipFocused = it.hasFocus },
             kind = ButtonKind.TEXT)
     }
 }
@@ -698,7 +698,7 @@ private fun SlipRow(slip: Slip, edit: BarEdit, modifier: Modifier) {
         .holdsNote(hold).padding(start = Space.l, end = Space.xs).testTag("slip"), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.bar_removed, itemName(res, slip.item)), Modifier.weight(1f), style = Bento.type.small, color = c.ink2,
             maxLines = lines(), overflow = TextOverflow.Ellipsis)
-        BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.onFocusChanged { edit.slipFocused = it.hasFocus }, kind = ButtonKind.TEXT)
+        BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.deafAtFirst().onFocusChanged { edit.slipFocused = it.hasFocus }, kind = ButtonKind.TEXT)
     }
 }
 

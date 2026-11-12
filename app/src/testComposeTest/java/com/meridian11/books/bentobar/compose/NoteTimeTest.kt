@@ -29,6 +29,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
@@ -43,6 +44,7 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.oneArea
+import com.meridian11.books.bentobar.data.putAllIn
 import com.meridian11.books.bentobar.data.without
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.ui.BarKeys
@@ -316,6 +318,83 @@ class NoteTimeTest {
         ctrlZ()
         assertEquals(lanes, Store.config.value.items)
         tag("row:b").assertExists()
+    }
+
+    /**
+     * The last lane's trash is where the note's Undo comes, so the second press of a double click lands on Undo. A
+     * note's Undo takes no pointer's press for the system's double-tap time after the note came; then it does.
+     */
+    @Test fun aDoubleClickOnALanesTrashRemovesTheAreaAndDoesNotTakeItBack() {
+        page(lanes)
+        val trash = tag("remove-area:RIGHT", gone = false)
+        tag("remove-area:RIGHT").performMouseInput { click() }
+        frames()
+        assertEquals(listOf("a"), ids())
+        assertTrue("the note's Undo is where the trash was", undoIn("area-removed").fetchSemanticsNode().boundsInRoot.contains(trash))
+        pass(150)
+        rule.onRoot().performMouseInput { click(trash) }
+        frames()
+        assertEquals("the second press of a double click is not an Undo", listOf("a"), ids())
+        tag("area-removed").assertExists()
+        // Past the double-tap time (300 ms here) the same press is one.
+        pass(300)
+        rule.onRoot().performMouseInput { click(trash) }
+        frames()
+        assertEquals(lanes, Store.config.value.items)
+    }
+
+    /** One rule for every note with Undo: the slip in a removed row's place, a closed lane's, the library's and Look's. */
+    @Test fun noNotesUndoTakesAPointersPressInItsFirstMomentAndEachTakesTheKeyboardsAtOnce() {
+        page(lanes)
+        remove("b")
+        pass(100)
+        undoIn("slip").performMouseInput { click() }
+        frames()
+        assertEquals("the slip's", listOf("a", "c"), ids())
+        // The keyboard is not held up: Enter on the focused Undo, and Ctrl+Z, at once.
+        keyboard()
+        undoIn("slip").requestFocus()
+        frames()
+        undoIn("slip").performKeyInput { pressKey(Key.Enter) }
+        frames()
+        assertEquals(lanes, Store.config.value.items)
+        // A lane that closed with its last row.
+        remove("a")
+        pass(100)
+        undoIn("fold").performMouseInput { click() }
+        frames()
+        assertEquals("a closed lane's", listOf("b", "c"), ids())
+        ctrlZ()
+        assertEquals(lanes, Store.config.value.items)
+        // The library's "Added".
+        tag("add:cpu").performScrollTo()
+        frames()
+        tag("add:cpu").performMouseInput { click() }
+        frames()
+        assertEquals(4, ids().size)
+        pass(100)
+        tag("library-undo").performMouseInput { click() }
+        frames()
+        assertEquals("the library's", 4, ids().size)
+        pass(300)
+        tag("library-undo").performMouseInput { click() }
+        frames()
+        assertEquals(lanes, Store.config.value.items)
+    }
+
+    @Test fun looksLineTakesNoPointersPressInItsFirstMomentEither() {
+        look = true
+        page(lanes)
+        rule.runOnUiThread { assertTrue(Undo.change(allTo = Position.CENTER) { it.putAllIn(Position.CENTER) }) }
+        frames()
+        pass(100)
+        undoIn("look-moved").performMouseInput { click() }
+        frames()
+        assertEquals(Position.CENTER, Store.config.value.oneArea())
+        pass(300)
+        undoIn("look-moved").performMouseInput { click() }
+        frames()
+        assertEquals(lanes, Store.config.value.items)
     }
 
     @Test fun aPointerThatMovesOnARemovedAreasNoteHoldsItAndSoDoesTheKeyboardInItsUndo() {

@@ -20,6 +20,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.LocalViewConfiguration
 import kotlinx.coroutines.delay
 
 /**
@@ -29,7 +30,8 @@ import kotlinx.coroutines.delay
  * reaches for an Undo that goes under the hand. The pointer is over a note once it has moved there: a note that came
  * under a pointer at rest (the one that clicked an area's trash, where the note's Undo then stands) is not pointed at
  * and goes in its time. A new change replaces the note, as ever. When the time is up only the
- * note goes ([Undo.noteOver]): Ctrl+Z takes the change back until the next one.
+ * note goes ([Undo.noteOver]): Ctrl+Z takes the change back until the next one. And in its first moment a note's Undo
+ * takes no pointer's press ([deafAtFirst]).
  */
 internal object NoteClock {
     /** What a note still waits, in milliseconds, counted from now: all of [time] again, or nothing to wait for (null) while it is [held]. */
@@ -90,4 +92,30 @@ internal fun Modifier.holdsNote(hold: NoteHold): Modifier = composed {
             }
         }
     }.onFocusChanged { focused = it.hasFocus }
+}
+
+/**
+ * On a note's Undo: it takes no pointer's press for the system's double-tap time after the note came. A note comes
+ * where the hand already is (a lane's trash stands where the note for the removed area then has its Undo), so the
+ * second press of a double click would take back what the first one did. Only a pointer's press, a mouse's and a
+ * finger's alike, which is taken on its way down so the button sees none of it: Enter on the focused Undo, Ctrl+Z and
+ * a screen reader's click are no second press and work at once. The time runs from the note's change, so a note that
+ * follows another in the same place starts it again. Put before what the button does with a press.
+ */
+internal fun Modifier.deafAtFirst(): Modifier = composed {
+    val kept = Undo.last.collectAsState().value
+    val time = LocalViewConfiguration.current.doubleTapTimeoutMillis
+    val deaf = remember(kept) { mutableStateOf(true) }
+    LaunchedEffect(deaf) {
+        delay(time)
+        deaf.value = false
+    }
+    pointerInput(deaf) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (deaf.value && event.type == PointerEventType.Press) event.changes.forEach { it.consume() }
+            }
+        }
+    }
 }
