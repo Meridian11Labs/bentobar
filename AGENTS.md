@@ -141,7 +141,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     The settings' list has its own steps there: `placed(id, area, part, index)` (a drop, and each step), `stepped(id, down)`
     (Move up and down: `Step.Moved`, `Step.Stays` with why, `Step.End`), and `undone(before, after)` (the one Undo: an item the change took out comes back as it was, with every option,
     and one it brought in goes, whatever was done to it since). Remove from the bar is `without(id)`, the one removal:
-    the item is deleted, whatever it was set to, and only Undo brings it back.
+    the item is deleted, whatever it was set to, and only Undo brings it back. `withoutArea(area)` is Remove an area:
+    every item of it goes as `without` takes one (the ones under the line and one of an unknown type too), in one step.
     `data/BarList.kt` is how the settings see a layout: each area's list in two parts (`parts`, `partOf`: in the bar, and
     under the line the items that wait for their rule, or with ‹ everything behind it), `canGoBelow`, `standing`, and
     `fresh`, the item a type's + makes (a type's defaults are the same every day, so a new Countdown has no date and
@@ -194,13 +195,22 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     that comes waiting on its rule says where its + puts it. `shelvesOf` and `matching` are the pure part:
     what is listed and what a filter leaves), `BarRows`
     (the list: one row per item, the line between its two parts, a head per lane while several are on screen, Undo in
-    a removed row's place; `listEntries` is what it draws, pure, and each entry names its lane, which `Lines` lays side
+    a removed row's place, the `Trash` under it; `listEntries` is what it draws, pure, and each entry names its lane, which `Lines` lays side
     by side from 760 dp and one under the other below that), `ItemOptions` (the panel's
     options: Visibility with only what the chosen part needs, Order, Area, Show as, then the type's own), `Reorder` (the Bar
     page's one drag: the gesture sits on the page's root, over the preview, the list and the panel. A row of the list
     or a type of the library is carried; it lands at a place in either part of any lane,
-    on an area of the preview (also one with no items, which starts it), or, a row only, on the panel, which removes
-    it: the library shows a well in its filter's place, an item's options in their first row's. A copy travels under
+    on an area of the preview (also one with no items, which starts it), or, a row only, on the trash, which removes
+    it. The trash is a strip along the lower edge of the list's card, pinned under the scrolling list at every width,
+    there only while a row of the bar is carried (never for a type from the library): a trash and "Drop here to
+    remove", in the danger colours while the row is over it (`TRASH_VEIL` of red and a red border, at once), when the
+    line under the preview says what a drop does. Its room (a `Target.row` and the card's foot) is taken from the list
+    at the pickup, so no row moves, and it rises into it and sinks by `Motion` (with animations off it is simply
+    there). The list's viewport ends above it, so the scrolling zone at the list's lower edge does too and over the
+    trash nothing scrolls. A row picked up where the trash then comes up is not on it until the pointer has left it
+    once (`Reorder.armed`): standing still never removes. The strip has no semantics and takes no focus: Remove is a
+    row's action and a key. The panel takes no drop: over the library or an item's options nothing would change, and
+    the line says so. A copy travels under
     the pointer, a row in the list and the item's chip over the preview; the others make room by moving; the Store
     changes once on the drop, as one step of `Undo` through `BarEdit.dropped`; Esc, a pointer the system
     takes away (a cancel) or a drop anywhere else puts everything back with no change. Esc ends a drag before it empties
@@ -210,7 +220,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     means is pure, in `ui/Drops.kt` (`dropAt` over a `DropMap` of rectangles, `dropped`, `showing`, `dropLine`;
     `ReorderTest`); `Reorder` only measures and carries. Frames run while the pointer moves or the list scrolls and
     a quarter second after, so a row held still costs nothing; `DragTest` drives it with an injected mouse and finger,
-    pressed, moved and released), `LookPage`, `SetupPage` and `AboutPage` (each one column of cards, 760 dp at most, built
+    pressed, moved and released. The copy's corner is a place in the root: it stands at the root's physical top left
+    with an absolute offset, or from right to left it hangs mirrored across the window), `LookPage`, `SetupPage` and `AboutPage` (each one column of cards, 760 dp at most, built
     from `PageKit`: `PageColumn`, `PageSection`, `PageCard`, `SettingRow`, `ChoiceSetting`, `SwitchSetting`; About has two
     columns from 760 dp of window. Setup's first card is Turn on, or "On" once BentoBar is; a permission's row says
     Allowed with a quiet way back, and one Android won't ask for again says so in its own row. `SetupRules`, pure, says
@@ -228,7 +239,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     contrast they need. The bar's popups keep the device's colors (`BentoBarTheme`). The settings window's own controls are in `Controls`
     (`Segment`, equal parts or each as wide as its words; `SwitchMark`, `BentoButton`, `FilterField`, `Keycap`, `RadioList`,
     `BentoField`, `BentoSlider`) and `Notice`
-    (`NoticeLine`; an amber notice's one button is `ButtonKind.WARN`). The rows a type builds its options from
+    (`NoticeLine`; an amber notice's one button is `ButtonKind.WARN`, and what deletes is `ButtonKind.DANGER`: red
+    words on the card with a red veil under the pointer, as Remove from the bar in an item's options, with its trash
+    and no keycap; Delete still removes the selected item). The rows a type builds its options from
     (`ChoiceRow`, `SwitchRow`, `TextRow`, `SliderRow`, `ServiceKey`) are drawn with them, so a type's options need no
     look of their own: a choice of two or three short values is a segment, a longer one radio buttons under its name
     (`ChoiceRules.asSegment`). A piece drawn both in a popup and in the window asks `LocalSettingsWindow` which look to
@@ -240,7 +253,12 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     page's own state in `BarEdit`, gone on leaving the tab). With more than one, and only then: the lanes side by side
     with a head each, a bracket per area in use under the preview (never narrower than its word: `bracketPlaces`, pure), Alt with ← or → moving a row to the lane beside it
     (`landedIn`: first in its part moving right, last moving left), Area first in the options as a three-way choice
-    with its keycaps, and "Add to" in the library. That key binding is in `AreaKeys` and nowhere else. A lane whose
+    with its keycaps, and "Add to" in the library. That key binding is in `AreaKeys` and nowhere else. A lane's head
+    ends in a trash, Remove an area (`BarEdit.removeArea`, `withoutArea`): the area and every item in it go in one
+    step of `Undo` (`Undo.Kept.area`), and a note above the list says what went, with Undo ("Removed Left and its 3
+    items", `goneOf`); the lanes that stay take the room. It has its spoken name and no tooltip (the window has none),
+    stands on every lane while several are on screen, and a lane that was only opened and is still empty just closes,
+    with no step and no note. With the bar's last items the page is the empty bar's, the note on top. A lane whose
     last row leaves closes, said in a slip with Undo above the list (`foldOf`); an area the bar has no room for says so
     once in its lane (`noRoomAreas`, from what the bar reports in `BarOverflow`), and the preview shows who has its place.
     Look's "Where BentoBar sits" is a command that puts every item in one area, and shows one as chosen only
@@ -267,8 +285,13 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     The filter's field shows Esc only while Esc has something to do (text to empty, or the keyboard is there and an
     item can be let go), and nothing once it has the keyboard and Esc has not. The copy a drag carries is the item as
     it would be where it hangs (`carriedAs`, pure): above the line it never says "shows when…".
-    Every time is named in `ui/Motion.kt` (120 lift, 160 neighbours, 180 settle, 200 back and an area) and runs
-    through `Motion.spec`, which "No animations" and the system's animator scale set to nothing; rows travel to their
+    Every time is named in `ui/Motion.kt` (120 lift, 160 neighbours, 180 settle, 200 back and an area, 3000 a note)
+    and runs through `Motion.spec`, which "No animations" and the system's animator scale set to nothing. A note with
+    Undo (a removed row's slip, the one for a closed or a removed area, the library's "Added", Look's line) stands 3 s
+    (longer where Android's "Time to take action" asks for it) and goes (`ui/NoteClock.kt`: `NoteClock` is the pure rule, `NoteTime` runs it where the note is drawn,
+    `Modifier.holdsNote` stops it): the time waits while the pointer has moved over the note or the keyboard is in it
+    and starts again, whole, when they left; a note that came under a pointer at rest is not held. Only the note goes
+    (`Undo.noteOver`, `Undo.noted`): Ctrl+Z and the system's shortcut list keep Undo until the next change. Rows travel to their
     places (`animatePlacement`, 200 ms while the lanes change: `ListTravel`), and a row the library's + added opens
     downwards. What scrolls (the list, the library, the options) has a thin thumb while it has more than fits
     (`Modifier.scrollThumb`, `thumbOf` pure, `Palette.thumb`). The right-click menu's head has its symbol on the card's
@@ -330,7 +353,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   with `BENTOBAR_PICTURES=<directory>` (and `--rerun`) they write the pictures there as PNGs, to look at beside a design. It asks
   the view to draw into a bitmap; `captureToImage` came out one change behind, or blank, when every Compose test ran. A test
   of keys asks for the keyboard first (`LocalInputModeManager`): in touch mode nothing that takes a click takes the focus.
-  `ScreenReaderTest` sweeps the window for a sign read as a sign and holds what a row, a lane and the panel's switch say;
+  `ScreenReaderTest` sweeps the window for a sign read as a sign and holds what a row, a lane and the panel's switch say
+  (and that the drag's trash says nothing); `NoteTimeTest` the notes' three seconds, with the clock held;
   `RtlTest` the sides from right to left; `ShortcutListTest` that every press the system's list shows is one the window takes;
   `ListMotionTest` and `SystemMotionTest` the times, with the clock held.
 - Editing the manifest or a string re-runs the tests that read them; a green run that says UP-TO-DATE after such an

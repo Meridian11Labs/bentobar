@@ -110,7 +110,10 @@ hides when an app goes full screen or the screen locks.
 
 A live preview of your bar at the top; below it, your items (**in the bar** and, under a line, the ones
 that wait behind ‹ or for their rule; drag a row to move it) with the items you can add or the selected
-item's options beside them. Remove takes an item out for good; Add items has every type to add again.
+item's options beside them. Remove takes an item out for good (the red button in its options, Delete, or a drag
+onto the trash that comes up under the list); Add items has every type to add again. With items in several areas,
+each area's head has a trash that removes the area and what is in it. What a change says afterwards, with Undo,
+stays three seconds; Ctrl+Z takes the change back after that too.
 Changes apply to the status bar right away.
 
 <p align="center">

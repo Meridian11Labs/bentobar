@@ -6,7 +6,7 @@
   (a Shelf's texts and links, the addresses) is deleted at the first start. Five items go online again, each to a
   service named in the code: no request can go to an address that isn't written there, Setup › Online services has no
   "Your own addresses", and the strip takes no drops from other apps.
-- **Remove deletes.** An item you remove (the options' button, Delete, a drop on the panel, the bar's right-click
+- **Remove deletes.** An item you remove (the options' button, Delete, a drop on the trash, the bar's right-click
   menu) is gone from the layout, whatever it was set to, and Undo brings it back as it was. Add items lists the types
   and nothing else: no remembered setups under a type, no Forget. A layout that is read (stored, pasted, imported)
   drops what an older version kept in Off, with no new layout version. A Flight's followed flight and a Prompter's
@@ -15,6 +15,19 @@
   area in use of Left, Middle, Right (it was Right, Middle, Left), and when the status bar is short of room Left has
   it first, then Right, then the Middle (it was Right, Left, Middle). A bar that is already set up stays where it is,
   every item in the area it had.
+- **A trash to drop on.** While you drag a row of your bar a strip comes up along the lower edge of the list, "Drop
+  here to remove", at every window width; it turns red under the row, and letting go there removes the item (Undo
+  brings it back). The list scrolls under a dragged row only above the strip. The panel no longer takes a drop:
+  the library and an item's options stay as they are during a drag.
+- **Remove an area.** With items in several areas each area's head ends in a trash: it removes the area and every
+  item in it in one step, says what went ("Removed Left and its 3 items") with Undo, and the other areas take the
+  room.
+- **Notes with Undo stay three seconds.** "Removed…" in a row's place, the note for a closed or a removed area, the
+  library's "Added" and Look's line go by themselves after three seconds, or wait while the pointer or the keyboard
+  is on them. Ctrl+Z still takes the change back afterwards.
+- **Remove is a red button.** "Remove from the bar" in an item's options is red, with a trash and no keycap; Delete
+  still removes the selected item.
+- From right to left a dragged row hangs under the pointer (it hung mirrored across the window).
 
 ## 2.1.0 (2026-11-11)
 

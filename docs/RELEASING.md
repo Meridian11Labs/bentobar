@@ -113,6 +113,32 @@ learned the hard way" says why. Run it again on every new draft.
   it and leaves no tooltip behind; the next item's tooltip still comes. A ‹ in an area with nothing hidden opens the menu
   while another area's ‹ opens and folds the bar. A drag stays among its own area's items. From the keyboard's "BentoBar
   menu", an item drawn in another area than the first strip's opens its menu under that item, which shows as open.
+- **The trash under the list.** On the Bar page, drag a row with the mouse: a strip comes up along the list's lower
+  edge ("Drop here to remove"), rising, and no row moves for it. Over it the strip is red and the line under the
+  preview says "Drop to remove…"; let go and the row is gone, "Removed…" stands in its place, and Undo or Ctrl+Z brings
+  it back. Let go beside the strip (on the panel, on the page's ground) or press Esc over it: nothing changes and the
+  strip sinks. The same by finger, by a row's handle: the strip is easy to hit and the copy under the finger does not
+  hide that it is red. With more rows than fit, hold a row just above the strip: the list scrolls; over the strip it
+  rests. Pick up one of the last rows of a full list, where the strip comes up under the pointer, and let go without
+  moving away: nothing is removed; move off the strip and back, and it takes the row. Drag a type out of Add items:
+  no strip. In a narrow window and with three areas the strip spans the list's card. With "No animations" it is
+  simply there and gone.
+- **Remove an area.** With items in two or three areas, each lane's head ends in a trash (a screen reader says
+  "Remove Left and its 3 items" or the like). A click removes the lane and its items, the others take the room, and
+  "Removed Left and its 3 items" stands above the list with Undo; Undo brings every item back where it was. The
+  pointer rests where the trash was, which is where the note's Undo may then stand: the note still goes after three
+  seconds. Double-click a trash, the last lane's most of all: see whether the second click lands on the note's Undo
+  and takes back what the first did (no test can show it). With the keyboard (Tab to the trash, Enter) the keyboard
+  is then on the note's Undo; after a mouse click, see where Tab goes next. Remove the bar's last area: the empty
+  bar's page with the note on top. An area opened with "Add an area" and still empty closes with no note.
+- **Notes go after three seconds.** Remove an item, close an area by moving its last row, add from the library, and
+  use Look's "Where BentoBar sits": each note with Undo is gone three seconds later, a row's slip closing up as the
+  rows travel. Point at a note, or Tab to its Undo: it stays, and goes three seconds after the pointer or the
+  keyboard left. After a note went, Ctrl+Z still takes the change back, and the keyboard's shortcut list still
+  shows Undo. With Android's "Time to take action" set longer, the notes stay that long.
+- **The red button.** An item's options end in "Remove from the bar" in red with a trash, in light and dark, with no
+  keycap beside it; under the pointer and pressed it takes a red veil; Delete and Backspace still remove the
+  selected item.
 - **Live Update chip.** A timer or a meeting shows its chip with BentoBar's settings window closed.
 - **Items that tick.** A clock and a network speed item do not make neighbours move; the bar's CPU use stays low
   (about 1% of one core on a release build).
