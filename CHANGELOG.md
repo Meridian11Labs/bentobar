@@ -14,7 +14,11 @@
 - **A bar starts in Left.** A fresh install has its four items in Left, after the clock. A new item goes to the first
   area in use of Left, Middle, Right (it was Right, Middle, Left), and when the status bar is short of room Left has
   it first, then Right, then the Middle (it was Right, Left, Middle). A bar that is already set up stays where it is,
-  every item in the area it had.
+  every item in the area it had. With items in several areas, what the bar has only once follows the new orders:
+  Presenting's ‹, the empty capsule, the one strip shown when nothing has room and "Add to"'s first choice stand in
+  the first area in use from the left (a bar in Right and Middle has them in the Middle, one in Right and Left in
+  Left; both had them in Right). With items in Left too, the keyboard's "BentoBar menu" opens under Left's strip, and
+  when room is short it is Right's items that go behind ‹ first (it was Left's).
 - **A trash to drop on.** While you drag a row of your bar a strip comes up along the lower edge of the list, "Drop
   here to remove", at every window width; it turns red under the row, and letting go there removes the item (Undo
   brings it back). The list scrolls under a dragged row only above the strip. The panel no longer takes a drop:
