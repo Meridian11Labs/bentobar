@@ -454,7 +454,7 @@ class FlightLoadTest {
             follow(net)
             assertEquals(setOf(item), Kept.own("flight").names())
             assertEquals(setOf(item), Kept.fetched(AIRLABS).names())
-            // The moment has passed (half a minute: not Undo's time, which has no end; see FlightKeptLineTest), and an item is back: nothing is touched.
+            // The moment has passed (half a minute: not Undo's time, which has no end; see FlightRemovedTest), and an item is back: nothing is touched.
             assertTrue(FlightLoad.UNDO_MS >= 30_000)
             assertFalse(FlightLoad.clearWithout(ids))
             assertEquals(setOf(item), Kept.own("flight").names())

@@ -24,7 +24,6 @@ import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.ui.BarPage
@@ -78,7 +77,7 @@ class BarPageTest {
 
     private fun row(id: String) = rule.onNodeWithTag("row:$id")
     private fun options() = rule.onNodeWithTag("options")
-    private fun order() = Store.config.value.items.filter { it.section != Section.OFF }.map { it.id }
+    private fun order() = Store.config.value.items.map { it.id }
     private fun switchPart(text: Int) = rule.onNode(hasText(app.getString(text)) and hasAnyAncestor(hasTestTag("panel-switch")))
 
     /** Press on the row, carry it [by] down past the touch slop in steps, and let go. */

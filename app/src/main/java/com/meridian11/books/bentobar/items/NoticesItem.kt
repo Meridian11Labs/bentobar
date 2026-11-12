@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Notification icons: other apps' notifications as their small icons in the bar, one per app, and the list in its popup
  * (open, dismiss, clear all). Needs Android's notification access for its own entry, [NoticeAccess], which is bound only
- * while this type is live ([onLive] to [onIdle]: an item of its own outside Off on something that shows items, or a Live
+ * while this type is live ([onLive] to [onIdle]: an item of its own on something that shows items, or a Live
  * activity item that wakes it) and only with the access given. What it reads is in [Notices], in memory; nothing of it
  * is written, logged or put into the layout ([discreet]).
  *

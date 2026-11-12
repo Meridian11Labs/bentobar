@@ -140,7 +140,7 @@ class Type(private val family: FontFamily?, private val rtl: Boolean = false) {
     val strong = style(14, 20, FontWeight.SemiBold)
     /** 14 / 500: row and setting names, tabs. */
     val label = style(14, 20, FontWeight.Medium)
-    /** 14 / 400: a remembered line's words. */
+    /** 14 / 400: a field's text, a choice that is not the chosen one, About's tagline. */
     val body = style(14, 20, FontWeight.Normal)
     /** 13 / 400: the status line, notices, paragraphs; with [FontWeight.Medium] or SemiBold where the design says. */
     val small = style(13, 18, FontWeight.Normal)

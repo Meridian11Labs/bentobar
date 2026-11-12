@@ -55,8 +55,8 @@ class ReorderTest {
         assertEquals(listOf("b", "a", "c", "d"), items.moved("a", Section.SHOWN, 1).map { it.id })
         assertEquals(listOf("b", "c", "a", "d"), items.moved("a", Section.HIDDEN, 1).map { it.id })
         assertEquals(Section.HIDDEN, items.moved("a", Section.HIDDEN, 1).first { it.id == "a" }.section)
-        assertEquals(listOf("a", "b", "c", "d"), items.moved("nope", Section.OFF, 0).map { it.id })
-        assertEquals(listOf("b", "c", "d", "a"), items.moved("a", Section.OFF, 5).map { it.id })
+        assertEquals(listOf("a", "b", "c", "d"), items.moved("nope", Section.HIDDEN, 0).map { it.id })
+        assertEquals(listOf("b", "c", "d", "a"), items.moved("a", Section.HIDDEN, 5).map { it.id })
     }
 
     // The whole page: the preview across the top, the list's card with two lanes side by side, the panel's card beside it.
@@ -105,7 +105,6 @@ class ReorderTest {
     @Test fun theLibraryTakesARowFromTheBarAndNothingThatCameFromIt() {
         assertEquals(Drop.Off, bar.at("a", 700f, 300f))
         assertEquals(Drop.None, bar.at("new", 700f, 300f, From.TYPE))
-        assertEquals(Drop.None, BarConfig(items = bar.items + row("o", section = Section.OFF)).at("o", 700f, 300f, From.LINE))
         assertEquals("outside the list, the preview and the library", Drop.None, bar.at("a", 630f, 300f))
         assertEquals(Drop.None, bar.at("a", 400f, 80f))
         assertEquals("the layout without it", listOf("b", "c") to listOf("w"), bar.dropped(Carried("a", From.BAR, rule), Drop.Off).order())
@@ -193,24 +192,17 @@ class ReorderTest {
         assertTrue(words(bar, bar.carriedAs(w, Drop.Off)))
         assertTrue("carried above the line it is always in the bar", !words(bar, bar.carriedAs(w, Drop.At(DropSpot(upper, 0)))))
         assertTrue("a row from above the line waits under it", words(bar, bar.carriedAs(Carried("a", From.BAR, rule), Drop.At(DropSpot(lower, 1)))))
-        // A remembered line: as it comes back at the place, and as it was kept over none.
-        val kept = BarConfig(items = bar.items + row("o", section = Section.OFF, active = true))
-        val o = Carried("o", From.LINE, rule)
-        assertEquals(Section.SHOWN, kept.carriedAs(o, Drop.At(DropSpot(upper, 0)))?.section)
-        assertEquals(Section.OFF, kept.carriedAs(o, Drop.None)?.section)
         assertNull("something that is not in the layout", bar.carriedAs(Carried("gone", From.BAR, rule), Drop.None))
     }
 
-    @Test fun aTypeAndARememberedLineLandWhereTheyAreDropped() {
+    @Test fun aTypeLandsWhereItIsDropped() {
         val added = bar.dropped(Carried("new", From.TYPE, rule), Drop.At(DropSpot(upper, 1)))
         assertEquals(listOf("a", "new", "b", "c") to listOf("w"), added.order())
         val below = bar.dropped(Carried("new", From.TYPE, rule), Drop.At(DropSpot(lower, 1)))
         assertEquals(listOf("a", "b", "c") to listOf("w", "new"), below.order())
         assertTrue("under the line it shows only when active", below.items.first { it.id == "new" }.whenActive)
-        val kept = row("o", section = Section.OFF).copy(options = mapOf("k" to "v"))
-        val back = BarConfig(items = bar.items + kept).dropped(Carried("o", From.LINE, rule), Drop.At(DropSpot(left, 0), starts = true))
-        assertEquals(listOf("o") to emptyList<String>(), back.order(Position.LEFT))
-        assertEquals("as it was", mapOf("k" to "v"), back.items.first { it.id == "o" }.options)
+        val starts = bar.dropped(Carried("new", From.TYPE, rule), Drop.At(DropSpot(left, 0), starts = true))
+        assertEquals("in an area it starts", listOf("new") to emptyList<String>(), starts.order(Position.LEFT))
     }
 
     @Test fun aCancelledDragLeavesTheLayoutAsItWas() {

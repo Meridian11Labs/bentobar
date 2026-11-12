@@ -137,7 +137,8 @@ learned the hard way" says why. Run it again on every new draft.
   opening; refused, the popup says so and Setup has the Camera row.
 - **Prompter.** While its popup is open, keys still go to the other app; Space pauses and plays only when the popup
   has the focus. The motion is even at speeds 1 and 10 and stops at "End of your notes". Edit opens the options. The
-  notes survive BentoBar being turned off and on.
+  notes survive BentoBar being turned off and on. Remove deletes them with the item (Undo right after brings both
+  back); a new Prompter starts empty.
 - **Notification icons.** "BentoBar notification icons" is its own entry in Notification access, and is not connected
   while no such item is placed. With access: one icon per app (`./bento debug notices` counts those it couldn't load
   as `bells=`), and the popup opens, dismisses and clears. `listener=` in the same line says whether it is connected:

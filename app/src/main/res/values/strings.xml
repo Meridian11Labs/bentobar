@@ -401,11 +401,11 @@
 
     <!-- barpage -->
     <string name="bar_undo">Undo</string>
-    <!-- What was removed, as the library names it: "Clock · Tokyo", or the type's name alone. -->
+    <!-- What was removed, by its type's name: "Removed Clock". -->
     <string name="bar_removed">Removed %1$s</string>
     <!-- The library: the panel's "Add items". -->
     <string name="library_filter">Filter items</string>
-    <!-- While filtering: rows shown, of all rows (types and remembered setups). -->
+    <!-- While filtering: types shown, of all types. -->
     <plurals name="add_filter_count">
         <item quantity="one">%1$d of %2$d shown.</item>
         <item quantity="other">%1$d of %2$d shown.</item>
@@ -413,8 +413,6 @@
     <string name="library_in_bar">In your bar</string>
     <!-- A type's + button, read out: "Add Clock". -->
     <string name="library_add">Add %1$s</string>
-    <!-- A screen reader's action on a remembered setup's line. -->
-    <string name="add_add">Add</string>
     <!-- On a type's row right after its +, and on the bar's new row; with what the item waits for ("Added · shows when hot"). -->
     <string name="add_added">Added</string>
     <string name="add_added_rule">Added · %1$s</string>
@@ -425,18 +423,8 @@
     <string name="library_adds_to">Adds to %1$s · %2$s</string>
     <string name="add_added_to">Added to %1$s</string>
     <string name="add_added_to_rule">Added to %1$s · %2$s</string>
-    <!-- A remembered setup: its type, then its own words ("Clock · London"); read out, "Clock, London". -->
-    <string name="library_setup">%1$s · %2$s</string>
-    <string name="library_setup_spoken">%1$s, %2$s</string>
-    <string name="library_add_setup">Add %1$s, %2$s</string>
+    <!-- With several areas on screen, a type's + button, read out: "Add Clock to Left". -->
     <string name="library_add_to">Add %1$s to %2$s</string>
-    <string name="library_add_setup_to">Add %1$s, %2$s to %3$s</string>
-    <string name="library_forget">Forget</string>
-    <string name="library_forget_setup">Forget %1$s, %2$s</string>
-    <string name="library_forgot">Forgot %1$s</string>
-    <!-- A setup's words when it has none of its own: a type that waits on its rule, kept in the bar for good; and one that differs only in options with no short name. -->
-    <string name="library_always">always in the bar</string>
-    <string name="library_as_set_up">as you set it up</string>
     <!-- The bar's list and the panel beside it. -->
     <string name="bar_empty">Nothing in the bar yet. Add an item to start.</string>
     <!-- The line under the preview while an item is dragged: what letting go does. %1$s is the item, %2$s the item beside its new place. The second of each pair is for a finger. -->

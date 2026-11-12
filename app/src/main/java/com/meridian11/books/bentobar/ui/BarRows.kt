@@ -105,7 +105,6 @@ import com.meridian11.books.bentobar.data.Standing
 import com.meridian11.books.bentobar.data.Step
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.canGoBelow
-import com.meridian11.books.bentobar.data.carriesSetup
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.rowAreas
 import com.meridian11.books.bentobar.data.parts
@@ -591,26 +590,17 @@ private fun DropOpening(id: String, reorder: Reorder, modifier: Modifier) {
         .background(tint.copy(alpha = 0.08f)).border(1.dp, tint.copy(alpha = 0.35f), ROW_SHAPE))
 }
 
-/** A removed row's place: what was removed, as the library names it, and the one Undo. It closes with the next change. */
+/** A removed row's place: what was removed, by its type's name, and the one Undo. It closes with the next change. */
 @Composable
 private fun SlipRow(slip: Slip, edit: BarEdit, modifier: Modifier) {
     val c = Bento.colors
     val res = LocalResources.current
     Row(modifier.animatePlacement().fillMaxWidth().padding(horizontal = ROW_INSET).heightIn(min = Target.row).background(c.sunk, ROW_SHAPE)
         .padding(start = Space.l, end = Space.xs).testTag("slip"), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.bar_removed, removedName(res, slip.item)), Modifier.weight(1f), style = Bento.type.small, color = c.ink2,
+        Text(stringResource(R.string.bar_removed, itemName(res, slip.item)), Modifier.weight(1f), style = Bento.type.small, color = c.ink2,
             maxLines = lines(), overflow = TextOverflow.Ellipsis)
         BentoButton(stringResource(R.string.bar_undo), { edit.undo() }, Modifier.onFocusChanged { edit.slipFocused = it.hasFocus }, kind = ButtonKind.TEXT)
     }
-}
-
-/**
- * What a removed item is called, as the library names it: a setup by its type and its line's words ("Clock · Tokyo"),
- * an item that carried nothing by its type alone.
- */
-internal fun removedName(res: android.content.res.Resources, item: ItemConfig): String {
-    val type = Items.of(item.type)?.takeIf { item.carriesSetup(it) } ?: return itemName(res, item)
-    return res.getString(R.string.library_setup, res.getString(type.titleRes), setupText(res, item, type))
 }
 
 @Composable

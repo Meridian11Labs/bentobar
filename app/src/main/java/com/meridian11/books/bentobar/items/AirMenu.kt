@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Online
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.ui.ChoiceRow
 import com.meridian11.books.bentobar.ui.InfoRow
@@ -199,7 +198,7 @@ internal fun AirOptions(item: ItemConfig, set: (ItemConfig) -> Unit) {
         var changing by remember { mutableStateOf(false) }
         val chooseHere: @Composable () -> Unit = {
             BentoButton(stringResource(R.string.weather_use_here), { set(WeatherRules.useHere(item)); source.typed(by); changing = false; hereChosen() },
-                kind = ButtonKind.TEXT, enabled = item.section != Section.OFF)
+                kind = ButtonKind.TEXT)
         }
         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -213,7 +212,7 @@ internal fun AirOptions(item: ItemConfig, set: (ItemConfig) -> Unit) {
             }
             Text(stringResource(R.string.weather_consent), Modifier.padding(top = 2.dp), style = Bento.type.help, color = Bento.colors.ink2)
             if ((!here && WeatherRules.place(item) == null) || changing) {
-                CitySearch(item, by, initial = city ?: WeatherRules.cityOf(ZoneId.systemDefault().id), canSubmit = item.section != Section.OFF) { found, region ->
+                CitySearch(item, by, initial = city ?: WeatherRules.cityOf(ZoneId.systemDefault().id)) { found, region ->
                     set(WeatherRules.picked(item, found, region))
                     source.typed(by)
                     changing = false

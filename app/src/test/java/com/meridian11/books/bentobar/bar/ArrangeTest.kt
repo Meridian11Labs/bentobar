@@ -95,7 +95,7 @@ class ArrangeTest {
             // Every width up to more than the free area holds: the one strip was never cut.
             for (measured in 0..bar.freeRight - bar.freeLeft + 60) {
                 val expected = listOf(today(area, bar, measured, pill, k))
-                // In use, or the home of a layout with nothing outside Off; drawing, blank or not on screen yet.
+                // In use, or the home of a layout with no item; drawing, blank or not on screen yet.
                 for (inUse in listOf(setOf(area), emptySet())) for (state in listOf(drawing(measured), blank(measured), waiting(measured))) {
                     val a = arrange(bar, area, inUse, mapOf(area to state), pill, k)
                     hold(a.spots == expected) { "$area on $bar, $measured wide, pill=$pill, $k, $state: ${a.spots} for $expected" }
@@ -284,7 +284,7 @@ class ArrangeTest {
         for (area in Position.entries) assertEquals("one area: that one", listOf(area), BarRules.wantedAreas(area, setOf(area)))
         for (home in Position.entries) {
             assertEquals("whichever is home, room goes Right, Left, Middle", ROOM_ORDER, BarRules.wantedAreas(home, all))
-            assertEquals("nothing outside Off: the home area alone, so there is always one", listOf(home), BarRules.wantedAreas(home, emptySet()))
+            assertEquals("no item: the home area alone, so there is always one", listOf(home), BarRules.wantedAreas(home, emptySet()))
         }
         assertEquals(listOf(LEFT, CENTER), BarRules.wantedAreas(CENTER, setOf(CENTER, LEFT)))
         assertEquals("the home counts once", listOf(RIGHT, CENTER), BarRules.wantedAreas(RIGHT, setOf(CENTER, RIGHT)))

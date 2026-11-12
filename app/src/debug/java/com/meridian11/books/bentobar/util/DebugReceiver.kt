@@ -159,7 +159,7 @@ class DebugReceiver : BroadcastReceiver() {
 
     /** What the type's hook says to [words], or, for a state it refused, what it can stage: a hook answers null, and the usage is said here. */
     private fun ask(type: ItemType, words: List<String>): String? = type.debug(words)
-        ?: type.stages.takeIf { it.isNotEmpty() }?.let { "not staged: no such state, or no such item outside Off. It takes: ${it.joinToString(" | ")}" }
+        ?: type.stages.takeIf { it.isNotEmpty() }?.let { "not staged: no such state, or no such item. It takes: ${it.joinToString(" | ")}" }
 
     /** An area by the word the user reads; "center" is the stored name, which older scripts send. */
     private fun area(word: String): Position = when (word.lowercase()) {

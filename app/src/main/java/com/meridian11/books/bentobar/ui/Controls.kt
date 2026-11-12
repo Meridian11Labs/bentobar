@@ -485,8 +485,8 @@ fun SwitchMark(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean
 
 /**
  * Filled: the one such button on a screen. Tonal: every other command. Text: a quiet one in a line (Undo). Plain: a command
- * as plain words, where nothing is lost by it (Remove from the bar). Quiet: one that stands back beside the line's own
- * button (Forget). Danger: one that can't be taken back.
+ * as plain words (Remove from the bar). Quiet: one that stands back beside a row's own words (a permission's way
+ * back on Setup). Danger: one that can't be taken back.
  */
 /** [WARN] is the one button of an amber notice, in the notice's own ink. */
 enum class ButtonKind { FILLED, TONAL, TEXT, PLAIN, QUIET, DANGER, WARN }

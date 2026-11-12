@@ -36,12 +36,10 @@ import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.ItemConfig
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Standing
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.hide
 import com.meridian11.books.bentobar.data.notDrawn
-import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.setWhenActive
 import com.meridian11.books.bentobar.data.show
 import com.meridian11.books.bentobar.data.standing
@@ -63,6 +61,7 @@ import com.meridian11.books.bentobar.ui.MenuDivider
 import com.meridian11.books.bentobar.ui.MenuEntry
 import com.meridian11.books.bentobar.ui.MenuSegment
 import com.meridian11.books.bentobar.ui.SectionLabel
+import com.meridian11.books.bentobar.ui.Undo
 import com.meridian11.books.bentobar.util.Sym
 
 /**
@@ -148,13 +147,13 @@ fun MenuShadow(width: Dp, glass: MenuGlassState) {
 
 /**
  * An item's own menu, drawn for the item as the layout has it now: a menu that changes its item (a
- * city added, a flight tracked) is drawn again with the new options. An item that is deleted or
- * turned off while its menu is open closes it.
+ * city added, a flight tracked) is drawn again with the new options. An item that is removed while
+ * its menu is open closes it.
  */
 @Composable
 fun ItemMenu(itemId: String, host: MenuHost) {
     val cfg by Store.config.collectAsState()
-    val item = cfg.items.firstOrNull { it.id == itemId && it.section != Section.OFF }
+    val item = cfg.items.firstOrNull { it.id == itemId }
     val menu = item?.let { Items.of(it.type)?.menu }
     if (item == null || menu == null) { LaunchedEffect(itemId) { host.close() }; return }
     menu(item, host)
@@ -163,9 +162,8 @@ fun ItemMenu(itemId: String, host: MenuHost) {
 /**
  * Right-click on an item in the bar. It says what Visibility in settings says, in the same words, and does it through the
  * same commands: an item is always in the bar, in it only when active (the default mode) or behind ‹; nothing here says
- * Off or Hidden. Remove from the bar is the settings' step too ([removed]), and the menu has no Undo: an item that was set
- * up waits in the library, where its line's + brings it back as it was; one that was never set up is simply gone, as an
- * item is in the bar or it isn't, and the library's + makes the same item again.
+ * Off or Hidden. Remove from the bar deletes the item, as the settings' Remove does, and the menu has no Undo: the item is
+ * gone with what its type kept for it ([Undo.removeForGood]), and the library's + makes a new one.
  */
 @Composable
 fun ItemContextMenu(itemId: String, host: MenuHost, openMenu: () -> Unit) {
@@ -207,7 +205,7 @@ fun ItemContextMenu(itemId: String, host: MenuHost, openMenu: () -> Unit) {
         }
         MenuDivider()
         MenuEntry(null, stringResource(R.string.context_item_settings)) { host.openItemSettings(item.id) }
-        MenuEntry(null, stringResource(R.string.detail_remove)) { host.close(); Store.update { it.removed(item.id) } }
+        MenuEntry(null, stringResource(R.string.detail_remove)) { host.close(); Undo.removeForGood(item.id) }
     }
 }
 
@@ -222,7 +220,7 @@ fun BentoBarMenu(host: MenuHost, openItem: (ItemConfig) -> Unit, hideBar: () -> 
     // Worked out here, not when the menu opened, so an item popping out (or in) updates the list.
     val cfg by Store.config.collectAsState()
     val overflow by com.meridian11.books.bentobar.bar.BarOverflow.ids.collectAsState()
-    val hidden = if (everything) cfg.items.filter { it.section != Section.OFF && Items.of(it.type) != null }
+    val hidden = if (everything) cfg.items.filter { Items.of(it.type) != null }
     else cfg.notDrawn { states[it.id]?.active == true }.let { waiting -> cfg.items.filter { it in waiting || it.id in overflow } }
     val first = remember { androidx.compose.ui.focus.FocusRequester() }
     if (everything) androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { first.requestFocus() } }

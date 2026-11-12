@@ -2,7 +2,6 @@ package com.meridian11.books.bentobar.items
 
 import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.ItemConfig
-import com.meridian11.books.bentobar.data.Section
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -66,17 +65,17 @@ open class TickLoop(private val wiring: Wiring) {
     private val liveTypes = HashSet<String>()
 
     /**
-     * The types that had an item outside Off at the last run, kept across [stop]: a removal while nothing showed items is
+     * The types that had an item in the layout at the last run, kept across [stop]: a removal while nothing showed items is
      * seen at the next run. Main thread.
      */
     private var placed: Set<String> = emptySet()
 
     /**
-     * A type whose last item outside Off has left the layout gives back what outlives the bar (a mute, a Do Not Disturb
+     * A type whose last item has left the layout gives back what outlives the bar (a mute, a Do Not Disturb
      * rule): [ItemType.settle] with [Settle.LEFT_LAYOUT], once. The bar hiding is no such moment: the items are still placed.
      */
     private fun settleLeft(cfg: BarConfig) {
-        val now = cfg.items.filter { it.section != Section.OFF }.mapTo(HashSet()) { it.type }
+        val now = cfg.items.mapTo(HashSet()) { it.type }
         val left = placed - now
         placed = now
         for (t in left) hook(t, "settle") { it.settle(Settle.LEFT_LAYOUT) }
@@ -85,7 +84,7 @@ open class TickLoop(private val wiring: Wiring) {
     /**
      * Tells the types which of them are being sampled now: [ItemType.onLive] for one that starts,
      * [ItemType.onIdle] for one that stops. A type's listeners and polls hang on these two, so none
-     * exists while the bar is hidden, the screen is off, or no item of the type is outside Off.
+     * exists while the bar is hidden, the screen is off, or the layout has no item of the type.
      */
     private fun lifeCycle(types: Set<String>) {
         for (t in types) if (liveTypes.add(t)) hook(t, "onLive") { it.onLive() }

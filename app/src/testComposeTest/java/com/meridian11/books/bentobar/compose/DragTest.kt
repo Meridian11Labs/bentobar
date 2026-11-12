@@ -33,9 +33,7 @@ import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
-import com.meridian11.books.bentobar.data.fresh
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.Items
@@ -97,7 +95,7 @@ class DragTest {
     private fun tag(tag: String) = rule.onNodeWithTag(tag)
     private fun at(tag: String): Rect = tag(tag).fetchSemanticsNode().boundsInRoot
     private fun now(id: String) = Store.config.value.items.firstOrNull { it.id == id }
-    private fun order() = Store.config.value.items.filter { it.section != Section.OFF }.map { it.id }
+    private fun order() = Store.config.value.items.map { it.id }
     private fun says(text: String) = assertEquals("the line under the preview", text,
         tag("preview-line").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString(" ") { it.text })
     /** A row's handle: the six dots at its start. */
@@ -245,26 +243,25 @@ class DragTest {
         tag("fold").assertDoesNotExist()
     }
 
-    @Test fun aTypeOfTheLibraryIsDroppedAtAPlaceAndARememberedLineComesBackAtOne() {
-        val tokyo = Items.of("clock")!!.fresh("k", Position.RIGHT).with("zone", "Asia/Tokyo").copy(section = Section.OFF)
-        page(null, item("a", "memory"), item("b", "battery"), tokyo)
+    @Test fun aTypeOfTheLibraryIsDroppedAtAPlace() {
+        page(null, item("a", "memory"), item("b", "battery"))
         val between = Offset(at("row:a").center.x, at("row:a").bottom)
         hold(line("type:storage"), between)
         tag("well").assertDoesNotExist()
         says(str(R.string.bar_drop_add, title("storage"), title("memory")))
-        assertEquals("nothing is added before the drop", 3, Store.config.value.items.size)
+        assertEquals("nothing is added before the drop", 2, Store.config.value.items.size)
         letGo()
-        assertEquals(listOf("memory", "storage", "battery"), Store.config.value.items.filter { it.section != Section.OFF }.map { it.type })
+        assertEquals(listOf("memory", "storage", "battery"), Store.config.value.items.map { it.type })
         assertNull("a drag never selects", selected)
         assertNotNull("one step of Undo", Undo.last.value)
 
-        tag("line:k").performScrollTo()
-        hold(line("line:k"), Offset(at("row:a").center.x, at("row:a").top + 4f))
+        // And first in the list, above its first row.
+        tag("type:clock").performScrollTo()
+        rule.waitForIdle()
+        hold(line("type:clock"), Offset(at("row:a").center.x, at("row:a").top + 4f))
         says(str(R.string.bar_drop_add_first, title("clock"), title("memory")))
         letGo()
-        assertEquals("k", order().first())
-        assertEquals(tokyo.options, now("k")?.options)
-        tag("line:k").assertDoesNotExist()
+        assertEquals(listOf("clock", "memory", "storage", "battery"), Store.config.value.items.map { it.type })
     }
 
     @Test fun aRowDroppedOnAnAreaOfThePreviewThatHasNoItemsStartsIt() {

@@ -41,7 +41,6 @@ import com.meridian11.books.bentobar.data.BAR_ORDER
 import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
@@ -75,7 +74,7 @@ fun dropSpot(
     return DropSpot(zone, rows[zone].orEmpty().count { it < y })
 }
 
-/** What a press picked up: a row of the bar's list ([key] its id), a type's row in the library (its type) or a setup's line (its id). */
+/** What a press picked up: a row of the bar's list ([key] its id) or a type's row in the library (its type). */
 class Picked(val from: From, val key: String, val at: LayoutCoordinates)
 
 /**
@@ -197,7 +196,7 @@ class Reorder {
 
     /**
      * What is under [pos]. In the bar's list: a row, anywhere on it for a mouse or pen, only its handle for touch (so
-     * fingers still scroll). In the library: a type's row or a setup's line, left of its buttons.
+     * fingers still scroll). In the library: a type's row, left of its button.
      */
     fun hit(pos: Offset, touch: Boolean): Picked? {
         if (bounds(viewport, clip = true)?.contains(pos) == true) {
@@ -221,9 +220,8 @@ class Reorder {
         val c = when (p.from) {
             From.BAR -> item?.takeIf { config.partOf(it) != null }?.let { Carried(it.id, From.BAR, it.type) }
             From.TYPE -> Carried(Store.newId(), From.TYPE, p.key)
-            From.LINE -> item?.takeIf { it.section == Section.OFF }?.let { Carried(it.id, From.LINE, it.type) }
         } ?: return false
-        // A row of the list is drawn inside its line's insets; a line of the library is as wide as it is.
+        // A row of the list is drawn inside its line's insets; a row of the library is as wide as it is.
         val inset = if (p.from == From.BAR) ROW_INSET_DP * density else 0f
         val wide = (b.width - 2 * inset).coerceAtLeast(1f)
         // Under a finger the copy is the short, two-line row, and the finger keeps the place it took (the handle).
@@ -397,7 +395,7 @@ class Reorder {
  * The drag gesture, on the page's root. It watches the Initial pass so that, once a press has moved the full touch
  * slop, it can consume the movement before the row's click sees it (no click after a drag). Compose's own mouse slop is
  * about 1 dp, which would turn slightly shaky clicks into drags. A mouse or pen picks a row up as soon as it has moved
- * that far; a finger picks a row of the list up by its handle the same way, and a line of the library by holding it
+ * that far; a finger picks a row of the list up by its handle the same way, and a row of the library by holding it
  * still for a long press (a finger that moves first scrolls, one that lifts first taps).
  */
 fun Modifier.drags(r: Reorder): Modifier = pointerInput(r) {

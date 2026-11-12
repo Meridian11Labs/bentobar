@@ -7,7 +7,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.ui.ChoiceRow
 import com.meridian11.books.bentobar.ui.Setup
@@ -40,7 +39,7 @@ object MirrorItem : ItemType("mirror", R.string.item_mirror_title, Sym.PHOTO_CAM
      * Mirror items in the bar both popups take the first one's.
      */
     override val menuWidthDp: Int
-        get() = MirrorRules.widthDp(Store.config.value.items.firstOrNull { it.type == type && it.section != Section.OFF }
+        get() = MirrorRules.widthDp(Store.config.value.items.firstOrNull { it.type == type }
             ?.let(size::of) ?: size.default) + CARD_DP
 
     /** What a popup opens. A `var`, so a test can give it a camera that counts. */

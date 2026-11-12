@@ -25,7 +25,6 @@ import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.fresh
-import com.meridian11.books.bentobar.data.removed
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -44,6 +43,7 @@ import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.items.MenuHost
 import com.meridian11.books.bentobar.items.SoundItem
 import com.meridian11.books.bentobar.items.StocksItem
+import com.meridian11.books.bentobar.ui.Undo
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -84,7 +84,7 @@ class MenuCompositionTest {
         override fun toString() = (if (context) "the right-click menu of " else "the menu of ") + type.type + (stage?.let { " under `$it`" } ?: "")
     }
 
-    /** One item of every type, as a layout has them: a staged sample is shown by its type's first item outside Off. */
+    /** One item of every type, as a layout has them: a staged sample is shown by its type's first item. */
     private fun layout(): List<ItemConfig> {
         Env.init(ApplicationProvider.getApplicationContext<Application>())
         val items = Items.all.map { ItemConfig("compose-${it.type}", it.type, Section.SHOWN, options = it.defaultOptions() + it.stageOptions) }
@@ -263,15 +263,13 @@ class MenuCompositionTest {
         entry(str(R.string.detail_remove)).performClick()
         rule.waitForIdle()
         assertNull(stored("x"))
-        // Set up: it waits for the library, with what it had.
-        val setUp = fresh.copy(display = Display.ICON)
+        // Set up, it leaves the layout the same: nothing of it waits anywhere, and the bar's menu leaves no Undo.
+        val setUp = fresh.copy(display = Display.ICON).with("some-option", "1")
         contextMenu(setUp, HiddenMode.SHOW_ALL, listOf(other))
         entry(str(R.string.detail_remove)).performClick()
         rule.waitForIdle()
-        assertEquals(Store.config.value.copy(items = listOf(setUp, other)).removed("x").items, Store.config.value.items)
-        assertEquals(setUp.copy(section = Section.OFF), stored("x"))
-        // And the menu of an item that is not in the bar draws nothing at all.
-        assertEquals(listOf(""), drawn().lines())
+        assertEquals(listOf(other), Store.config.value.items)
+        assertNull(Undo.last.value)
     }
 
     /** The head's symbol stands on the card itself, as the design draws it: no tinted box around it. */

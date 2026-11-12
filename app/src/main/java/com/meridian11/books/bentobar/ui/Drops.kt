@@ -7,18 +7,14 @@ import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Part
 import com.meridian11.books.bentobar.data.Position
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.addedAt
-import com.meridian11.books.bentobar.data.broughtBack
-import com.meridian11.books.bentobar.data.broughtBackAt
 import com.meridian11.books.bentobar.data.canGoBelow
 import com.meridian11.books.bentobar.data.fresh
 import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
 import com.meridian11.books.bentobar.data.placed
-import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.unplaced
 import com.meridian11.books.bentobar.data.without
 import com.meridian11.books.bentobar.items.Items
@@ -28,8 +24,8 @@ import kotlin.math.abs
 // list shows meanwhile, what a drop writes and what the line under the preview says. Pure, so it is tested without a
 // pointer; `Reorder` measures the page into a [DropMap] and asks here on every move.
 
-/** Where a carried thing came from: a row of the bar's list, a type's row in the library, a remembered setup's line there. */
-enum class From { BAR, TYPE, LINE }
+/** Where a carried thing came from: a row of the bar's list, a type's row in the library. */
+enum class From { BAR, TYPE }
 
 /** What is carried. A type has no item yet: [id] is the one it gets if it is dropped in the bar. */
 data class Carried(val id: String, val from: From, val type: String)
@@ -65,7 +61,7 @@ data class DropMap(
 
 /**
  * What the layout says of the carried thing: the zone a row came from ([own]), the [part] it takes on the preview (its
- * own; what the + would give a type or a remembered setup), whether it may wait [below] a line, the areas that have a
+ * own; what the + would give a type), whether it may wait [below] a line, the areas that have a
  * row besides it ([inUse]) and the zones whose first row is Next meeting ([pinned]).
  */
 data class Lift(val from: From, val own: Zone?, val part: Part, val below: Boolean, val inUse: Set<Position>, val pinned: Set<Zone>)
@@ -79,14 +75,13 @@ fun BarConfig.lift(c: Carried): Lift {
     val part = when (c.from) {
         From.BAR -> own?.part
         From.TYPE -> made?.let(::partOf)
-        From.LINE -> broughtBack(c.id).let { back -> back.items.firstOrNull { it.id == c.id }?.let(back::partOf) }
     } ?: Part.UPPER
     // The one rule of the lower part, canGoBelow: the preview and the drop ask the same.
     val below = when (c.from) {
         From.TYPE -> made != null && canGoBelow(made, type)
-        else -> item != null && canGoBelow(item)
+        From.BAR -> item != null && canGoBelow(item)
     }
-    val others = items.filter { it.id != c.id && it.section != Section.OFF }
+    val others = items.filter { it.id != c.id }
     val pinned = others.filter { it.type == Store.PINNED_LEFT }.mapNotNull { row -> partOf(row)?.let { Zone(row.area, it) } }
     return Lift(c.from, own, part, below, others.map { it.area }.toSet(), pinned.toSet())
 }
@@ -205,17 +200,16 @@ fun dropAt(p: Offset, mid: Float, map: DropMap, lift: Lift, current: Drop): Drop
     return Drop.None
 }
 
-/** The layout a drop writes: the one step it is ([placed], [addedAt], [broughtBackAt], [removed]), or the layout as it is. */
+/** The layout a drop writes: the one step it is ([placed], [addedAt], [without]), or the layout as it is. */
 fun BarConfig.dropped(c: Carried, drop: Drop): BarConfig = when (drop) {
     is Drop.At -> {
         val (zone, index) = drop.spot
         when (c.from) {
             From.BAR -> placed(c.id, zone.area, zone.part, index)
             From.TYPE -> Items.of(c.type)?.let { addedAt(it, c.id, zone.area, zone.part, index) } ?: this
-            From.LINE -> broughtBackAt(c.id, zone.area, zone.part, index)
         }
     }
-    Drop.Off -> if (c.from == From.BAR) removed(c.id) else this
+    Drop.Off -> if (c.from == From.BAR) without(c.id) else this
     is Drop.Refused, Drop.None -> this
 }
 
@@ -232,7 +226,7 @@ fun BarConfig.showing(c: Carried, drop: Drop): BarConfig = when (drop) {
 /**
  * The item the copy under the pointer draws while [c] is carried: as it would be if it were let go now, so the copy
  * never says of a place what is not so there (a type that waits for its rule is always in the bar above the line).
- * Over no place a row of the bar is what it is, a remembered line what was kept, and a type what the + would make of
+ * Over no place a row of the bar is what it is, and a type what the + would make of
  * it without its rule: it is in no part of the bar, so it says nothing about when it shows. Null for what the layout
  * does not have.
  */

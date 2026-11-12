@@ -99,7 +99,7 @@ class ShellPicturesTest {
     private fun window(width: Int) {
         Store.update {
             BarConfig(items = listOf(ItemConfig("a", "clock", Section.SHOWN, area = Position.RIGHT), ItemConfig("b", "cpu", Section.SHOWN, area = Position.RIGHT),
-                ItemConfig("c", "battery", Section.HIDDEN, area = Position.RIGHT), ItemConfig("d", "memory", Section.OFF, area = Position.RIGHT)))
+                ItemConfig("c", "battery", Section.HIDDEN, area = Position.RIGHT)))
         }
         rule.setContent {
             view = LocalView.current

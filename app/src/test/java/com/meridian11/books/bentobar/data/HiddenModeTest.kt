@@ -21,7 +21,7 @@ class HiddenModeTest {
     }
 
     @Test fun chevronOffKeepsTheBarAsItWas() {
-        // With ‹ off, a hidden item without a rule never showed: it moves to Off, rule items stay.
+        // With ‹ off, a hidden item without a rule never showed: it moves to Off (and so is not read: `readLayout`), rule items stay.
         val c = v2(chevron = false).migrateToV3()
         assertEquals(Section.OFF, c.items.first { it.id == "m" }.section)
         assertEquals(Section.HIDDEN, c.items.first { it.id == "t" }.section)
@@ -66,7 +66,6 @@ class HiddenModeTest {
         assertFalse(presentingBar.shows(shownClock, active = false))
         assertTrue(presentingBar.shows(hiddenTimerNoRule, active = true))
         assertFalse(presentingBar.shows(hiddenTimerNoRule, active = false))
-        assertFalse(presentingBar.shows(hiddenTimerNoRule.copy(section = Section.OFF), active = true))
     }
 
     @Test fun aRunningTimerThatIsHiddenAndNeverRevealedIsStillSampledWhilePresenting() {
@@ -112,23 +111,21 @@ class HiddenModeTest {
 
     private val event = ItemConfig("e", "event", Section.HIDDEN, whenActive = true)
     private val calendar = ItemConfig("k", "calendar", Section.SHOWN)
-    private val off = ItemConfig("o", "cpu", Section.OFF, whenActive = true)
     private fun Parts.ids() = upper.map { it.id } to lower.map { it.id }
 
     @Test fun inTheDefaultModeTheLowerPartListsExactlyTheHiddenItemsWithARule() {
-        val c = BarConfig(hiddenMode = HiddenMode.SHOW_ALL, items = listOf(timer, memory, clock, off))
+        val c = BarConfig(hiddenMode = HiddenMode.SHOW_ALL, items = listOf(timer, memory, clock))
         assertEquals(listOf("m", "c") to listOf("t"), c.parts(Position.RIGHT).ids())
         // A Hidden item without a rule is drawn all the time there: it is listed above, with what is always in the bar.
         assertEquals(Part.UPPER, c.partOf(memory))
         assertTrue(c.shows(memory, active = false))
-        assertEquals(null, c.partOf(off))
         // What is listed above is drawn whatever it has to say; what is listed below only while its rule applies.
         for (item in c.items) assertEquals(item.id, c.partOf(item) == Part.UPPER, c.shows(item, active = false))
     }
 
     @Test fun withTheChevronTheLowerPartListsEveryHiddenItem() {
         for (mode in listOf(HiddenMode.CLICK, HiddenMode.HOVER)) {
-            val c = BarConfig(hiddenMode = mode, items = listOf(timer, memory, clock, off))
+            val c = BarConfig(hiddenMode = mode, items = listOf(timer, memory, clock))
             assertEquals(mode.name, listOf("c") to listOf("t", "m"), c.parts(Position.RIGHT).ids())
             // The rule's bit alone puts nothing under the line: an item that is Shown stays above with it.
             assertEquals(Part.UPPER, c.partOf(clock.copy(whenActive = true)))
@@ -147,7 +144,7 @@ class HiddenModeTest {
 
     @Test fun theListHasRowsForTheAreasWithAnItemInTheBarLeftFirst() {
         val left = clock.copy(id = "l", area = Position.LEFT)
-        assertEquals(listOf(Position.LEFT, Position.RIGHT), BarConfig(items = listOf(clock, left, off.copy(area = Position.CENTER))).listAreas())
+        assertEquals(listOf(Position.LEFT, Position.RIGHT), BarConfig(items = listOf(clock, left)).listAreas())
         assertEquals(listOf(Position.RIGHT), BarConfig(items = listOf(clock)).listAreas())
         // An item of a type this version doesn't know is in the layout, so it has a row and its area a place.
         assertEquals(listOf(Position.CENTER, Position.RIGHT), BarConfig(items = listOf(clock, ItemConfig("u", "from-a-newer-version", area = Position.CENTER))).listAreas())

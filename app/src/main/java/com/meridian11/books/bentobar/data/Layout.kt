@@ -36,7 +36,7 @@ fun readLayout(raw: String): LayoutRead {
     if (version != null && version > LAYOUT_VERSION) return LayoutRead.Newer(version)
     if (root["items"] !is JsonArray) return LayoutRead.NotALayout
     val decoded = runCatching { layoutJson.decodeFromJsonElement(BarConfig.serializer(), root) }.getOrNull() ?: return LayoutRead.NotALayout
-    val read = decoded.migrateToV2().migrateToV3().migrateToV4().withoutRetired().let { it.copy(items = it.items.distinctBy { item -> item.id }) }
+    val read = decoded.migrateToV2().migrateToV3().migrateToV4().withoutRetired().withoutOff().let { it.copy(items = it.items.distinctBy { item -> item.id }) }
     return LayoutRead.Ok(read, changed = read != decoded)
 }
 

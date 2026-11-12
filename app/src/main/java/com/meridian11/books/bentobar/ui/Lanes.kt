@@ -5,7 +5,6 @@ import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.ROOM_ORDER
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.areasInUse
 import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.rowAreas
@@ -60,7 +59,7 @@ internal fun foldOf(kept: Undo.Kept?, now: BarConfig, several: Boolean): Positio
 internal fun movedBy(kept: Undo.Kept?): String? {
     if (kept == null || kept.allTo != null) return null
     val was = kept.before.items.associate { it.id to it.area }
-    return kept.after.items.singleOrNull { it.section != Section.OFF && was[it.id] != null && was[it.id] != it.area }?.id
+    return kept.after.items.singleOrNull { was[it.id] != null && was[it.id] != it.area }?.id
 }
 
 /**

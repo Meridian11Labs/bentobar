@@ -108,9 +108,10 @@ hides when an app goes full screen or the screen locks.
 
 ## Settings
 
-A live preview of your bar at the top; below it, your items in three groups (**in the bar**,
-**hidden** and **off**; drag a row to move it) with each item's options on the right. Changes apply to the
-status bar right away.
+A live preview of your bar at the top; below it, your items (**in the bar** and, under a line, the ones
+that wait behind ‹ or for their rule; drag a row to move it) with the items you can add or the selected
+item's options beside them. Remove takes an item out for good; Add items has every type to add again.
+Changes apply to the status bar right away.
 
 <p align="center">
   <img src="docs/images/settings.png" width="880" alt="BentoBar settings: the bar preview, the item list and the CPU item's options">
@@ -224,7 +225,7 @@ switch a camera off.
 
 **Prompter** keeps your notes on this device only: not in your layout, a copied layout or a backup,
 and never sent.
-Forget, in Add items, deletes them.
+Removing the item deletes them.
 
 If you use Android's backup, Android keeps a copy of BentoBar's settings in your Google account. Your
 AirLabs and Finnhub keys, the online switches, a Prompter's notes, a Focus session, your answer to

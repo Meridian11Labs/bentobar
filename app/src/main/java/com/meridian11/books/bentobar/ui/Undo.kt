@@ -5,41 +5,42 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.data.undone
+import com.meridian11.books.bentobar.data.without
 import com.meridian11.books.bentobar.items.Items
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * The settings window's one Undo: the last change it made to the layout (on the Bar page a move, a drop, Visibility,
- * Area, Duplicate, Remove, the library's + and Forget; on Look, "Where BentoBar sits"), taken back once. Every such
+ * Area, Duplicate, Remove, the library's +; on Look, "Where BentoBar sits"), taken back once. Every such
  * command goes through [change], so Ctrl+Z, the Undo in a removed row's place, the library's and the one under Look's
  * control are the same step, [undone]: order, part, rule and area of every item as they were, an option changed since
- * kept.
+ * kept. A removed item is deleted from the layout, and this is what has it meanwhile: it comes back as it was, and what
+ * its type keeps for it outside the layout stays until the removal can be undone no more ([letGo]).
  */
 object Undo {
     /**
      * A change to take back: the layout [before] it and [after] it, the item it took out of the bar, if it did, the
-     * item the library [added] with it, the setup the library's Forget [forgot] with it, and the area Look's command
-     * put every item in ([allTo]). Each is what the command says it did, never worked out from the two layouts: a change
-     * also drops what carries no setup from Off, and one item moved on the Bar page can leave them all in one area too.
+     * item the library [added] with it, and the area Look's command put every item in ([allTo]). Each is what the
+     * command says it did, never worked out from the two layouts: one item moved on the Bar page can leave them all in
+     * one area too.
      */
-    data class Kept(val before: BarConfig, val after: BarConfig, val removed: String? = null, val added: String? = null, val forgot: String? = null,
-        val allTo: Position? = null)
+    data class Kept(val before: BarConfig, val after: BarConfig, val removed: String? = null, val added: String? = null, val allTo: Position? = null)
 
     val last = MutableStateFlow<Kept?>(null)
 
     /** Makes [step] the layout's next change and keeps it to be undone. False if it changed nothing: then nothing is kept. */
-    fun change(removed: String? = null, added: String? = null, forgot: String? = null, allTo: Position? = null, step: (BarConfig) -> BarConfig): Boolean {
+    fun change(removed: String? = null, added: String? = null, allTo: Position? = null, step: (BarConfig) -> BarConfig): Boolean {
         val before = Store.config.value
         Store.update(step)
-        return note(before, removed, added, forgot, allTo)
+        return note(before, removed, added, allTo)
     }
 
     /** Keeps what the Store did since [before] as the change to undo (for a command that is the Store's own, like Duplicate). */
-    fun note(before: BarConfig, removed: String? = null, added: String? = null, forgot: String? = null, allTo: Position? = null): Boolean {
+    fun note(before: BarConfig, removed: String? = null, added: String? = null, allTo: Position? = null): Boolean {
         val after = Store.config.value
         if (after == before) return false
         val old = last.value
-        last.value = Kept(before, after, removed, added, forgot, allTo)
+        last.value = Kept(before, after, removed, added, allTo)
         letGo(old)
         return true
     }
@@ -47,20 +48,40 @@ object Undo {
     /**
      * The ids of the items of [type] that the kept change can still bring back: what is kept for one outside the layout
      * stays that long. None once the change can no longer be [offered] (the layout was arranged otherwise since): a
-     * forgotten line's kept text then goes at the type's next sweep, not at the next start.
+     * removed item's kept text then goes at the type's next sweep, not at the next start.
      */
     fun held(type: String): Set<String> =
         last.value?.takeIf { offered(it, Store.config.value) }?.before?.items.orEmpty().filter { it.type == type }.mapTo(HashSet()) { it.id }
 
     /**
-     * [old] is the change to undo no more. An item it could have brought back, that neither the layout has nor the
-     * change kept now, is gone for good: its type is told ([ItemType.forgetOwn][com.meridian11.books.bentobar.items.ItemType.forgetOwn]).
+     * [old] is the change to undo no more. An item it had, before or after (one it removed, and one it brought in that
+     * its Undo took out again), that neither the layout has nor the change kept now can bring back, is gone for good: its
+     * type is told ([ItemType.forgetOwn][com.meridian11.books.bentobar.items.ItemType.forgetOwn]), and what it kept for
+     * the item outside the layout is deleted. Not before: until then Undo brings the item back with all of it.
      */
     private fun letGo(old: Kept?) {
         old ?: return
         val still = Store.config.value.items.mapTo(HashSet()) { it.id }
         last.value?.before?.items?.forEach { still += it.id }
-        old.before.items.forEach { if (it.id !in still) Items.of(it.type)?.forgetOwn(it.id) }
+        (old.before.items + old.after.items).distinctBy { it.id }.forEach { if (it.id !in still) Items.of(it.type)?.forgetOwn(it.id) }
+    }
+
+    /**
+     * Remove where there is no Undo (the bar's own menu): the item leaves the layout, and since nothing can bring it
+     * back, what its type kept for it goes at once. A change kept here is over with it (it is no longer [offered]), so
+     * it is let go too, and with it what an item it removed had kept.
+     */
+    fun removeForGood(id: String) {
+        val item = Store.config.value.items.firstOrNull { it.id == id } ?: return
+        Store.update { it.without(id) }
+        val now = Store.config.value
+        if (now.items.any { it.id == id }) return
+        val old = last.value
+        if (old != null && !offered(old, now)) {
+            last.value = null
+            letGo(old)
+        }
+        Items.of(item.type)?.forgetOwn(id)
     }
 
     /** Whether [kept] can still be taken back from [now]: the layout is arranged as that change left it. */
@@ -70,12 +91,6 @@ object Undo {
     fun added(kept: Kept?, now: BarConfig): ItemConfig? {
         val id = kept?.added ?: return null
         return now.items.firstOrNull { it.id == id }?.takeIf { offered(kept, now) }
-    }
-
-    /** The setup the last change forgot (the library's Forget), while it can still come back. */
-    fun forgotten(kept: Kept?, now: BarConfig): ItemConfig? {
-        val id = kept?.forgot ?: return null
-        return kept.before.items.firstOrNull { it.id == id }?.takeIf { offered(kept, now) }
     }
 
     /** The area Look's command put every item in, while that is the last change and can still be taken back from [now]. */

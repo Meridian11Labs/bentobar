@@ -101,7 +101,7 @@ class WindowPicturesTest {
     }
 
     /** A bar of seven items and two that wait for their rule, in one area, in two or in three. */
-    private fun layout(areas: Int, mode: HiddenMode = HiddenMode.SHOW_ALL, vararg remembered: ItemConfig): BarConfig {
+    private fun layout(areas: Int, mode: HiddenMode = HiddenMode.SHOW_ALL): BarConfig {
         fun area(id: String) = when {
             areas > 1 && id in setOf("event", "weather", "clock") -> Position.LEFT
             areas > 2 && id == "timer" -> Position.CENTER
@@ -110,11 +110,11 @@ class WindowPicturesTest {
         fun item(id: String, display: Display = Display.ICON_AND_TEXT) = ItemConfig(id, id, display = display, area = area(id))
         fun waiting(id: String) = ItemConfig(id, id, Section.HIDDEN, whenActive = true, area = Position.RIGHT)
         return BarConfig(items = listOf(item("event"), item("weather"), item("clock"), item("timer"), item("network", Display.TEXT), item("cpu"),
-            item("sound", Display.ICON), waiting("media"), waiting("devices")) + remembered, position = Position.RIGHT, hiddenMode = mode)
+            item("sound", Display.ICON), waiting("media"), waiting("devices")), position = Position.RIGHT, hiddenMode = mode)
     }
 
-    private fun bar(three: Boolean = false, mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null, vararg remembered: ItemConfig) {
-        Store.update { layout(if (three) 3 else 1, mode, *remembered) }
+    private fun bar(three: Boolean = false, mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null) {
+        Store.update { layout(if (three) 3 else 1, mode) }
         selected = select
         window(Page.BAR) { BarPage(selected, onSelect = { selected = it }) }
     }

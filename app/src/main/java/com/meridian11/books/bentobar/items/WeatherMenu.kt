@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.sp
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Online
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.ui.ChoiceRow
 import com.meridian11.books.bentobar.ui.InfoRow
@@ -150,7 +149,7 @@ internal fun hereChosen(): Boolean {
 
 /**
  * Android's question for the approximate location, and nothing more: Allow location, in the menu and
- * in the settings, leaves the Weather switch as it is (an item in Off may not turn it on). The answer
+ * in the settings, leaves the Weather switch as it is. The answer
  * wakes [WeatherHere] (MainActivity).
  */
 internal fun askLocation() = MainActivity.requestPermission(Env.app, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -327,10 +326,10 @@ private fun ForecastBody(f: Forecast) {
  * The city search, in the menu and in the item's settings: the field with its Search button, and
  * under it what the last search came to. Typing sends nothing; the button or Enter sends the name
  * (and turns the Weather switch on, see [WeatherSource.search]). [by] names this field, so an answer
- * shows only where it was asked for. Not [canSubmit]: an item in Off, which may ask nothing.
+ * shows only where it was asked for.
  */
 @Composable
-internal fun CitySearch(item: ItemConfig, by: String, initial: String, canSubmit: Boolean = true, onPick: (City, String?) -> Unit) {
+internal fun CitySearch(item: ItemConfig, by: String, initial: String, onPick: (City, String?) -> Unit) {
     val source = WeatherItem.source
     val asked by source.searching.collectAsState()
     // A debug build's test hook can put an answer here without asking anyone; it is looked for with the tick.
@@ -343,7 +342,7 @@ internal fun CitySearch(item: ItemConfig, by: String, initial: String, canSubmit
     SearchWithResults(hasResults = places.isNotEmpty(), arrival = places,
         field = {
             SearchField(label = stringResource(R.string.weather_city_label), initial = initial, submit = stringResource(R.string.common_search), selectAll = true,
-                error = if (short) stringResource(R.string.weather_two_letters) else null, canSubmit = canSubmit, focus = field,
+                error = if (short) stringResource(R.string.weather_two_letters) else null, focus = field,
                 onChange = { short = false; source.typed(by) },
                 onEnter = { text -> short = WeatherRules.query(text) == null; if (!short) source.search(text, item, by) })
         },
@@ -381,10 +380,9 @@ internal fun WeatherOptions(item: ItemConfig, set: (ItemConfig) -> Unit) {
     // One card serves whichever item is selected: nothing typed or opened for one item stays for the next.
     key(item.id) {
         var changing by remember { mutableStateOf(false) }
-        // Like Search, an item in Off may not turn the service on: the Where row above says where it is.
         val chooseHere: @Composable () -> Unit = {
             BentoButton(stringResource(R.string.weather_use_here), { set(WeatherRules.useHere(item)); source.typed(by); changing = false; hereChosen() },
-                kind = ButtonKind.TEXT, enabled = item.section != Section.OFF)
+                kind = ButtonKind.TEXT)
         }
         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -399,7 +397,7 @@ internal fun WeatherOptions(item: ItemConfig, set: (ItemConfig) -> Unit) {
             // The words before the first request, here as in the menu.
             Text(stringResource(R.string.weather_consent), Modifier.padding(top = 2.dp), style = Bento.type.help, color = Bento.colors.ink2)
             if ((!here && WeatherRules.place(item) == null) || changing) {
-                CitySearch(item, by, initial = city ?: WeatherRules.cityOf(ZoneId.systemDefault().id), canSubmit = item.section != Section.OFF) { found, region ->
+                CitySearch(item, by, initial = city ?: WeatherRules.cityOf(ZoneId.systemDefault().id)) { found, region ->
                     set(WeatherRules.picked(item, found, region))
                     source.typed(by)
                     changing = false

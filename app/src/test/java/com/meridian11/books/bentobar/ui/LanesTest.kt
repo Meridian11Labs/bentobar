@@ -6,8 +6,8 @@ import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.landedIn
 import com.meridian11.books.bentobar.data.putAllIn
-import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.rowAreas
+import com.meridian11.books.bentobar.data.without
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -21,8 +21,8 @@ class LanesTest {
     private fun layout(vararg items: ItemConfig) = BarConfig(items = items.toList(), position = Position.RIGHT)
 
     @Test fun theLanesOnScreenAreTheAreasWithRowsAndTheOnesOpenedInBarOrder() {
-        val one = layout(item("a", right), item("o", left, Section.OFF))
-        assertEquals("an item that is not in the bar opens nothing", listOf(right), lanesOnScreen(one, emptySet()))
+        val one = layout(item("a", right))
+        assertEquals(listOf(right), lanesOnScreen(one, emptySet()))
         assertEquals(listOf(left, right), lanesOnScreen(one, setOf(left)))
         assertEquals(listOf(left, middle, right), lanesOnScreen(one, setOf(middle, left)))
         assertEquals(listOf(left, right), lanesOnScreen(layout(item("a", right), item("b", left, Section.HIDDEN)), emptySet()))
@@ -69,7 +69,7 @@ class LanesTest {
         val moved = two.landedIn("l", right)
         assertEquals(left, foldOf(kept(moved), moved, several = true))
         assertEquals("l", movedBy(kept(moved)))
-        val gone = two.removed("l")
+        val gone = two.without("l")
         assertEquals(left, foldOf(kept(gone, "l"), gone, several = true))
         assertNull("a removed item moved nowhere", movedBy(kept(gone, "l")))
         // An item that leaves a lane with others in it closes nothing.
@@ -83,7 +83,7 @@ class LanesTest {
     @Test fun withOneLaneOnScreenNothingClosesAndAnOpenedLaneCountsAsOne() {
         // The bar's last row keeps its place with Undo in it: the list is not a lane that closed.
         val one = layout(item("a", right))
-        val gone = one.removed("a")
+        val gone = one.without("a")
         assertNull(foldOf(Undo.Kept(one, gone, "a"), gone, several = false))
         assertNull("nor beside an opened lane: nothing is left in the bar", foldOf(Undo.Kept(one, gone, "a"), gone, several = true))
         // An item that takes its area with it to another closes none: there was one lane and there is one.

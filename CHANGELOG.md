@@ -6,6 +6,11 @@
   (a Shelf's texts and links, the addresses) is deleted at the first start. Five items go online again, each to a
   service named in the code: no request can go to an address that isn't written there, Setup › Online services has no
   "Your own addresses", and the strip takes no drops from other apps.
+- **Remove deletes.** An item you remove (the options' button, Delete, a drop on the panel, the bar's right-click
+  menu) is gone from the layout, whatever it was set to, and Undo brings it back as it was. Add items lists the types
+  and nothing else: no remembered setups under a type, no Forget. A layout that is read (stored, pasted, imported)
+  drops what an older version kept in Off, with no new layout version. A Flight's followed flight and a Prompter's
+  notes are deleted once the removal can no longer be undone.
 
 ## 2.1.0 (2026-11-11)
 

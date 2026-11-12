@@ -92,11 +92,11 @@ object Online {
 
     /**
      * Whether [service] may be asked right now: it is switched on for this install, something that shows items is on
-     * screen ([running]), and an item of a type that asks it ([asks], by the item's type) is outside Off. The one rule
+     * screen ([running]), and the layout has an item of a type that asks it ([asks], by the item's type). The one rule
      * behind `Http.allowed`, which the app wires to it.
      */
     fun mayAsk(service: Service, running: Boolean, items: List<ItemConfig>, asks: (type: String) -> Service?): Boolean =
-        on(service) && running && items.any { it.section != Section.OFF && asks(it.type) == service }
+        on(service) && running && items.any { asks(it.type) == service }
 
     /**
      * On, by the user's own act: Search, Use my location or "Turn on" in the item, or Setup's switch for a

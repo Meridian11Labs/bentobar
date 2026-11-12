@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Kept
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.FocusRules.Session
 import com.meridian11.books.bentobar.util.Fmt
@@ -29,7 +28,7 @@ class FocusKeeper(private val w: Wiring) {
         val alarm: (Long?) -> Unit,
         val kept: () -> Kept,
         val wall: () -> Long,
-        /** A Focus item is outside Off in the layout. */
+        /** The layout has a Focus item. */
         val placed: () -> Boolean,
         val background: (() -> Unit) -> Unit,
         val main: (() -> Unit) -> Unit,
@@ -161,7 +160,7 @@ private object FocusOnDevice {
         alarm = { FocusAlarm.arm(Env.app, it) },
         kept = { Kept.own("focus") },
         wall = Now::wall,
-        placed = { Store.config.value.items.any { it.type == FocusItem.type && it.section != Section.OFF } },
+        placed = { Store.config.value.items.any { it.type == FocusItem.type } },
         background = { Background.executor(FocusItem.type).execute(it) },
         main = { Background.onMain(it) },
         changed = { Ticker.refresh(FocusItem.type) },

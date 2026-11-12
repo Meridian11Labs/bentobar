@@ -10,7 +10,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
 import com.meridian11.books.bentobar.items.BreaksRules.Watch
 import com.meridian11.books.bentobar.ui.InfoRow
@@ -56,11 +55,11 @@ object BreaksItem : ItemType("breaks", R.string.item_breaks_title, Sym.RELAX, R.
     private var restOf: List<ItemConfig>? = null
     private var restFor = 0L
 
-    /** A break's length: the shortest of this type's items outside Off, so the one that asks least is never kept waiting. */
+    /** A break's length: the shortest of this type's items, so the one that asks least is never kept waiting. */
     private fun restMs(): Long {
         val items = Store.config.value.items
         if (items !== restOf) {
-            restFor = (items.filter { it.type == type && it.section != Section.OFF }.minOfOrNull { rest.of(it) } ?: rest.default) * MINUTE
+            restFor = (items.filter { it.type == type }.minOfOrNull { rest.of(it) } ?: rest.default) * MINUTE
             restOf = items
         }
         return restFor

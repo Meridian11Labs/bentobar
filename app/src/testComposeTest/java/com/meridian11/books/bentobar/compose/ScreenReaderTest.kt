@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
@@ -43,7 +42,6 @@ import com.meridian11.books.bentobar.bar.StripEntry
 import com.meridian11.books.bentobar.bar.StripEvents
 import com.meridian11.books.bentobar.bar.StripLook
 import com.meridian11.books.bentobar.data.BarConfig
-import com.meridian11.books.bentobar.data.fresh
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Pill
@@ -331,18 +329,6 @@ class ScreenReaderTest {
     }
 
     @Config(qualifiers = "w1180dp-h780dp-mdpi")
-    @Test fun aRememberedLineReadsItsTypeAndItsWordsWithAddAndForget() {
-        val london = Items.of("clock")!!.fresh("l", Position.RIGHT).with("zone", "Europe/London").copy(section = Section.OFF)
-        window(HiddenMode.SHOW_ALL, listOf(ItemConfig("a", "clock"), london)) {
-            val words = rule.onNode(hasText("London") and hasAnyAncestor(hasTestTag("line:l")), useUnmergedTree = true)
-            words.assertContentDescriptionEquals("${clock}, London")
-            assertEquals(listOf(str(R.string.add_add), str(R.string.library_forget)), words.fetchSemanticsNode().config[SemanticsActions.CustomActions].map { it.label })
-            assertEquals(str(R.string.library_add_setup, clock, "London"), said("add-line:l"))
-            assertEquals(str(R.string.library_forget_setup, clock, "London"), said("forget:l"))
-        }
-    }
-
-    @Config(qualifiers = "w1180dp-h780dp-mdpi")
     @Test fun theLanesAreHeadingsAndTheirPlusesAndBracketsSayWhichArea() {
         window(HiddenMode.SHOW_ALL, three) {
             for ((area, name, where) in listOf(Triple(Position.LEFT, R.string.areas_left, R.string.areas_left_where),
@@ -379,7 +365,7 @@ class ScreenReaderTest {
             val remove = actions("m").first { it.label == str(R.string.detail_remove) }
             rule.runOnUiThread { assertTrue(remove.action()) }
             rule.waitForIdle()
-            assertTrue(Store.config.value.items.none { it.id == "m" && it.section != Section.OFF })
+            assertTrue(Store.config.value.items.none { it.id == "m" })
         }
     }
 

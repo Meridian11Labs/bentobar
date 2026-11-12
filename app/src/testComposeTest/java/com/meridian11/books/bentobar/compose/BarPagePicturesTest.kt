@@ -40,9 +40,7 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
-import com.meridian11.books.bentobar.data.fresh
 import com.meridian11.books.bentobar.items.Env
-import com.meridian11.books.bentobar.items.Items
 import com.meridian11.books.bentobar.ui.BarPage
 import com.meridian11.books.bentobar.ui.LocalPreviewClock
 import com.meridian11.books.bentobar.ui.Page
@@ -100,12 +98,12 @@ class BarPagePicturesTest {
     private fun palette() = if (dark) Palette.Dark else Palette.Light
 
     /** A bar of seven items and two that wait for their rule. */
-    private fun window(mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null, vararg remembered: ItemConfig) {
+    private fun window(mode: HiddenMode = HiddenMode.SHOW_ALL, select: String? = null) {
         fun item(id: String, type: String, display: Display = Display.ICON_AND_TEXT) = ItemConfig(id, type, display = display, area = Position.RIGHT)
         fun waiting(id: String, type: String) = ItemConfig(id, type, Section.HIDDEN, whenActive = true, area = Position.RIGHT)
         show(BarConfig(items = listOf(item("event", "event"), item("weather", "weather"), item("clock", "clock"), item("timer", "timer"),
             item("network", "network", Display.TEXT), item("cpu", "cpu"), item("sound", "sound", Display.ICON),
-            waiting("media", "media"), waiting("devices", "devices")) + remembered, position = Position.RIGHT, hiddenMode = mode), select)
+            waiting("media", "media"), waiting("devices", "devices")), position = Position.RIGHT, hiddenMode = mode), select)
     }
 
     /** The same bar in areas: [left] after the clock, [middle] in the middle, the rest and the two that wait at the right. */
@@ -253,12 +251,10 @@ class BarPagePicturesTest {
         assertColor("the panel's card", palette().panel, bitmap, showAs.left.toInt() - 4, showAs.center.y.toInt())
     }
 
-    /** A clock set to a city, out of the bar: a line under Clock. */
-    private fun london(id: String = "london") = Items.of("clock")!!.fresh(id, Position.RIGHT).with("zone", "Europe/London").copy(section = Section.OFF)
     private fun click(tag: String) { rule.onNodeWithTag(tag).performScrollTo(); rule.onNodeWithTag(tag).performClick(); rule.waitForIdle() }
 
     @Test fun theLibraryIsOneCardWithTheFilterAndTheTypesInTheirGroups() {
-        window(remembered = arrayOf(london()))
+        window()
         picture("library-top")
         rule.onNodeWithTag("type:timer").performScrollTo()
         rule.waitForIdle()
@@ -267,8 +263,6 @@ class BarPagePicturesTest {
             val bitmap = picture("library-${if (isDark) "dark" else "light"}")
             val library = bounds("library")
             assertColor("the library's card", palette().panel, bitmap, library.left.toInt() + 6, library.center.y.toInt())
-            val line = bounds("line:london")
-            assertColor("a remembered setup's line stands on the card", palette().panel, bitmap, line.left.toInt() + 6, line.center.y.toInt())
         }
         dark = false
         // A type added: its row says so, with the Undo, and the bar's new row is marked.
@@ -277,13 +271,10 @@ class BarPagePicturesTest {
         // A quiet type: under the line, and its row says when it shows.
         click("add:heat")
         picture("library-added-quiet")
-        // A setup forgotten: its place says so until the next change.
-        click("forget:london")
-        picture("library-forgot")
     }
 
     @Test fun theFilterShowsWhatMatchesAndCountsIt() {
-        window(remembered = arrayOf(london()))
+        window()
         rule.onNodeWithTag("filter").performTextInput("clo")
         rule.waitForIdle()
         val bitmap = picture("library-filter")
@@ -294,20 +285,21 @@ class BarPagePicturesTest {
         picture("library-filter-nothing")
     }
 
-    @Test fun afterRemoveThePanelIsTheLibraryAtTheNewLine() {
-        window(select = "clock", remembered = arrayOf(london()))
+    @Test fun afterRemoveThePanelIsTheLibraryAtTheItemsType() {
+        window(select = "clock")
         rule.onNodeWithTag("row:clock").assertExists()
         Store.updateItem("clock") { it.with("zone", "Asia/Tokyo") }
         rule.waitForIdle()
         rule.onNode(hasText(app.getString(R.string.detail_remove)) and hasClickAction()).performClick()
         rule.waitForIdle()
         picture("library-after-remove")
-        rule.onNodeWithTag("line:clock").assertIsDisplayed()
+        rule.onNodeWithTag("type:clock").assertIsDisplayed()
+        assertEquals("deleted, with what it was set to", null, Store.config.value.items.firstOrNull { it.id == "clock" })
     }
 
     @Config(qualifiers = "w960dp-h780dp-mdpi")
     @Test fun at960AddItemsIsTheSwitchsSecondPart() {
-        window(remembered = arrayOf(london()))
+        window()
         rule.onNode(hasText(app.getString(R.string.page_add)) and hasAnyAncestor(hasTestTag("panel-switch"))).performClick()
         rule.waitForIdle()
         val bitmap = picture("mid-library")
@@ -317,7 +309,7 @@ class BarPagePicturesTest {
 
     @Config(qualifiers = "w640dp-h780dp-mdpi")
     @Test fun at640TheLibraryTakesTheWindow() {
-        window(remembered = arrayOf(london()))
+        window()
         rule.onNode(hasText(app.getString(R.string.page_add)) and hasAnyAncestor(hasTestTag("panel-switch"))).performClick()
         rule.waitForIdle()
         picture("narrow-library")

@@ -7,11 +7,8 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Kept
 import com.meridian11.books.bentobar.data.MapPrefs
 import com.meridian11.books.bentobar.data.Online
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Store
-import com.meridian11.books.bentobar.data.carriesSetup
 import com.meridian11.books.bentobar.data.hide
-import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.without
 import com.meridian11.books.bentobar.ui.Undo
 import org.junit.After
@@ -80,7 +77,6 @@ class PrivateTextTest {
         notInTheLayout(at("p"), script)
         assertEquals("kept in its own file", script, Kept.own("prompter").read("p")?.text)
         assertEquals("and in memory", script, PrompterItem.script("p"))
-        assertTrue("so Remove keeps the item as a line", at("p").carriesSetup())
     }
 
     @Test fun aBlankScriptKeepsNothing() {
@@ -90,7 +86,6 @@ class PrivateTextTest {
         PrompterItem.save("p")
         settled(PrompterItem.type)
         assertNull(Kept.own("prompter").read("p"))
-        assertFalse(at("p").carriesSetup())
     }
 
     @Test fun noLogLineInFilesThatHoldPrivateText() {
@@ -120,21 +115,39 @@ class PrivateTextTest {
         assertEquals(setOf("p"), Kept.own("prompter").names())
     }
 
-    @Test fun aLineKeepsItsTextAndAForgottenLineTakesItWithIt() {
+    @Test fun aRemovedPromptersNotesStayWhileUndoCanBringItBackAndGoWhenItNoLongerCan() {
         PrompterItem.edit("p", script)
         PrompterItem.save("p")
         settled(PrompterItem.type)
-        // Removed, it waits in the library as a line, with its text.
-        assertTrue(Undo.change(removed = "p") { it.removed("p") })
-        assertEquals(Section.OFF, at("p").section)
-        // The bar's start keeps what a line holds.
+        // The settings' Remove: the item leaves the layout, as one step of Undo.
+        assertTrue(Undo.change(removed = "p") { it.without("p") })
+        assertEquals(listOf("c"), Store.config.value.items.map { it.id })
+        // The bar's start in between keeps what Undo can still bring back.
         PrompterItem.settle(Settle.SERVICE_STARTED)
         settled(PrompterItem.type)
         assertEquals(setOf("p"), Kept.own("prompter").names())
-        // Forgotten, and then something else changes: no Undo brings it back, and its text goes, from memory too.
-        assertTrue(Undo.change { it.without("p") })
+        assertTrue(Undo.undo())
+        settled(PrompterItem.type)
+        assertEquals("back as it was", prompter, at("p"))
+        assertEquals("with its notes", script, Kept.own("prompter").read("p")?.text)
+        assertEquals(script, PrompterItem.script("p"))
+        // Removed again: still there. Then something else changes: no Undo brings it back, and the notes go, from memory too.
+        assertTrue(Undo.change(removed = "p") { it.without("p") })
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
         assertTrue(Undo.change { it.hide("c") })
         settled(PrompterItem.type)
+        assertEquals(emptySet<String>(), Kept.own("prompter").names())
+        assertNull(PrompterItem.script("p"))
+    }
+
+    @Test fun theBarsOwnMenuHasNoUndoSoItsRemoveTakesTheNotesAtOnce() {
+        PrompterItem.edit("p", script)
+        PrompterItem.save("p")
+        settled(PrompterItem.type)
+        Undo.removeForGood("p")
+        settled(PrompterItem.type)
+        assertEquals(listOf("c"), Store.config.value.items.map { it.id })
         assertEquals(emptySet<String>(), Kept.own("prompter").names())
         assertNull(PrompterItem.script("p"))
     }

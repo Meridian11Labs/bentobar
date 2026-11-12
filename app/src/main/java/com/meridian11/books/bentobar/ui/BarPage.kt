@@ -67,16 +67,12 @@ import com.meridian11.books.bentobar.data.BarConfig
 import com.meridian11.books.bentobar.data.HiddenMode
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Position
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.data.Step
 import com.meridian11.books.bentobar.data.Store
-import com.meridian11.books.bentobar.data.broughtBack
 import com.meridian11.books.bentobar.data.hide
-import com.meridian11.books.bentobar.data.homeArea
 import com.meridian11.books.bentobar.data.landedIn
 import com.meridian11.books.bentobar.data.partOf
 import com.meridian11.books.bentobar.data.parts
-import com.meridian11.books.bentobar.data.removed
 import com.meridian11.books.bentobar.data.setWhenActive
 import com.meridian11.books.bentobar.data.show
 import com.meridian11.books.bentobar.data.stepped
@@ -253,7 +249,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     /**
      * The selected item is no longer in the bar, and not by this page's Remove (the bar's own menu took it out, or a
      * pasted layout): nothing is selected any more, and a panel that was on its options is where it stands with no item.
-     * Left selected, it would turn the panel to its options by itself when its line's + brings it back.
+     * Left selected, it would turn the panel to its options by itself if a pasted layout brought it back.
      */
     fun left() {
         onSelect(null)
@@ -316,28 +312,6 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         if (Undo.note(before, added = id)) moved(id, focus = false)
     }
 
-    /**
-     * The + on a remembered setup's line: the item back in the bar as it was, in the area in use or the one "Add to"
-     * names. Its line is gone, so the keyboard, if the + had it ([focus]), goes to its type's +.
-     */
-    fun addSetup(id: String, focus: Boolean) {
-        said = null
-        val item = item(id) ?: return
-        val to = target()
-        if (!Undo.change(added = id) { it.broughtBack(id, to ?: it.homeArea()) }) return
-        if (focus) seek = Seek(Seek.type(item.type), true, ++serial)
-        moved(id, focus = false)
-    }
-
-    /** Forget on a line: the setup is gone, and until the next change its place says so, with the Undo the keyboard goes to. */
-    fun forget(id: String, focus: Boolean) {
-        said = null
-        val item = item(id)?.takeIf { it.section == Section.OFF } ?: return
-        if (!Undo.change(forgot = id) { it.without(id) }) return
-        if (focus) seek = Seek(Seek.UNDO, true, ++serial)
-        announced = res.getString(R.string.library_forgot, removedName(res, item))
-    }
-
     fun always(id: String) = change(id) { it.show(id) }
 
     /** Visibility's second part: "Only when active" by default, "Behind ‹" with the arrow. */
@@ -357,7 +331,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
      * screen it stays too: the key is a row's either way, so the focus does not wander off with it. False for no row.
      */
     fun sideways(id: String, right: Boolean): Boolean {
-        val item = item(id)?.takeIf { it.section != Section.OFF } ?: return false
+        val item = item(id) ?: return false
         laneBeside(lanes(), item.area, right)?.let { area(id, it) }
         return true
     }
@@ -376,7 +350,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     }
 
     /**
-     * A drag was let go. Into the bar: the row at its new place, or the library's type or line in the bar where it was
+     * A drag was let go. Into the bar: the row at its new place, or the library's type in the bar where it was
      * dropped. On the library: the row removed, as Remove does it. One change and one step of Undo each; the same place
      * again changes nothing and keeps nothing. Under a line the item can't go under, the page says why. True if the
      * layout changed.
@@ -404,9 +378,10 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     }
 
     /**
-     * Remove from the bar. The focus, if the row had it, goes to the row that takes its place (the one before, at a
-     * part's end). The library goes to where the item now waits, its line, or to its type if it carried nothing; removed
-     * in its options, the panel turns to the library for that, with the filter emptied so that the line is there.
+     * Remove from the bar: the item is deleted from the layout, and [Undo] has it until the next change. The focus, if
+     * the row had it, goes to the row that takes its place (the one before, at a part's end). The library goes to the
+     * item's type, whose + makes a new one; removed in its options, the panel turns to the library for that, with the
+     * filter emptied so that the type is there.
      */
     fun remove(id: String) {
         val cfg = Store.config.value
@@ -417,16 +392,16 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         val next = (rows.getOrNull(at + 1) ?: rows.getOrNull(at - 1))?.id
         val focus = focusedRow == id
         said = null
-        if (!Undo.change(removed = id) { it.removed(id) }) return
+        if (!Undo.change(removed = id) { it.without(id) }) return
         if (selected == id) {
             onSelect(null)
             side = PanelSide.ADD
             filter = ""
         }
-        seek = Seek(if (item(id) != null) Seek.line(id) else Seek.type(item.type), false, ++serial)
+        seek = Seek(Seek.type(item.type), false, ++serial)
         if (focus && next != null) follow = Follow(next, true, ++serial)
         else if (focus && fold() != null) focusFold = true
-        announced = res.getString(R.string.bar_removed, removedName(res, item))
+        announced = res.getString(R.string.bar_removed, itemName(res, item))
     }
 
     /** A copy right after the item, selected. */
@@ -444,8 +419,7 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
     /**
      * Ctrl+Z, Undo in a removed row's place or in a closed lane's slip, and the library's Undo. A row that comes back, to
      * the bar or to its lane, is followed; the library's
-     * Undo is gone with what it took back, so the keyboard, if it had it ([focus]), goes to the type's + after an add
-     * (to the item's line, if it was set up since and so waits there) and to the line that is back after Forget.
+     * Undo is gone with what it took back, so the keyboard, if it had it ([focus]), goes to the type's +.
      */
     fun undo(focus: Boolean = false): Boolean {
         said = null
@@ -453,11 +427,9 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         val back = kept?.removed ?: movedBy(kept)
         val row = focusedRow != null || slipFocused
         val added = kept?.added?.let(::item)
-        val forgotten = Undo.forgotten(kept, Store.config.value)
         if (!Undo.undo()) return false
         if (back != null) moved(back, row)
-        val to = if (!focus) null else added?.let { if (item(it.id) != null) Seek.line(it.id) else Seek.type(it.type) } ?: forgotten?.let { Seek.line(it.id) }
-        if (to != null) seek = Seek(to, true, ++serial)
+        if (focus && added != null) seek = Seek(Seek.type(added.type), true, ++serial)
         return true
     }
 
@@ -538,7 +510,7 @@ internal fun BarPage(selected: String?, onSelect: (String?) -> Unit, turn: Int =
     val reorder = remember { Reorder() }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current.density
-    val item = cfg.items.firstOrNull { it.id == selected && it.section != Section.OFF }
+    val item = cfg.items.firstOrNull { it.id == selected }
     val kept by Undo.last.collectAsState()
     val overflow by BarOverflow.ids.collectAsState()
     val fold = edit.fold(cfg, kept)

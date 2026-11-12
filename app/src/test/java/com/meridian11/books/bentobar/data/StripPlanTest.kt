@@ -98,11 +98,11 @@ class StripPlanTest {
 
     /**
      * Every layout whose items in use are in one area, in every state the plan reads: the home area's plan is the plan the
-     * one strip had. Items that are Off or of an unknown type may be anywhere, since they are in no strip.
+     * one strip had. An item of an unknown type may be anywhere, since it is in no strip.
      */
     @Test fun aLayoutInOneAreaPlansItsHomeAreaExactlyAsTheOneStripWasPlanned() {
         val inUse = listOf(clock, meeting, memory, timerRule, ItemConfig("h", "timer", Section.HIDDEN), ItemConfig("b", "battery", Section.SHOWN))
-        val notInUse = listOf(ItemConfig("o", "cpu", Section.OFF), ItemConfig("f", "from-the-future", Section.SHOWN))
+        val notInUse = listOf(ItemConfig("f", "from-the-future", Section.SHOWN))
         val actives = listOf<(ItemConfig) -> Boolean>(nobody, { true }, { it.type == "timer" })
         var plans = 0
         for (area in Position.entries) for (elsewhere in Position.entries) for (mask in 0 until (1 shl inUse.size)) for (rest in 0..notInUse.size) {
@@ -223,7 +223,7 @@ class StripPlanTest {
     }
 
     @Test fun presentingsChevronFollowsTheHomeAreaWhereRightIsNotInUse() {
-        val c = BarConfig(presenting = true, items = listOf(clock.at(left), clock.at(middle, "c2"), clock.at(right, "c3").copy(section = Section.OFF)))
+        val c = BarConfig(presenting = true, items = listOf(clock.at(left), clock.at(middle, "c2"), clock.at(right, "c3").copy(type = "from-the-future")))
         assertEquals(middle, c.homeArea())
         assertTrue(plan(c, middle).chevron)
         assertTrue(plan(c, middle).chevronAlways)

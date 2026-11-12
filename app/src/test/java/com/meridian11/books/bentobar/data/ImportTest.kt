@@ -127,11 +127,12 @@ class ImportTest {
     }
 
     @Test fun anOlderLayoutIsMigrated() {
-        val old = """{"version":2,"chevron":false,"items":[{"id":"m","type":"memory","section":"HIDDEN"}]}"""
+        val old = """{"version":2,"chevron":false,"items":[{"id":"m","type":"memory","section":"HIDDEN"},{"id":"c","type":"clock"}]}"""
         val c = Store.parseLayout(old)
         assertNotNull(c)
         assertEquals(LAYOUT_VERSION, c!!.version)
-        assertEquals(Section.OFF, c.items.single().section)
+        // Without ‹ the hidden Memory never showed: the migration puts it in Off, and a layout is read without its Off items.
+        assertEquals(listOf("c"), c.items.map { it.id })
     }
 
     @Test fun aVersion3LayoutComesOutAsVersion4WithEveryItemInTheAreaOfItsPosition() {
@@ -140,7 +141,8 @@ class ImportTest {
                 {"id":"m","type":"memory","section":"HIDDEN"},{"id":"t","type":"timer","section":"OFF"}]}"""
             val read = readLayout(pasted) as LayoutRead.Ok
             assertEquals(4, read.config.version)
-            assertEquals(listOf(position, position, position), read.config.items.map { it.area })
+            assertEquals(listOf("c", "m"), read.config.items.map { it.id }) // the Off item is not read
+            assertEquals(listOf(position, position), read.config.items.map { it.area })
             assertEquals(position, read.config.position) // kept as it was: the migration reads it, and a layout with no items
             assertEquals(true, read.changed)
         }

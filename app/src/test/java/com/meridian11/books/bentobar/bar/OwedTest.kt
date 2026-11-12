@@ -32,10 +32,9 @@ class OwedTest {
     private val memory = ItemConfig("m", "memory", Section.SHOWN, area = left)
     private val battery = ItemConfig("b", "battery", Section.HIDDEN, area = left)
     private val timerRule = ItemConfig("t", "timer", Section.HIDDEN, whenActive = true, area = left)
-    private val off = ItemConfig("o", "cpu", Section.OFF, area = left)
     private val newer = ItemConfig("n", "from-a-newer-version", Section.SHOWN, area = left)
     private val date = ItemConfig("d", "calendar", Section.SHOWN, area = middle)
-    private val layout = BarConfig(hiddenMode = HiddenMode.CLICK, items = listOf(clock, memory, battery, timerRule, off, newer, date))
+    private val layout = BarConfig(hiddenMode = HiddenMode.CLICK, items = listOf(clock, memory, battery, timerRule, newer, date))
 
     // ---- what an area with no window owes --------------------------------------------------------------------
 
@@ -92,8 +91,8 @@ class OwedTest {
         assertTrue("a rule item waiting for its rule waits behind ‹", onlyARule.carrierOverflow(setOf(left), emptySet(), nobody))
         assertFalse("its rule holds: it is owed as a drawn item is, by its id", onlyARule.carrierOverflow(setOf(left), emptySet(), { true }))
         assertFalse("Show everything has nothing behind ‹", layout.copy(hiddenMode = HiddenMode.SHOW_ALL).carrierOverflow(setOf(left), emptySet(), nobody))
-        assertFalse("an Off item and a type this version does not know are behind no ‹",
-            layout.copy(items = listOf(clock, off, newer.copy(section = Section.HIDDEN))).carrierOverflow(setOf(left), emptySet(), nobody))
+        assertFalse("a type this version does not know is behind no ‹",
+            layout.copy(items = listOf(clock, newer.copy(section = Section.HIDDEN))).carrierOverflow(setOf(left), emptySet(), nobody))
         assertFalse("while presenting nothing waits behind ‹", layout.copy(presenting = true).carrierOverflow(setOf(left), emptySet(), nobody))
     }
 

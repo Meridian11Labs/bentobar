@@ -34,8 +34,9 @@ class LayoutFixturesTest {
         "schema4-areas-1.8.json" to "da4e091860945db5f175dcb8cd302ae266e2a7b4076073d2e0ce48d028a5c5fa",
     )
 
-    /** The fixtures of this version's own schema: read as they are. Every other one is migrated. */
+    /** The fixtures of this version's own schema: not migrated, as every other one is. */
     private val current = setOf("schema4-areas-1.8.json")
+    private fun decoded(name: String): BarConfig = layoutJson.decodeFromString(BarConfig.serializer(), file(name).readText())
 
     @Test fun everyFixtureIsWhatAShippedVersionWroteAndIsNeverEdited() {
         assertEquals(fixtures.keys, File("src/test/resources/layouts").list()!!.toSet())
@@ -56,8 +57,19 @@ class LayoutFixturesTest {
     }
 
     @Test fun anOlderFixtureIsMigratedAndSavedAgain() {
-        for (name in fixtures.keys)
-            assertEquals(name, name !in current, (readLayout(file(name).readText()) as LayoutRead.Ok).changed)
+        for (name in fixtures.keys - current)
+            assertTrue(name, (readLayout(file(name).readText()) as LayoutRead.Ok).changed)
+    }
+
+    @Test fun aFixtureOfThisSchemaIsReadAsItIsButForItsOffItemAndSavedAgainWithoutIt() {
+        // 1.8's layout holds an item in Off (Memory), which no layout has any more: that is all the reader changes.
+        for (name in current) {
+            val stored = decoded(name)
+            val read = readLayout(file(name).readText()) as LayoutRead.Ok
+            assertTrue(name, stored.items.any { it.section == Section.OFF })
+            assertEquals(name, stored.copy(items = stored.items.filter { it.section != Section.OFF }), read.config)
+            assertTrue(name, read.changed)
+        }
     }
 
     @Test fun anOlderFixtureOpensWithEveryItemInTheAreaOfItsPosition() {
@@ -75,15 +87,17 @@ class LayoutFixturesTest {
         assertEquals(0, c.autoCollapseSec) // 8 s was only the old default
         assertEquals(HiddenMode.HOVER, c.hiddenMode) // it had reveal on hover on, the old default
         assertEquals(10, c.spacing)
-        assertEquals(listOf("memory", "clock", "battery", "timer", "tools"), c.items.map { it.type })
+        // Its Tools item was in Off: no layout is read with an Off item.
+        assertEquals(listOf("memory", "clock", "battery", "timer"), c.items.map { it.type })
         assertEquals(Section.HIDDEN, c.items[2].section)
         assertEquals("true", c.items[1].options["seconds"])
     }
 
-    @Test fun schema2WithTheChevronOffMovesARuleLessHiddenItemToOffAndKeepsItsLook() {
+    @Test fun schema2WithTheChevronOffDropsARuleLessHiddenItemAndKeepsItsLook() {
         val c = read("schema2-0.3-to-0.5.json")
         assertEquals(HiddenMode.SHOW_ALL, c.hiddenMode)
-        assertEquals(Section.OFF, c.items.single { it.type == "memory" }.section) // without ‹ it never showed
+        // Without ‹ it never showed: the migration puts it in Off, and a layout is read without its Off items.
+        assertEquals(listOf("network", "caffeine", "spacer"), c.items.map { it.type })
         assertEquals(Section.HIDDEN, c.items.single { it.type == "caffeine" }.section) // a rule item still comes out
         assertEquals(Position.CENTER, c.position)
         assertEquals(Pill.SUBTLE, c.pill)
@@ -111,18 +125,20 @@ class LayoutFixturesTest {
         val c = read("schema3-look-1.6-to-1.7.1.json")
         assertTrue(c.hoverSwitchesPopups); assertTrue(c.noAnimations); assertTrue(c.systemTint)
         assertFalse(c.enabled)
-        // The Clipboard item (1.6 to 2.0) is retired: it goes with its options, and the five others stay in their order.
-        assertEquals(listOf("fx", "air", "stocks", "displays", "shortcut"), c.items.map { it.type })
+        // The Clipboard item (1.6 to 2.0) is retired: it goes with its options. So does the Shortcut item, which was in
+        // Off. The four others stay in their order.
+        assertEquals(listOf("fx", "air", "stocks", "displays"), c.items.map { it.type })
     }
 
     @Test fun schema4KeepsEachItemsAreaAndComesBackAsItWasWritten() {
         val text = file("schema4-areas-1.8.json").readText()
+        // Decoded and written again it is the file, to the letter: nothing of the schema is lost on the way.
+        assertEquals(text.trim(), layoutJson.encodeToString(BarConfig.serializer(), decoded("schema4-areas-1.8.json")))
         val c = read("schema4-areas-1.8.json")
-        assertEquals(text.trim(), layoutJson.encodeToString(BarConfig.serializer(), c))
-        assertEquals(listOf(Position.LEFT, Position.LEFT, Position.CENTER, Position.RIGHT, Position.RIGHT, Position.CENTER), c.items.map { it.area })
+        assertEquals(listOf(Position.LEFT, Position.LEFT, Position.CENTER, Position.RIGHT, Position.RIGHT), c.items.map { it.area })
         // The old Position stays in the layout as it was, and says nothing about a version 4 layout's items.
         assertEquals(Position.CENTER, c.position)
-        assertEquals(Section.OFF, c.items.single { it.type == "memory" }.section)
+        assertFalse("its Off item (Memory) is not read", c.items.any { it.type == "memory" })
         // An item of a type this version doesn't know keeps its area with everything else it has.
         val unknown = c.items.single { com.meridian11.books.bentobar.items.Items.of(it.type) == null }
         assertEquals(Position.RIGHT, unknown.area)
@@ -131,38 +147,41 @@ class LayoutFixturesTest {
 
     @After fun forget() { Store.open(MapPrefs()) { }; Store.update { BarConfig() } }
 
-    @Test fun theFirstChangeAfterAnUpdateFrom18DropsTheOffItemsThatCarryNoSetupAndKeepsTheRest() {
-        // 1.8 could turn an item off as it came. The fixture has one such (Memory); beside it what else 1.8 could leave in
-        // Off: more bare ones, setups (an option, a look, a rule), and an item of a type this version doesn't know.
-        val was = read("schema4-areas-1.8.json")
+    @Test fun aLayoutFrom21OpensWithoutItsOffItemsSetUpOrNotAndIsSavedAtOnce() {
+        // Up to 2.1 a removed item that had been set up waited in Off, as a line of the library. The fixture has one item
+        // there (Memory, as it came); beside it what else a version could leave: setups (an option, a look, a rule),
+        // items as they came, and an item of a type this version doesn't know.
+        val was = decoded("schema4-areas-1.8.json")
         val off = listOf(
             ItemConfig("bare", "clock", Section.OFF),
             ItemConfig("bare-left", "cpu", Section.OFF, area = Position.LEFT),
             ItemConfig("quiet", "media", Section.OFF, whenActive = true),
-            ItemConfig("city", "clock", Section.OFF, options = mapOf("zone" to "Asia/Tokyo")),
+            ItemConfig("city", "clock", Section.OFF, options = mapOf("zone" to "Pacific/Auckland")),
             ItemConfig("look", "timer", Section.OFF, display = Display.ICON),
             ItemConfig("rule", "cpu", Section.OFF, whenActive = true),
             ItemConfig("newer", "later-version-item", Section.OFF, options = mapOf("depth" to "7")),
         )
         val stored = was.copy(items = was.items + off)
         val prefs = MapPrefs(mapOf("bar" to layoutJson.encodeToString(BarConfig.serializer(), stored)))
-        var puts = 0
-        prefs.onPut = { puts++ }
         Store.open(prefs) { }
-        // Opening reads: the layout is as it was stored and nothing is written.
-        assertEquals(stored, Store.config.value)
-        assertEquals(0, puts)
+        // What is in the bar is untouched, in its order, and nothing else is left.
+        val inBar = was.items.filter { it.section != Section.OFF }
+        assertEquals(5, inBar.size)
+        assertEquals(stored.copy(items = inBar), Store.config.value)
+        // The stored layout was written again without them: nothing of a setup is left on the device.
+        val saved = prefs.string("bar")!!
+        for (gone in listOf("OFF", "Pacific/Auckland", "bare", "quiet", "memory")) assertFalse(gone, gone in saved)
+        assertEquals(LayoutRead.Ok(Store.config.value, changed = false), readLayout(saved))
+        assertEquals(null, Store.setAside.value)
+    }
 
-        Store.update { it.copy(spacing = it.spacing + 2) } // any change at all
-        val now = Store.config.value
-        assertEquals(listOf("city", "look", "rule", "newer"), now.items.filter { it.section == Section.OFF }.map { it.id })
-        // What is in the bar is untouched, and so is every kept item.
-        assertEquals(stored.items.filter { it.section != Section.OFF || it.id in setOf("city", "look", "rule", "newer") }, now.items)
-        assertEquals(now, (readLayout(prefs.string("bar")!!) as LayoutRead.Ok).config)
-
-        // Once is enough: later changes drop nothing more, and a setup that is removed is kept.
-        Store.update { it.removed(was.items.first { i -> i.type == "clock" }.id) }
-        assertEquals(now.items.size, Store.config.value.items.size)
-        assertEquals(5, Store.config.value.items.count { it.section == Section.OFF })
+    @Test fun noChangeLeavesAnItemInOff() {
+        Store.open(MapPrefs()) { }
+        Store.update { BarConfig(items = listOf(ItemConfig("a", "clock"), ItemConfig("b", "cpu", Section.HIDDEN))) }
+        // Whatever a change writes (the debug hook's `set ID section=off`, `add TYPE off`): the item is gone, not kept.
+        Store.update { it.putIn("b", Section.OFF) }
+        assertEquals(listOf("a"), Store.config.value.items.map { it.id })
+        Store.update { it.copy(items = it.items + ItemConfig("c", "timer", Section.OFF, options = mapOf("label" to "Tea"))) }
+        assertEquals(listOf("a"), Store.config.value.items.map { it.id })
     }
 }

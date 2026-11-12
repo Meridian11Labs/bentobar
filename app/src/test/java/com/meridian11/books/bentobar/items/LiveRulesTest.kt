@@ -147,11 +147,11 @@ class LiveRulesTest {
         registry = listOf(timer, flight)
         val item = liveItem("a")
         val placed = ItemConfig("f1", "fakeflight", Section.HIDDEN)
-        layout = listOf(item, placed, ItemConfig("f2", "fakeflight", Section.OFF))
+        layout = listOf(item, placed)
         sampled = listOf(item)
         LiveItem.sample(100_000)
         assertEquals(1, timer.asked); assertEquals(1, flight.asked)
-        assertEquals("its items outside Off", listOf(placed), flight.seen)
+        assertEquals("its items in the layout", listOf(placed), flight.seen)
         assertEquals("a woken type with no item of its own gets none", emptyList<ItemConfig>(), timer.seen)
         repeat(3) { LiveItem.state(item) }
         assertEquals("state() asks nobody", 1, timer.asked)

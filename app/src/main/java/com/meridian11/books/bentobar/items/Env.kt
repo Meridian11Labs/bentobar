@@ -85,8 +85,8 @@ object Env {
 
     /**
      * When BentoBar may ask an online service, in one place. A request goes out only if all of this
-     * holds: the service is switched on for this install (the user set its item up here), an item of
-     * a type that uses the service is outside Off, and something that shows items is on screen. And
+     * holds: the service is switched on for this install (the user set its item up here), the layout has an item
+     * of a type that uses the service, and something that shows items is on screen. And
      * never from the main thread, and not at all without a network.
      */
     private fun wireOnline() {

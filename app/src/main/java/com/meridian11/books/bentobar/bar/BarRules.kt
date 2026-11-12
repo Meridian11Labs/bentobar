@@ -281,7 +281,7 @@ internal object BarRules {
      * Which areas have a strip, where and how wide: the one rule of room, which the controller only carries out. In pixels.
      * The free area is [freeLeft] to [freeRight] on a screen [screenW] wide; [gap] is kept to its edges, less [out] (what a
      * strip's own ends may reach into the gap: all of [ends] with no pill, nothing with one); [between] is kept between two
-     * strips; [least] is the room a ‹ needs with its ends. [inUse] are the areas with an item outside Off; the [home] area
+     * strips; [least] is the room a ‹ needs with its ends. [inUse] are the areas with an item; the [home] area
      * is wanted as well, so there is always one. [strips] is what is known of each area's strip; an area missing from it
      * was never measured.
      *

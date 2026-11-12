@@ -224,7 +224,7 @@ class OnlineTest {
         assertEquals(setOf("flight", "prompter"), File(dir, "kept").list()?.toSet())
     }
 
-    @Test fun aServiceIsAskedOnlyWhileItIsOnSomethingIsOnScreenAndItsItemIsOutsideOff() {
+    @Test fun aServiceIsAskedOnlyWhileItIsOnSomethingIsOnScreenAndTheLayoutHasItsItem() {
         val asks: (String) -> Online.Service? = { mapOf("weather" to OPEN_METEO, "fx" to Online.Service.FRANKFURTER)[it] }
         val both = listOf(ItemConfig("w", "weather"), ItemConfig("x", "fx"))
         for (s in listOf(OPEN_METEO, Online.Service.FRANKFURTER)) {
@@ -232,8 +232,8 @@ class OnlineTest {
             Online.turnOn(s)
             assertTrue("$s on", Online.mayAsk(s, true, both, asks))
             assertFalse("$s with nothing on screen", Online.mayAsk(s, false, both, asks))
-            assertFalse("$s with its item in Off", Online.mayAsk(s, true, both.map { it.copy(section = Section.OFF) }, asks))
-            // Hidden is outside Off: it may still have something to say.
+            assertFalse("$s with its item removed", Online.mayAsk(s, true, both.filterNot { asks(it.type) == s }, asks))
+            // A Hidden item may still have something to say.
             assertTrue("$s with its item hidden", Online.mayAsk(s, true, both.map { it.copy(section = Section.HIDDEN) }, asks))
         }
         // One service's item opens no other: a Weather item is not a reason to ask Frankfurter, nor the other way round.

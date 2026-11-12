@@ -54,7 +54,7 @@ sealed interface Reply {
 }
 
 enum class Why {
-    /** Not asked at all: the service is switched off, no item that uses it is outside Off, nothing shows items, or this is the main thread. */
+    /** Not asked at all: the service is switched off, the layout has no item that uses it, nothing shows items, or this is the main thread. */
     OFF,
     /** No network, no route, no such name, or a connection that isn't the service's own (a public network's sign-in page). */
     OFFLINE,
@@ -79,8 +79,8 @@ fun interface Transport {
  * The one way out of the device. Pure Kotlin (no Android), so its rules are unit-tested on the JVM;
  * the app wires [allowed], [connected], [onMain] and [log] once at start (`Env.init`).
  *
- * A request goes out only if [allowed] says so for its host: the service is switched on, an item
- * that uses it is outside Off, and something that shows items is on screen. Until the app has wired
+ * A request goes out only if [allowed] says so for its host: the service is switched on, the layout
+ * has an item that uses it, and something that shows items is on screen. Until the app has wired
  * it, nothing is allowed. HTTPS only, to the [Host]s; the user agent is [USER_AGENT]; no
  * cookies, no identifiers, no redirects. Nothing of a request but its host and path is ever logged,
  * and nothing at all of a reply.

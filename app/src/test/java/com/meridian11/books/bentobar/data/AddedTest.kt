@@ -46,11 +46,10 @@ class AddedTest {
         assertEquals(listOf("new"), emptyList<ItemConfig>().adding(item("new", "timer", Position.LEFT)))
     }
 
-    @Test fun aHiddenOrOffItemGoesAtTheEndWhateverItsArea() {
+    @Test fun aHiddenItemGoesAtTheEndWhateverItsArea() {
         val left = item("l", "clock", Position.LEFT)
         val right = item("r", "cpu", Position.RIGHT)
         assertEquals(listOf("l", "r", "new"), listOf(left, right).adding(item("new", "timer", Position.LEFT, Section.HIDDEN)))
-        assertEquals(listOf("l", "r", "new"), listOf(left, right).adding(item("new", "timer", Position.LEFT, Section.OFF)))
     }
 
     @Test fun anAreaTheCallerNamesIsTheNewItemsArea() {

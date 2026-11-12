@@ -95,9 +95,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     only, rounded to 0.1° in `WeatherHere.place`, the only form anything else gets; its reading is never kept on the device, and the layout holds `where=here` and never
     a place. A type gets `onLive()`,
     `sample(now)` once a second and `onIdle()` from the `Ticker`: listeners and polls hang on those,
-    so none exists while the bar is hidden, the screen is off or no such item is outside Off.
+    so none exists while the bar is hidden, the screen is off or the layout has no such item.
     One exception: `DisplaysItem`'s display listener also lives while "Keep awake while connected" is in force (an
-    item outside Off has it on and the service is up, `DisplaysItem.follow`), sampled or not. That option is a
+    item has it on and the service is up, `DisplaysItem.follow`), sampled or not. That option is a
     promise about the screen staying on while the bar is hidden, so the bar hiding must not end it.
   - `items/Refresher.kt` is `Calendar`'s way of loading as one class (a background thread, one load
     per key, an immutable snapshot, a generation counter); `items/Ask.kt` is the same for one
@@ -118,7 +118,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     mute BentoBar made, the keyboard light it holds; `onIdle` ends none of them, since the bar hiding must not);
     `staysOpen`; `liveSource` and `liveNow`, what a type tells Live activity
     (`LiveItem.wakes` keeps the sources switched on in its options live with it, never drawn; `LiveRules.first` picks
-    the one to show). `Kept.own(name)` is where a type keeps what `keepsOwn` names, in the no-backup directory.
+    the one to show). `Kept.own(name)` is where a type keeps what belongs to one item and is no part of the layout (a Flight's followed
+    flight, a Prompter's notes), in the no-backup directory; `forgetOwn` deletes it.
   - `items/NoticeAccess.kt` is a second entry in Android's "Notification access" list, "BentoBar notification icons",
     beside `MediaAccess` and apart from it so that Now playing's entry goes on asking for no notification:
     `NoticesItem` binds it only while it is live, what it hears is in memory only, and nothing of it is written,
@@ -127,34 +128,37 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     level, so the slider is dimmed until the first slide). `tools/zones.py PATH/zone.tab [VERSION]` writes
     `SunZones.kt`, the city Sunset works from in each time zone.
   - `net/`: the only code that opens a connection (pure Kotlin). `Host` is an enum of the hosts BentoBar may ask; a `Request` names one of them, a path and a query, so no call takes an
-    address. `Http.get` refuses unless the service is switched on, an item that uses it is outside
-    Off and something that shows items is on screen, and never runs on the main thread. A `Request` holds no key:
+    address. `Http.get` refuses unless the service is switched on, the layout has an item that uses it
+    and something that shows items is on screen, and never runs on the main thread. A `Request` holds no key:
     `Http.key` is wired in `Env` and `HttpTransport` adds it, so no item's code ever holds one. A `Request` prints as host and path only, and no exception leaves `HttpTransport`.
     One 429 or Retry-After holds the whole service (`Http.get` answers for it), and what the transport would refuse is `Why.REFUSED`, counted as nothing sent.
   - `items/OnlineBase.kt` and `items/Places.kt` are what the online items share: the reply-to-failure mapping (`Failures`), the pace (`Pace`), the states (`Status`), the staged sample (`Staged`), what a place is. Another service
     is a load, a rules file and a menu file; `OnlineServiceContract` in the tests gives it the failure tests.
-  - `data/LayoutIntents.kt`: what a command does to an item (`show`, `hide`, `turnOff`, `putIn`, `setWhenActive`, and for
+  - `data/LayoutIntents.kt`: what a command does to an item (`show`, `hide`, `putIn`, `setWhenActive`, and for
     its area `putInArea`, and `putAllIn` for every item's), as pure steps from one layout to the next: it changes the section
     or the area and never the place in the list, which only a Move, drag or drop does (`moved`). A screen calls
     `Store.update { it.hide(id) }` and writes no section, rule or area of its own (`LayoutIntentsTest` holds them to it).
     The settings' list has its own steps there: `placed(id, area, part, index)` (a drop, and each step), `stepped(id, down)`
-    (Move up and down: `Step.Moved`, `Step.Stays` with why, `Step.End`), `removed(id)` (Remove from the bar: an item that
-    carries a setup waits in Off, a bare one is gone) and `undone(before, after)` (the one Undo; an item the change
-    brought in simply goes while it is as the change left it, compared with `after`'s copy, and one that was changed
-    since leaves as `removed` takes one out: it becomes a line and is never lost).
+    (Move up and down: `Step.Moved`, `Step.Stays` with why, `Step.End`), and `undone(before, after)` (the one Undo: an item the change took out comes back as it was, with every option,
+    and one it brought in goes, whatever was done to it since). Remove from the bar is `without(id)`, the one removal:
+    the item is deleted, whatever it was set to, and only Undo brings it back.
     `data/BarList.kt` is how the settings see a layout: each area's list in two parts (`parts`, `partOf`: in the bar, and
     under the line the items that wait for their rule, or with ‹ everything behind it), `canGoBelow`, `standing`, and
-    what a setup is (`fresh`, `carriesSetup`: an item that differs from what the + makes, or one whose type keeps
-    something for it outside the layout, `ItemType.keepsOwn`. Flight does (the flight an item follows) and Prompter (its notes): it stays
-    while the item is in the layout, a line included, or `Undo` can bring it back, and goes when a forgotten line is
-    let go, `forgetOwn`, or at the next start; a type's defaults are the same every day, so a new Countdown has no date and
-    says "Set a date": a default that moved with the day made a date somebody set equal to it, and so no setup). `Store.update` keeps no Off item that carries none (`withoutBareOff`), so
-    Off holds only what the library can bring back as it was (its lines); a debug `add TYPE off` of a fresh item is therefore gone at once.
+    `fresh`, the item a type's + makes (a type's defaults are the same every day, so a new Countdown has no date and
+    says "Set a date"). What a type keeps for an item outside the layout (Flight: the flight it follows; Prompter: its
+    notes) stays while the item is in the layout or `Undo` can bring it back, and goes once it no longer can
+    (`Undo.letGo` calls `forgetOwn`; the bar's own menu has no Undo, so its Remove is `Undo.removeForGood`, at once),
+    or at the next start (a type's own sweep, for what a pasted layout or an ended process left).
     `stripPlan` (in `Model.kt`) is the one choice of what an area's strip and the settings preview show (`StripPlanTest`).
   - `data/`: `Model.kt` (`BarConfig`, `ItemConfig`, `Section`…) and `Store` (JSON in
     SharedPreferences, a process-wide StateFlow shared by the service and settings; `Store.open` takes a `Prefs`, so a test
     runs it on a map). `Layout.kt` holds `readLayout`, the one reader of a stored or pasted layout: decode, migrate, repeated
     ids dropped; a layout from a newer version (`LAYOUT_VERSION`) is refused, never clamped, and kept for Backup to offer.
+    There is no Off section any more: up to 2.1 a removed item could wait there to be brought back. `Section.OFF` is
+    still in the enum so that an older layout reads; `withoutOff` (in `data/Retired.kt`) drops such items in
+    `readLayout` (a stored layout, a pasted one, the debug hook's `import`) and in `Store.update`, so no layout the app
+    holds has one and nothing else asks about the section (a debug `add TYPE off` or `set ID section=off` deletes the
+    item at once). `partOf` and `sectionShows` keep their `OFF` branch for the `when` alone.
     `data/Retired.kt` is the one list of the item types BentoBar took out (Clipboard, Crypto, Shelf, Value from a URL): `readLayout` drops their
     items with their options, where an unknown type's item stays (it may be from a newer version), and `Online.init`
     drops the switch of a service only they asked and deletes what they kept on the install (`Retired.kept`: the
@@ -178,23 +182,20 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     status, Presenting mode included while the bar is there), `BarPage` (the Bar page: `BarPreview` above; from 1100 dp the list beside a panel whose switch turns
     between the library ("Add items") and the selected item's options, below that the list is the switch's first part.
     `BarEdit` holds every command once, for a click, a key and a screen reader's action alike, each one step of `Undo`
-    (the library's + and Forget too); `BarKeys` takes a key no control took; Ctrl+F turns the panel to the library and
-    puts the keyboard in its filter, and Remove from the bar in the options turns there too, to the item's new line.
-    Only an item in the bar is selected: one the bar's own menu took out is let go, `BarEdit.left`, so its line's +
-    never turns the panel),
-    `Library` (the panel's "Add items": the filter with its count, the types in their groups with +, and under a type
-    the setups the app remembers, which are the Off items that carry a setup (a layout from 1.8 can hold a bare one
-    until its first change drops it: that is no line, and no Forget, which `Undo.Kept.forgot` records, never the two
-    layouts' difference), each a line with its own words, Forget and +. A
-    type's + always adds a fresh item, a line's + brings that item back (`broughtBack`), both into `homeArea()`, or with several lanes on screen into the one "Add to" names; a type
-    that comes waiting on its rule says where its + puts it. `shelvesOf`, `matching` and `setupWords` are the pure part:
-    what is listed, what a filter leaves, and a line's words, which `removedName` uses for the slip too), `BarRows`
+    (the library's + too); `BarKeys` takes a key no control took; Ctrl+F turns the panel to the library and
+    puts the keyboard in its filter, and Remove from the bar in the options turns there too, to the item's type.
+    Only an item in the bar is selected: one the bar's own menu took out is let go, `BarEdit.left`),
+    `Library` (the panel's "Add items": the filter with its count, the types in their groups with +, and nothing
+    else: a removed item is deleted, so the library has no line for one and nothing to forget. A
+    type's + adds a fresh item into `homeArea()`, or with several lanes on screen into the one "Add to" names; a type
+    that comes waiting on its rule says where its + puts it. `shelvesOf` and `matching` are the pure part:
+    what is listed and what a filter leaves), `BarRows`
     (the list: one row per item, the line between its two parts, a head per lane while several are on screen, Undo in
     a removed row's place; `listEntries` is what it draws, pure, and each entry names its lane, which `Lines` lays side
     by side from 760 dp and one under the other below that), `ItemOptions` (the panel's
     options: Visibility with only what the chosen part needs, Order, Area, Show as, then the type's own), `Reorder` (the Bar
-    page's one drag: the gesture sits on the page's root, over the preview, the list and the panel. A row of the list,
-    a type of the library or one of its remembered lines is carried; it lands at a place in either part of any lane,
+    page's one drag: the gesture sits on the page's root, over the preview, the list and the panel. A row of the list
+    or a type of the library is carried; it lands at a place in either part of any lane,
     on an area of the preview (also one with no items, which starts it), or, a row only, on the panel, which removes
     it: the library shows a well in its filter's place, an item's options in their first row's. A copy travels under
     the pointer, a row in the list and the item's chip over the preview; the others make room by moving; the Store
@@ -202,7 +203,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     takes away (a cancel) or a drop anywhere else puts everything back with no change. Esc ends a drag before it empties
     the library's filter, also while the filter has the keyboard (`FilterField`'s `held`), and while what was let go
     is on its way into its place or back no key does anything (`BarEdit.key`). A mouse picks up at once, a finger by a row's handle or after a long press on a
-    library line; a press let go without moving selects, a pickup never does and never turns the panel. What a point
+    library row; a press let go without moving selects, a pickup never does and never turns the panel. What a point
     means is pure, in `ui/Drops.kt` (`dropAt` over a `DropMap` of rectangles, `dropped`, `showing`, `dropLine`;
     `ReorderTest`); `Reorder` only measures and carries. Frames run while the pointer moves or the list scrolls and
     a quarter second after, so a row held still costs nothing; `DragTest` drives it with an injected mouse and finger,
@@ -340,7 +341,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
 - `./bento debug dump|open TYPE|ctx TYPE|chevron [AREA]|barmenu|hover on|off [AREA]|scroll TYPE N|timer MIN|awake [MIN|off]|bar on|off|finish|reset|add TYPE [section] [AREA]|remove ID|set ID k=v|look KEY VALUE|windows`.
   The receiver (`src/debug`, debug builds only) is guarded by DUMP, so only adb can call it.
   AREA is `left`, `middle` or `right`. `set ID area=AREA` puts one item in an area and `look position AREA` every item
-  (a layout in one area again); `add` with no area adds to the home area (a fresh item added to `off` is not kept). `chevron` and `hover` go to that area's strip,
+  (a layout in one area again); `add` with no area adds to the home area (`off` is no section any more: an item added to it or set to it is deleted at once). `chevron` and `hover` go to that area's strip,
   with none to the first one, and answer `no such strip` for an area that has none on screen. `dump` says which strip is
   the first (`carrier=`), which areas have no room (`owed=[…]`) and each strip's state (`right[…] left[…] middle[…]`).
   `solid on|off`: popups as if the platform had no blur (the solid card). `look switch on|off`: "Switch popups on hover"; `look animations on|off`: "No animations". Each frame of a popup's opening and its
@@ -469,7 +470,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   services) stops requests at once and deletes what was fetched (`ItemType.forgetFetched`).
   The one location permission is `ACCESS_COARSE_LOCATION`, for My location in Weather and Air quality & UV, asked for only when
   an item chooses it. The ask is made in-process (a menu names the permission; the exported `MainActivity` never reads one from an intent), so the caller decides.
-  Where the device is is kept only while such an item is outside Off and the switch is on
+  Where the device is is kept only while the layout has such an item and the switch is on
   (`HereRules.wanted`; else it is forgotten, with an ask on its way), and Android is asked only while
   such an item is sampled (`TickRules.needed`, as `Ticker.sampled`): on screen, waiting in Hidden for its
   Show when rule in any hidden mode (which needs the forecast where the device is), or while the settings window is open;
@@ -564,7 +565,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   for targetSdk 31+, and the chip shows exactly when the accessibility service (whose binding allows
   background starts) may be off.
 - **The bar is one, in up to three windows.** Every item has an area (Left, Middle, Right) and each area in use (one
-  with an item outside Off) has a strip window of its own: "BentoBar" is Right's, "BentoBar left" and "BentoBar middle"
+  with an item of a type this version knows) has a strip window of its own: "BentoBar" is Right's, "BentoBar left" and "BentoBar middle"
   the others'. A layout in one area is the one strip there always was, to the pixel; hold every change to that.
   The words: the **home area** (`homeArea`) is the first in use of Right, Middle, Left, and where the bar's one-off things
   go (Presenting's ‹, the empty capsule, a new item, the strip when nothing has room). Room goes to Right first, then
@@ -610,7 +611,7 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   screenshots only on a change and only while the strip shows (never on a timer), every overlay visible and there because the user asked for it, and no adb hooks in release.
   With areas the same holds for each window: an area in use that draws nothing right now keeps its window with an
   invisible root, as the one strip always did (it is still measured, and shows as soon as it has something to draw); an
-  area with no item outside Off has no window at all. That is up to three such windows where there was one: the device
+  area with no such item has no window at all. That is up to three such windows where there was one: the device
   list in `docs/RELEASING.md` checks it overnight.
 - `./bento enable` and `disable` add or remove only BentoBar's entry in `enabled_accessibility_services` (short or full
   component form); overwriting the whole list once switched other accessibility services off.

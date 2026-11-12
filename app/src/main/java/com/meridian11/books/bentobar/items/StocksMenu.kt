@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Online
-import com.meridian11.books.bentobar.data.Section
 import com.meridian11.books.bentobar.ui.KeyWords
 import com.meridian11.books.bentobar.ui.MenuCard
 import com.meridian11.books.bentobar.ui.MenuDivider
@@ -140,8 +139,8 @@ private val STOCKS_KEY = KeyWords(R.string.stocks_key_section, R.string.stocks_c
 
 /**
  * The search: the field with its Search button, and under it what the last search found, each US
- * stock with a press to add it. Typing sends nothing; the button or Enter sends the text. An item in
- * Off may ask nothing. From the keyboard: when stocks arrive the focus is on the first that can be
+ * stock with a press to add it. Typing sends nothing; the button or Enter sends the text.
+ * From the keyboard: when stocks arrive the focus is on the first that can be
  * added, so Enter, Enter is search and add; Down and Up go between the field and it.
  */
 @Composable
@@ -156,7 +155,7 @@ private fun StockSearch(item: ItemConfig, stocks: List<Stock>, set: (ItemConfig)
     SearchWithResults(hasResults = firstFree >= 0, arrival = found,
         field = {
             SearchField(label = stringResource(R.string.stocks_search_label), submit = stringResource(R.string.common_search),
-                canSubmit = item.section != Section.OFF, focus = field,
+                focus = field,
                 onChange = { StocksItem.search.clearIf { it.by == by } },
                 onEnter = { text -> StocksLoad.query(text)?.let { StocksItem.search.ask(StockQuery(it, by)) } })
         },
