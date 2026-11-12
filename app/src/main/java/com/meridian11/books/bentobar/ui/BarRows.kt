@@ -421,8 +421,8 @@ internal fun BarList(cfg: BarConfig, states: Map<String, ItemState>, selected: S
     }
 }
 
-/** How much of the danger colour lies over the card while a row is over the trash: as under a pressed red button. */
-internal const val TRASH_VEIL = 0.10f
+/** How much of the danger colour lies over the card while a row is over the trash: the red button's ground. */
+internal const val TRASH_VEIL = DANGER_VEIL
 
 /**
  * The trash: while a row of the bar is carried (never a type of the library), a strip along the card's lower edge,

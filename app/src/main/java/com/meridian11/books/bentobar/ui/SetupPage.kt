@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -165,7 +164,7 @@ fun SetupPage(setup: SetupState, declined: Boolean, wontAsk: Set<String>, types:
                 // The key outlives the item it was typed into: without this, taking it off the device
                 // would mean adding that item again first.
                 if (row.removeKey != null && service in online.keyed)
-                    BentoButton(stringResource(row.removeKey), { Online.removeKey(service); Ticker.refresh() }, Modifier.offset(x = -Space.m).padding(bottom = Space.s), kind = ButtonKind.DANGER)
+                    BentoButton(stringResource(row.removeKey), { Online.removeKey(service); Ticker.refresh() }, Modifier.padding(bottom = Space.m), kind = ButtonKind.DANGER)
             }
             RowLine()
             Text(stringResource(R.string.setup_online_off_note), Modifier.padding(vertical = Space.m), style = Bento.type.help, color = Bento.colors.ink3)

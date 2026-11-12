@@ -25,8 +25,9 @@
 - **Notes with Undo stay three seconds.** "Removed…" in a row's place, the note for a closed or a removed area, the
   library's "Added" and Look's line go by themselves after three seconds, or wait while the pointer or the keyboard
   is on them. Ctrl+Z still takes the change back afterwards.
-- **Remove is a red button.** "Remove from the bar" in an item's options is red, with a trash and no keycap; Delete
-  still removes the selected item.
+- **Remove is a red button.** "Remove from the bar" in an item's options is red words and a trash on a pale red
+  ground, beside Duplicate and as tall, with no keycap; Delete still removes the selected item. Look's Discard and
+  Setup's Remove key are the same button.
 - From right to left a dragged row hangs under the pointer (it hung mirrored across the window).
 
 ## 2.1.0 (2026-11-11)

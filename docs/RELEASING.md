@@ -139,9 +139,10 @@ learned the hard way" says why. Run it again on every new draft.
   rows travel. Point at a note, or Tab to its Undo: it stays, and goes three seconds after the pointer or the
   keyboard left. After a note went, Ctrl+Z still takes the change back, and the keyboard's shortcut list still
   shows Undo. With Android's "Time to take action" set longer, the notes stay that long.
-- **The red button.** An item's options end in "Remove from the bar" in red with a trash, in light and dark, with no
-  keycap beside it; under the pointer and pressed it takes a red veil; Delete and Backspace still remove the
-  selected item.
+- **The red button.** An item's options end in "Remove from the bar": red words and a trash on a pale red ground,
+  beside Duplicate and as tall, clearly a button in light and dark, with no keycap beside it; under the pointer and
+  pressed its ground is a step stronger each time; Delete and Backspace still remove the selected item. Look's
+  Discard (under a kept layout) and Setup's Remove key look the same.
 - **Live Update chip.** A timer or a meeting shows its chip with BentoBar's settings window closed.
 - **Items that tick.** A clock and a network speed item do not make neighbours move; the bar's CPU use stays low
   (about 1% of one core on a release build).

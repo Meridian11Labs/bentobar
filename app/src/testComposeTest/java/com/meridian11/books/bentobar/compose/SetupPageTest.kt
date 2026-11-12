@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -18,6 +20,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -29,6 +32,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.bar.BarStatus
 import com.meridian11.books.bentobar.data.ItemConfig
+import com.meridian11.books.bentobar.data.Online
 import com.meridian11.books.bentobar.items.Access
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.ItemGroup
@@ -36,12 +40,15 @@ import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.items.ItemType
 import com.meridian11.books.bentobar.ui.AboutPage
 import com.meridian11.books.bentobar.ui.AccessibilityDisclosure
+import com.meridian11.books.bentobar.ui.DANGER_VEIL
 import com.meridian11.books.bentobar.ui.Page
+import com.meridian11.books.bentobar.ui.Palette
 import com.meridian11.books.bentobar.ui.SettingsTheme
 import com.meridian11.books.bentobar.ui.SetupPage
 import com.meridian11.books.bentobar.ui.SetupState
 import com.meridian11.books.bentobar.ui.Shell
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -76,12 +83,13 @@ class SetupPageTest {
     private val heading = SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading)
     private val button = role(Role.Button)
 
-    private fun picture(name: String) {
+    private fun picture(name: String): Bitmap {
         val bitmap = rule.runOnIdle { Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) } }
         System.getenv("BENTOBAR_PICTURES")?.takeIf { it.isNotBlank() }?.let { dir ->
             File(dir).mkdirs()
             File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
+        return bitmap
     }
 
     private fun window(page: Page, running: Boolean, content: @androidx.compose.runtime.Composable () -> Unit) {
@@ -102,6 +110,39 @@ class SetupPageTest {
 
     private fun disclosure() = window(Page.SETUP, running = false) {
         AccessibilityDisclosure(onAgree = { answers += "agree" }, onDecline = { answers += "decline" }, onDismiss = { answers += "dismiss" })
+    }
+
+    /** One kind, one look: a service's "remove the key" is the red button, under that service's switch and in line with its name. */
+    @Test fun aServicesKeyIsTakenOffTheDeviceByTheRedButtonUnderItsSwitch() {
+        val service = Online.Service.AIRLABS
+        try {
+            assertTrue(Online.saveKey(service, "a key a test typed"))
+            setup(SetupState(serviceOn = true))
+            val words = str(R.string.flight_remove_key)
+            val remove = hasText(words) and hasClickAction()
+            rule.onNode(remove).performScrollTo()
+            for (isDark in listOf(false, true)) {
+                dark = isDark
+                rule.waitForIdle()
+                val theme = if (isDark) "dark" else "light"
+                val bitmap = picture("setup-key-$theme")
+                val palette = if (isDark) Palette.Dark else Palette.Light
+                val button = rule.onNode(remove).fetchSemanticsNode().boundsInRoot
+                val ground = palette.danger.copy(alpha = DANGER_VEIL).compositeOver(palette.panel)
+                for (x in listOf(button.left + 8f, button.right - 8f))
+                    assertTrue("its ground, $theme: ${Integer.toHexString(bitmap.getPixel(x.toInt(), button.center.y.toInt()))}, not ${Integer.toHexString(ground.toArgb())}",
+                        near(bitmap.getPixel(x.toInt(), button.center.y.toInt()), ground))
+                val name = rule.onNode(hasText(str(R.string.setup_online_flights)), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                assertEquals("its ground begins where the service's name does, $theme", name.left, button.left, 0.5f)
+                assertTrue("under the switch's row, $theme", button.top >= name.bottom)
+            }
+            rule.onNode(remove).performClick()
+            rule.waitForIdle()
+            assertFalse(Online.hasKey(service))
+            rule.onNode(remove).assertDoesNotExist()
+        } finally {
+            Online.removeKey(service)
+        }
     }
 
     @Test fun onceOnSetupSaysOnAndListsThePermissionsEachAllowedOrWithItsButton() {

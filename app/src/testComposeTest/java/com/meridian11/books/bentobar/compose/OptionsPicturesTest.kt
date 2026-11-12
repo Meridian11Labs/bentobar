@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.hasClickAction
 import com.meridian11.books.bentobar.ui.BarKeys
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
@@ -38,6 +39,7 @@ import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.WeatherItem
 import com.meridian11.books.bentobar.ui.BarPage
 import com.meridian11.books.bentobar.ui.Page
+import com.meridian11.books.bentobar.ui.DANGER_VEIL
 import com.meridian11.books.bentobar.ui.Palette
 import com.meridian11.books.bentobar.ui.Setup
 import com.meridian11.books.bentobar.ui.SettingsTheme
@@ -130,7 +132,7 @@ class OptionsPicturesTest {
         }
     }
 
-    @Test fun removeIsTheRedButtonWithATrashBeforeItsWordsAndNoKeycapBesideIt() {
+    @Test fun removeIsTheRedButtonOnItsRedGroundWithATrashBeforeItsWordsAndNoKeycapBesideIt() {
         show("clock")
         val words = str(R.string.detail_remove)
         assertEquals("Remove from the bar", words)
@@ -149,6 +151,17 @@ class OptionsPicturesTest {
             assertTrue("the words are in the danger colour, $theme", count(palette.danger, text.left, text.right) > 0)
             assertEquals("and not in the ink, $theme", 0, count(palette.ink, button.left, button.right))
             assertTrue("a trash stands before them, $theme", text.left - button.left >= 18f && count(palette.danger, button.left, text.left) > 0)
+            // A button at rest: a ground of its own, the danger colour over the card, in Duplicate's shape and height.
+            val ground = palette.danger.copy(alpha = DANGER_VEIL).compositeOver(palette.panel)
+            for (x in listOf(button.left + 8f, button.right - 8f))
+                assertTrue("its ground, $theme: ${Integer.toHexString(bitmap.getPixel(x.toInt(), button.center.y.toInt()))}, not ${Integer.toHexString(ground.toArgb())}",
+                    near(bitmap.getPixel(x.toInt(), button.center.y.toInt()), ground))
+            assertEquals("the card's corner outside its rounded one, $theme", Integer.toHexString(palette.panel.toArgb()),
+                Integer.toHexString(bitmap.getPixel(button.left.toInt(), button.top.toInt())))
+            val duplicate = rule.onNode(hasText(str(R.string.detail_duplicate)) and hasClickAction() and inOptions()).fetchSemanticsNode().boundsInRoot
+            assertEquals("as tall as Duplicate, $theme", duplicate.height, button.height)
+            assertEquals("and on its line, $theme", duplicate.top, button.top)
+            assertEquals("Duplicate's ground, $theme", Integer.toHexString(palette.sunk.toArgb()), Integer.toHexString(bitmap.getPixel(duplicate.left.toInt() + 8, duplicate.center.y.toInt())))
         }
         // No keycap beside it: the keys still remove, and the system's list of shortcuts says which.
         rule.onNode(hasText("Del") and inOptions()).assertDoesNotExist()

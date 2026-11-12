@@ -201,7 +201,7 @@ internal fun ItemOptions(item: ItemConfig, cfg: BarConfig, state: ItemState?, ed
                 BentoButton(stringResource(R.string.detail_duplicate), { edit.duplicate(item.id) })
                 Spacer(Modifier.width(Space.s))
             }
-            // Red, with a trash: the one command here that takes something away. Its keys (Delete, Backspace) are in the
+            // The red button, with a trash: the one command here that takes something away. Its keys (Delete, Backspace) are in the
             // system's list of shortcuts and not beside it.
             BentoButton(stringResource(R.string.detail_remove), { edit.remove(item.id) }, kind = ButtonKind.DANGER, icon = Sym.DELETE)
         }

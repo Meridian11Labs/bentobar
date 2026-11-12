@@ -242,9 +242,12 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     contrast they need. The bar's popups keep the device's colors (`BentoBarTheme`). The settings window's own controls are in `Controls`
     (`Segment`, equal parts or each as wide as its words; `SwitchMark`, `BentoButton`, `FilterField`, `Keycap`, `RadioList`,
     `BentoField`, `BentoSlider`) and `Notice`
-    (`NoticeLine`; an amber notice's one button is `ButtonKind.WARN`, and what deletes is `ButtonKind.DANGER`: red
-    words on the card with a red veil under the pointer, as Remove from the bar in an item's options, with its trash
-    and no keycap; Delete still removes the selected item). The rows a type builds its options from
+    (`NoticeLine`; an amber notice's one button is `ButtonKind.WARN`, and what deletes is `ButtonKind.DANGER`: a
+    tonal button's shape and height on a ground of the danger colour over the card (`DANGER_VEIL`, the trash's with a
+    row over it), its words and glyph in that colour, the control's veil in the same colour on it under the pointer and
+    pressed; `PaletteContrastTest` holds every state. Remove from the bar in an item's options is one, with its trash
+    and no keycap (Delete still removes the selected item), Look's Discard and Setup's Remove key the others: one
+    kind, one look). The rows a type builds its options from
     (`ChoiceRow`, `SwitchRow`, `TextRow`, `SliderRow`, `ServiceKey`) are drawn with them, so a type's options need no
     look of their own: a choice of two or three short values is a segment, a longer one radio buttons under its name
     (`ChoiceRules.asSegment`). A piece drawn both in a popup and in the window asks `LocalSettingsWindow` which look to

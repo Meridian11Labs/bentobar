@@ -446,6 +446,16 @@ private fun KeyField(label: String, save: String, onSave: (String) -> Unit, onCa
 // The settings window's controls, on its tokens (Theme.kt). The rows above are an item's own options in the panel, built
 // from the same pieces; the bar's popups have their own (MenuKit), in Material's shapes on the device's colors.
 
+/** How much of a control's veil lies over it under the pointer and while it is pressed ([states]). */
+internal const val VEIL_HOVER = 0.06f
+internal const val VEIL_PRESSED = 0.10f
+
+/**
+ * How much of the danger colour is the red button's ground over the card it stands on, at rest: the trash's with a row
+ * over it. Under the pointer and pressed the control's veil, in the same colour, lies on that.
+ */
+internal const val DANGER_VEIL = 0.10f
+
 /**
  * What a control that takes a click shows of itself: a faint veil under the pointer and a press, and the focus ring
  * (2 dp of accent, 2 dp off the control) while it has the keyboard. [inset] takes that much off the top and bottom of
@@ -462,7 +472,7 @@ fun Modifier.states(interaction: InteractionSource, radius: Dp = Radius.medium, 
         val top = inset.toPx()
         val r = radius.toPx()
         drawContent()
-        val depth = if (!ground) 0f else if (pressed) 0.10f else if (hovered) 0.06f else 0f
+        val depth = if (!ground) 0f else if (pressed) VEIL_PRESSED else if (hovered) VEIL_HOVER else 0f
         if (depth > 0f) drawRoundRect(veil.copy(alpha = depth), Offset(0f, top), Size(size.width, size.height - 2 * top), CornerRadius(r))
         if (focused) {
             val w = 2.dp.toPx()
@@ -484,12 +494,13 @@ fun SwitchMark(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean
 }
 
 /**
- * Filled: the one such button on a screen. Tonal: every other command. Text: a quiet one in a line (Undo). Plain: a command
- * as plain words (Remove from the bar). Quiet: one that stands back beside a row's own words (a permission's way
- * back on Setup). Danger: one that can't be taken back.
+ * Filled: the one such button on a screen. Tonal: every other command. Text: a quiet one in a line (Undo). Quiet: one
+ * that stands back beside a row's own words (a permission's way back on Setup). Danger: what deletes (Remove from the
+ * bar, Discard, a key taken off the device): a tonal button's shape and height on a ground of the danger colour over
+ * the card ([DANGER_VEIL]), its words and glyph in that colour. Warn: the one button of an amber notice, in the
+ * notice's own ink.
  */
-/** [WARN] is the one button of an amber notice, in the notice's own ink. */
-enum class ButtonKind { FILLED, TONAL, TEXT, PLAIN, QUIET, DANGER, WARN }
+enum class ButtonKind { FILLED, TONAL, TEXT, QUIET, DANGER, WARN }
 
 @Composable
 fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: ButtonKind = ButtonKind.TONAL, icon: String? = null, enabled: Boolean = true) {
@@ -499,17 +510,18 @@ fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
         ButtonKind.FILLED -> c.primary
         ButtonKind.TONAL -> c.sunk
         ButtonKind.WARN -> c.warnInk.copy(alpha = 0.14f)
+        ButtonKind.DANGER -> c.danger.copy(alpha = DANGER_VEIL)
         else -> Color.Transparent
     }
     val ink = when (kind) {
         ButtonKind.FILLED -> c.onPrimary
-        ButtonKind.TONAL, ButtonKind.PLAIN -> c.ink
+        ButtonKind.TONAL -> c.ink
         ButtonKind.TEXT -> c.accent
         ButtonKind.QUIET -> c.ink2
         ButtonKind.DANGER -> c.danger
         ButtonKind.WARN -> c.warnInk
     }
-    val pad = when (kind) { ButtonKind.FILLED -> 18.dp; ButtonKind.TONAL, ButtonKind.WARN -> Space.l; else -> Space.m }
+    val pad = when (kind) { ButtonKind.FILLED -> 18.dp; ButtonKind.TONAL, ButtonKind.WARN, ButtonKind.DANGER -> Space.l; else -> Space.m }
     Row(modifier.heightIn(min = Target.control).alpha(if (enabled) 1f else DIMMED)
         .states(interaction, veil = ink)
         .background(ground, RoundedCornerShape(Radius.medium))
@@ -519,7 +531,7 @@ fun BentoButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
             SymIcon(icon, size = 18.sp, color = ink)
             Spacer(Modifier.width(Space.s))
         }
-        Text(text, style = if (kind == ButtonKind.PLAIN) Bento.type.label else Bento.type.strong, color = ink, maxLines = lines())
+        Text(text, style = Bento.type.strong, color = ink, maxLines = lines())
     }
 }
 
