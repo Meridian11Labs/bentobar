@@ -94,4 +94,42 @@ class RetiredTest {
         assertEquals(emptyList<ItemConfig>(), read.config.items)
         assertFalse(read.config.items.any { it.type in Retired.types })
     }
+
+    /** 2.1 stood an emptied bar in its first Off item's area and never wrote `position` for it: the read does now. */
+    @Test fun aBarWhoseOnlyItemsWaitedInOffStaysWhereItStoodWhenTheReadDropsThem() {
+        val read = read("""{"version":4,"position":"RIGHT","items":[{"id":"w","type":"clock","section":"OFF","area":"LEFT"}]}""")
+        assertEquals(emptyList<ItemConfig>(), read.config.items)
+        assertEquals("the empty bar and the next item are where the bar was", Position.LEFT, read.config.homeArea())
+        assertTrue(read.changed)
+        assertEquals("and it stays there when read again", LayoutRead.Ok(read.config, changed = false),
+            readLayout(layoutJson.encodeToString(BarConfig.serializer(), read.config)))
+    }
+
+    @Test fun aBarWhoseOnlyItemWasOfARetiredTypeStaysWhereItStoodWhenTheReadDropsIt() {
+        val read = read("""{"version":4,"position":"RIGHT","items":[{"id":"s","type":"shelf","area":"LEFT"}]}""")
+        assertEquals(emptyList<ItemConfig>(), read.config.items)
+        assertEquals(Position.LEFT, read.config.homeArea())
+    }
+
+    /** As 2.1 said where the bar is: an item in the bar before one in Off, Right before Middle before Left. */
+    @Test fun anEmptiedBarStandsWhereTheVersionBeforeHadItNotWhereItsFirstItemWas() {
+        val shelfAfterOff = read("""{"version":4,"position":"LEFT","items":[
+            {"id":"w","type":"clock","section":"OFF","area":"LEFT"},{"id":"s","type":"shelf","area":"CENTER"}]}""")
+        assertEquals("the Shelf was in the bar, the Clock was not", Position.CENTER, shelfAfterOff.config.homeArea())
+        val two = read("""{"version":4,"position":"CENTER","items":[
+            {"id":"s","type":"shelf","area":"LEFT"},{"id":"v","type":"webvalue","area":"RIGHT"}]}""")
+        assertEquals("2.1's home was the first in use of Right, Middle, Left", Position.RIGHT, two.config.homeArea())
+        // A layout from before areas: its items were where the strip was, and so is the emptied bar.
+        val old = read("""{"version":3,"position":"CENTER","items":[{"id":"w","type":"clock","section":"OFF"}]}""")
+        assertEquals(Position.CENTER, old.config.homeArea())
+    }
+
+    @Test fun aLayoutThatKeepsAnItemOrHadNoneKeepsItsPositionAsWritten() {
+        val keeps = read("""{"version":4,"position":"RIGHT","items":[
+            {"id":"w","type":"clock","section":"OFF","area":"LEFT"},{"id":"c","type":"clock","area":"CENTER"}]}""")
+        assertEquals(Position.RIGHT, keeps.config.position)
+        val empty = read("""{"version":4,"position":"CENTER","items":[]}""")
+        assertEquals(Position.CENTER, empty.config.position)
+        assertFalse(empty.changed)
+    }
 }

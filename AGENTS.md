@@ -169,7 +169,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     `migrateToV4` puts each item where the strip was. `BarConfig.position` is read by that and, in a layout with no
     items, by `homeArea()` (so by `oneArea()`: the empty bar stands where it says, the first item goes there, and Look's
     row writes it through `putAllIn`; `without`, the one removal, writes it when the last item goes, so the bar stays
-    where it was); nothing outside `data/` reads it. A fresh install starts in Left: `Defaults.config()` names Left for
+    where it was, and so does `readLayout` when it drops a layout's last items, Off ones or a retired type's:
+    `standingWhere` writes where 2.1 had that bar, `RetiredTest`); nothing outside `data/` reads it. A fresh install starts in Left: `Defaults.config()` names Left for
     each of its items and for `position`. The two fields' own defaults are Right and must stay Right: a stored layout
     that names no area is read by them, so a bar from before Left was the start stays where it is (`AreasTest`,
     `StoreOpenTest`). Consent lives in a
