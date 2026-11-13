@@ -34,8 +34,8 @@ class HttpTest {
         Http.resetCounts()
     }
 
-    @Test fun sixHostsAndNoOther() {
-        assertEquals(setOf("api.open-meteo.com", "air-quality-api.open-meteo.com", "geocoding-api.open-meteo.com", "airlabs.co", "api.finnhub.io", "api.frankfurter.dev"),
+    @Test fun sevenHostsAndNoOther() {
+        assertEquals(setOf("api.open-meteo.com", "air-quality-api.open-meteo.com", "geocoding-api.open-meteo.com", "airlabs.co", "api.finnhub.io", "api.frankfurter.dev", "site.api.espn.com"),
             Host.entries.map { it.domain }.toSet())
     }
 
