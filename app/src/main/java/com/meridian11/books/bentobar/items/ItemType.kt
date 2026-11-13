@@ -97,6 +97,8 @@ data class ItemState(
      * changes. Null: none.
      */
     val turns: List<String>? = null,
+    /** Right-aligns [text] within its slot even when an icon is shown, placing any spare slot width before the icon. */
+    val textEnd: Boolean = false,
     /** [image] takes the strip's text colour, as a symbol does (a strip of other apps' small icons, which are masks). */
     val tintImage: Boolean = false,
 ) {

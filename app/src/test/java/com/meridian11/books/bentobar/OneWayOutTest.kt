@@ -21,7 +21,7 @@ class OneWayOutTest {
         val name = place.removePrefix("items/")
         if (!place.startsWith("items/")) return false
         return name.startsWith("Flight") || name.startsWith("AirLabs") || name.startsWith("Stocks") || name.startsWith("Finnhub") ||
-            (!keyed && (name.startsWith("Weather") || name.startsWith("Air") || name.startsWith("Fx") ||
+            (!keyed && (name.startsWith("Weather") || name.startsWith("Air") || name.startsWith("Fx") || name.startsWith("Sports") ||
                 name == "Places.kt" || name == "OnlineBase.kt"))
     }
 
@@ -41,10 +41,10 @@ class OneWayOutTest {
         }
     }
 
-    /** The only files that ask a named service: each loader of the five items that do, by name, not by a prefix a new file could match. */
-    private val loaders = setOf("items/WeatherLoad.kt", "items/AirLoad.kt", "items/FxLoad.kt", "items/FlightLoad.kt", "items/StocksLoad.kt")
+    /** The only files that ask a named service: each loader of the six items that do, by name, not by a prefix a new file could match. */
+    private val loaders = setOf("items/WeatherLoad.kt", "items/AirLoad.kt", "items/FxLoad.kt", "items/FlightLoad.kt", "items/StocksLoad.kt", "items/SportsLoad.kt")
 
-    @Test fun onlyTheFiveLoadersCallHttpGet() {
+    @Test fun onlyTheSixLoadersCallHttpGet() {
         // No road from what the accessibility service, the media players or a sampler read to a request: a request is made by a
         // loader, from what its own item holds. A new loader is added to the list above on purpose. Http.get( and Http::get both count.
         val call = Regex("""\bHttp\s*(\.|::)\s*get\b""")
@@ -58,7 +58,7 @@ class OneWayOutTest {
         }
         val declared = sources.filter { Regex("""override\s+val\s+online\b""").containsMatchIn(code(it)) }.map { it.place() }.sorted()
         assertEquals("the item types that name an online service", listOf("items/AirItem.kt", "items/FlightItem.kt", "items/FxItem.kt",
-            "items/StocksItem.kt", "items/WeatherItem.kt"), declared)
+            "items/SportsItem.kt", "items/StocksItem.kt", "items/WeatherItem.kt"), declared)
     }
 
     @Test fun theGateIsOneRuleWiredInOnePlace() {

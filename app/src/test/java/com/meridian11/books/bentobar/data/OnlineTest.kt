@@ -172,9 +172,10 @@ class OnlineTest {
     }
 
     @Test fun theServicesAreTheseAndNoOthers() {
-        assertEquals(listOf("openMeteo", "airLabs", "finnhub", "frankfurter"), Online.Service.entries.map { it.id })
+        assertEquals(listOf("openMeteo", "airLabs", "finnhub", "frankfurter", "sports"), Online.Service.entries.map { it.id })
         assertEquals(setOf(Online.Service.AIRLABS, Online.Service.FINNHUB), Online.Service.entries.filter { it.needsKey }.toSet())
         assertEquals(setOf(com.meridian11.books.bentobar.net.Host.FRANKFURTER), Online.Service.FRANKFURTER.hosts)
+        assertEquals(setOf(com.meridian11.books.bentobar.net.Host.ESPN), Online.Service.ESPN.hosts)
         // Every service stands for a host by name: none takes an address.
         for (service in Online.Service.entries) assertTrue("$service", service.hosts.isNotEmpty())
     }

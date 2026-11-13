@@ -25,6 +25,7 @@ object Online {
         AIRLABS("airLabs", setOf(Host.AIRLABS), needsKey = true),
         FINNHUB("finnhub", setOf(Host.FINNHUB), needsKey = true),
         FRANKFURTER("frankfurter", setOf(Host.FRANKFURTER), needsKey = false),
+        ESPN("sports", setOf(Host.ESPN), needsKey = false),
     }
 
     /**
