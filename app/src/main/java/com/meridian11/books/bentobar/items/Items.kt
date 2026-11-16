@@ -41,6 +41,7 @@ object Items {
         ProgressItem,
         SunItem,
         BreaksItem,
+        MoonItem,
         // Tools
         CaffeineItem,
         MediaItem,
