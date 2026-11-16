@@ -27,7 +27,7 @@
 Not affiliated with or endorsed by any employer (<a href="#about-this-project">more</a>).</sub></p>
 
 <p align="center">
-  <img src="docs/images/hero.png" width="880" alt="BentoBar's items in the Googlebook status bar, with the CPU menu open under the CPU item">
+  <img src="docs/images/hero.png" width="880" alt="BentoBar's items in the Googlebook status bar, in its Left and Middle areas (the next meeting with a countdown, the weather, what plays, a flight's route line), with the Weather menu open under its item">
 </p>
 
 ## What it does
@@ -103,7 +103,7 @@ hides when an app goes full screen or the screen locks.
 | **Text or emoji**, **Spacer** | anything you like | optional link |
 
 <p align="center">
-  <img src="docs/images/menus.png" width="880" alt="BentoBar menus: network, timer, the right-click item menu, tools, and BentoBar's ‹ menu with the hidden items">
+  <img src="docs/images/menus.png" width="880" alt="BentoBar menus: weather, the month with today's events, Next meeting above the right-click item menu, CPU, and tools">
 </p>
 
 ## Settings
@@ -118,11 +118,11 @@ settings window.
 Changes apply to the status bar right away.
 
 <p align="center">
-  <img src="docs/images/settings.png" width="880" alt="BentoBar settings: the bar preview, the item list and the CPU item's options">
+  <img src="docs/images/settings.png" width="880" alt="BentoBar settings: the bar preview with its Left, Middle and Right areas, each area's items, and the Next meeting item's options">
 </p>
 
 <p align="center">
-  <img src="docs/images/settings-pages.png" width="880" alt="Adding items, and the look and behavior options">
+  <img src="docs/images/settings-pages.png" width="880" alt="Adding items, to the area you choose, and the Look page: where BentoBar sits, spacing, text size, color, background and hidden items">
   <br><sub>Adding items, and choosing where BentoBar sits and how it looks.</sub>
 </p>
 
