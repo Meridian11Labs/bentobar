@@ -227,10 +227,15 @@ learned the hard way" says why. Run it again on every new draft.
 - **Connection.** "Sign in" behind a captive portal, a VPN, "No internet", "Offline", "Metered"; and no callback left
   behind once the item is gone (`dumpsys connectivity`).
 - **Network's addresses.** The menu's Addresses rows against Settings › Internet › the network's details: the IP
-  address, IPv6, the gateway, DNS, and Private DNS not in use, automatic and set to a host; a VPN (no gateway row);
-  a network with IPv6 resolvers. Wi-Fi off and on with the menu open takes the section away and brings it back. One
-  callback while a Network item is live, none once it is gone or the screen is off (`dumpsys connectivity`).
-  `network stage wifi|ethernet|vpn|ipv6|offline`, then `network off`.
+  address, IPv6, the gateway, DNS, and Private DNS not in use, automatic and set to a host; a VPN (no gateway row); a
+  network with IPv6 resolvers. On Wi-Fi, the Wi-Fi rows against the same page: the link speed, the frequency as band
+  and channel, and the signal's word. With the menu open beside that page, move until Settings' link speed changes:
+  the row shows the new number within a minute, and so does the signal's word. On a Wi-Fi 7 network with two links in
+  use, a Band row for each and both bands in the subtitle. No Wi-Fi section on Ethernet or under a VPN. Wi-Fi off and
+  on with the menu open takes both sections away and brings them back. One callback while a Network item is live, none
+  once it is gone or the screen is off (`dumpsys connectivity`).
+  `network stage wifi|ethernet|vpn|ipv6|weak|mlo|offline`, then `network off`. A staged sample's subtitle keeps the
+  real network's kind.
 - **Screen time.** The glyph alone without Usage access; the time within about fifteen seconds of allowing it, close
   to Android's own figure; a closed lid and a restart are not counted; the menu lists the apps longest in front; it
   starts again at midnight.

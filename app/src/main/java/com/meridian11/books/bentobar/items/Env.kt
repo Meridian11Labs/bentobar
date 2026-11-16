@@ -244,10 +244,10 @@ class NetSampler {
 
     private companion object { const val MIN_GAP_MS = 500L }
 
-    /** "Wi-Fi", "Ethernet", … plus metered state, from the default network. */
-    fun describe(context: Context): String = runCatching { describeOrThrow(context) }.getOrDefault(context.getString(R.string.network_menu_title))
+    /** "Wi-Fi", "Ethernet", … plus VPN and metered state, from the default network; behind Wi-Fi its [band], where one is known. */
+    fun describe(context: Context, band: String?): String = runCatching { describeOrThrow(context, band) }.getOrDefault(context.getString(R.string.network_menu_title))
 
-    private fun describeOrThrow(context: Context): String {
+    private fun describeOrThrow(context: Context, band: String?): String {
         val cm = context.getSystemService(ConnectivityManager::class.java) ?: return context.getString(R.string.common_unknown)
         val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return context.getString(R.string.network_kind_offline)
         val kind = when {
@@ -258,12 +258,14 @@ class NetSampler {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_USB) -> R.string.network_kind_usb
             else -> R.string.network_kind_connected
         }
-        // "Wi-Fi · VPN · metered": separate words joined with the typographic dot.
-        return listOfNotNull(
-            context.getString(kind),
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) context.getString(R.string.network_kind_vpn) else null,
-            if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)) context.getString(R.string.network_kind_metered) else null,
-        ).joinToString(" · ")
+        // "Wi-Fi · 5 GHz · VPN · metered": separate words joined with the typographic dot.
+        return LinkRules.subtitle(
+            kind = context.getString(kind),
+            onWifi = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
+            band = band,
+            vpn = if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) context.getString(R.string.network_kind_vpn) else null,
+            metered = if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)) context.getString(R.string.network_kind_metered) else null,
+        )
     }
 }
 

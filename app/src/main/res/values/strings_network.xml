@@ -1,6 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Network: the Addresses section of its menu. Every name here starts with network_; the item's older text is in strings.xml. -->
+<!-- Network: the Wi-Fi and Addresses sections of its menu. Every name here starts with network_; the item's older text is in strings.xml. -->
 <resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
+    <string name="network_wifi_speed">Link speed</string>
+    <string name="network_wifi_band">Band</string>
+    <string name="network_wifi_signal">Signal</string>
+    <!-- The Link speed row: each direction in megabits a second, in words, since a screen reader names an arrow. -->
+    <string name="network_wifi_speed_both">%1$d down · %2$d up Mbps</string>
+    <string name="network_wifi_speed_down">%1$d down Mbps</string>
+    <string name="network_wifi_speed_up">%1$d up Mbps</string>
+    <!-- The Band row: the band's name below, then the channel's number. -->
+    <string name="network_wifi_band_channel">%1$s · channel %2$d</string>
+    <string name="network_wifi_band_24">2.4 GHz</string>
+    <string name="network_wifi_band_5">5 GHz</string>
+    <string name="network_wifi_band_6">6 GHz</string>
+    <!-- The subtitle of a connection on two bands at once: both names. -->
+    <string name="network_wifi_bands">%1$s + %2$s</string>
+    <!-- The Signal row: Android's own level as a word, the words its Settings use. -->
+    <string name="network_wifi_signal_excellent">Excellent</string>
+    <string name="network_wifi_signal_good">Good</string>
+    <string name="network_wifi_signal_fair">Fair</string>
+    <string name="network_wifi_signal_poor">Poor</string>
     <string name="network_link_title">Addresses</string>
     <string name="network_link_ipv4">IP address</string>
     <string name="network_link_ipv6">IPv6</string>

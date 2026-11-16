@@ -99,8 +99,9 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     One exception: `DisplaysItem`'s display listener also lives while "Keep awake while connected" is in force (an
     item has it on and the service is up, `DisplaysItem.follow`), sampled or not. That option is a
     promise about the screen staying on while the bar is hidden, so the bar hiding must not end it.
-    The Network menu's Addresses section is `LinkWatch` (the active network's link from ConnectivityManager,
-    kept by a callback on the default network between `onLive()` and `onIdle()`) on the pure `LinkRules`; `LinkSamples` stages one.
+    The Network menu's Wi-Fi and Addresses sections are `LinkWatch` (the active network's link from ConnectivityManager,
+    kept by a callback on the default network between `onLive()` and `onIdle()`, and its Wi-Fi values, read when the
+    menu draws and not kept) on the pure `LinkRules`; `LinkSamples` stages one.
   - `items/Refresher.kt` is `Calendar`'s way of loading as one class (a background thread, one load
     per key, an immutable snapshot, a generation counter); `items/Ask.kt` is the same for one
     question at a time (a search). Both are pure Kotlin; `items/Background.kt` wires them to the app.
@@ -453,8 +454,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   `calendar …`: one calendar; a made-up set through the real rules and choices, `demo` for pictures), `event check` (the
   real calendar's today and tomorrow in counts: no title, address or calendar name), bare `event` (what is loaded, by verdict);
   `focus stage ready|running|endless|noaccess`; `sun stage evening|night|polar|nozone`; `progress stage
-  morning|evening|yearend`; `breaks stage early|due`; `network stage wifi|ethernet|vpn|ipv6|offline` and `network off`
-  (the Addresses section's rows; stage one before capturing the menu, so that no real address is in a picture). Each
+  morning|evening|yearend`; `breaks stage early|due`; `network stage wifi|ethernet|vpn|ipv6|weak|mlo|offline` and `network off`
+  (the Wi-Fi and Addresses sections' rows; stage one before capturing the menu, so that no real address is in a picture). Each
   type's bare name prints what it knows (`media`, `devices`, `heat`, `flight`, `network`: which rows, never an address).
   For color tests a debug build has a window that lies under the bar and turns its icons dark or light
   on command, with no event of any kind: `adb shell am start -n com.meridian11.books.bentobar/.util.BarFlipActivity

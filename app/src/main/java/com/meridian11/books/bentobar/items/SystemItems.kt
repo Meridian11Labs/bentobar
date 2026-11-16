@@ -55,12 +55,21 @@ object NetworkItem : ItemType("network", R.string.item_network_title, Sym.SWAP_V
     override val menu: @Composable (ItemConfig, MenuHost) -> Unit = { _, host ->
         rememberTick()
         val n = Env.net
-        MenuCard(Sym.SWAP_VERT, stringResource(R.string.network_menu_title), Env.net.describe(Env.app)) {
+        // One reading for a draw, so that the subtitle's band and the Band row can't differ.
+        val wifi = LinkWatch.currentWifi()
+        val band = LinkRules.bands(wifi, wifiWords)
+        MenuCard(Sym.SWAP_VERT, stringResource(R.string.network_menu_title), Env.net.describe(Env.app, band)) {
             InfoRow(stringResource(R.string.network_download), "${Fmt.bytes(n.down)}/s", MaterialTheme.colorScheme.primary)
             InfoRow(stringResource(R.string.network_upload), "${Fmt.bytes(n.up)}/s", MaterialTheme.colorScheme.tertiary)
             Sparkline(n.downHistory.toList(), second = n.upHistory.toList())
             InfoRow(stringResource(R.string.network_received), Fmt.bytes(n.rxTotal.toDouble()))
             InfoRow(stringResource(R.string.network_sent), Fmt.bytes(n.txTotal.toDouble()))
+            val wifiRows = LinkRules.wifiRows(wifi, wifiWords)
+            if (wifiRows.isNotEmpty()) {
+                MenuDivider()
+                SectionLabel(stringResource(R.string.network_kind_wifi))
+                for (row in wifiRows) InfoRow(stringResource(label(row.field)), row.value)
+            }
             // The link's addresses and resolvers; nothing while there is no network, or none with an address yet.
             val rows = LinkRules.rows(LinkWatch.current(),
                 LinkRules.Words(stringResource(R.string.common_on), stringResource(R.string.network_link_private_dns_unused)))
@@ -83,13 +92,40 @@ object NetworkItem : ItemType("network", R.string.item_network_title, Sym.SWAP_V
             item.opt("show", "both")) { set(item.with("show", it)) }
     }
 
-    /** An Addresses row's label. No `else`: a new field doesn't compile until it has one. */
+    /** A Wi-Fi or Addresses row's label. No `else`: a new field doesn't compile until it has one. */
     private fun label(field: LinkRules.Field): Int = when (field) {
+        LinkRules.Field.LINK_SPEED -> R.string.network_wifi_speed
+        LinkRules.Field.BAND -> R.string.network_wifi_band
+        LinkRules.Field.SIGNAL -> R.string.network_wifi_signal
         LinkRules.Field.IPV4 -> R.string.network_link_ipv4
         LinkRules.Field.IPV6 -> R.string.network_link_ipv6
         LinkRules.Field.GATEWAY -> R.string.network_link_gateway
         LinkRules.Field.DNS -> R.string.network_link_dns
         LinkRules.Field.PRIVATE_DNS -> R.string.network_link_private_dns
+    }
+
+    /** The Wi-Fi rows' text. Through `Env.str`: the rules call these, and `stringResource` is for a composable alone. */
+    private val wifiWords = LinkRules.WifiWords(
+        both = { down, up -> Env.str(R.string.network_wifi_speed_both, down, up) },
+        down = { Env.str(R.string.network_wifi_speed_down, it) },
+        up = { Env.str(R.string.network_wifi_speed_up, it) },
+        band = { Env.str(name(it)) },
+        bandChannel = { band, channel -> Env.str(R.string.network_wifi_band_channel, band, channel) },
+        bands = { first, next -> Env.str(R.string.network_wifi_bands, first, next) },
+        signal = { Env.str(name(it)) },
+    )
+
+    private fun name(band: LinkRules.Band): Int = when (band) {
+        LinkRules.Band.GHZ_2_4 -> R.string.network_wifi_band_24
+        LinkRules.Band.GHZ_5 -> R.string.network_wifi_band_5
+        LinkRules.Band.GHZ_6 -> R.string.network_wifi_band_6
+    }
+
+    private fun name(signal: LinkRules.Signal): Int = when (signal) {
+        LinkRules.Signal.EXCELLENT -> R.string.network_wifi_signal_excellent
+        LinkRules.Signal.GOOD -> R.string.network_wifi_signal_good
+        LinkRules.Signal.FAIR -> R.string.network_wifi_signal_fair
+        LinkRules.Signal.POOR -> R.string.network_wifi_signal_poor
     }
 
     override val stages = LinkSamples.names.map { "stage $it" }
