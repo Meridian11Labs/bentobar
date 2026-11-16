@@ -16,6 +16,14 @@
   was taken to be the calendar's owner, which on a shared calendar is the calendar itself, so every attendee was
   someone else, and a call link skipped the attendee read altogether. Known limit: an event the user makes on a
   shared calendar without inviting themselves can't be told from a colleague's.
+- **The user's own answer** (`Meetings.answer`, `Meetings.verdicts`). On a calendar not the user's own,
+  `SELF_ATTENDEE_STATUS` is that calendar owner's answer: declined and not answered are read from the user's own
+  attendee row (`ATTENDEE_STATUS`, now read), and where the event is also on an own calendar (the same start, end and
+  title), that copy's verdict stands for the others, one that shows it nowhere too. So a meeting declined, not answered
+  or marked free on the user's calendar no longer counts through its copy on a team or colleague's calendar the user
+  can edit. On an own calendar an outside organizer is someone else only when the event has attendee rows: a booking
+  added from a file (a train, a dentist, a concert) lists nobody and is an event with only the user, as in 2.2 (a
+  webinar of that kind still counts by its call link).
 - **The meeting inside a long one** (`Meetings.pick`). The one on now (of several, the one that began last), else the
   next; a next one that begins before the current one ends takes over at the lead (the item's "Show when", the
   chip's 15 minutes). Before, the first meeting that had begun stayed until it ended, so a 14:00 meeting inside a
@@ -23,12 +31,16 @@
   meeting gets its chip at 02:50. `Meetings.once` counts one meeting on two calendars once, the own calendar's copy.
 - **Setup › Calendar events** (`data/MeetingChoices.kt`): the calendars (unticked ones are kept by account and owner,
   not by row id), events with only you, invitations not answered, events marked free (now off by default: a fix),
-  and words that leave a title out (whole words, `Meetings.hasWord`). One choice for the install, in the no-backup
-  directory beside the online switches: no part of the layout, Copy settings or a backup. `CheckList` and
-  `TextSetting` are the window's new controls.
+  and words that leave a title out (whole words, `Meetings.hasWord`; up to 20 of 80 characters, said under the field,
+  and a longer one is dropped whole, never kept cut). One choice for the install, in the no-backup directory beside
+  the online switches: no part of the layout, Copy settings or a backup; written on a background thread. A change is
+  judged again from what was read; only a calendar ticked again reads the provider again, for its attendees. `CheckList` and
+  `TextSetting` (saved once typing pauses for a second or the focus goes) are the window's new controls. The list of
+  calendars follows the provider while it is shown and is read again when the window comes back.
 - **Next meeting's options**: In the bar (title and time, or the time alone), Looks ahead (today, or any day: then a
   later day's meeting with its weekday or date, `EventText`), and a line that sends you to Setup for which events
-  count (`LocalTurnTo`, in the window, never by an intent). Longest title shows only with a title in the bar. Next
+  count (`LocalTurnTo`, in the window, never by an intent). Longest title shows only with a title in the bar. Live
+  activity says a meeting as the first Next meeting item does (`EventText.live`): with the time alone, no title. Next
   meeting is now `discreet`: debug output says how long its text is, and a failure is logged by its kind.
 - **The month view lists meetings** with Join and Directions; it left them out before.
 - **Debug**: `./bento debug event stage NAME` (or `calendar stage NAME`; `demo`, `solo`, `room`, `shared`,

@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.util.concurrent.Executor
 
 /**
  * Which calendar events count as meetings, for everything that uses meetings: every Next meeting item, the Live Update chip
@@ -60,13 +61,22 @@ object MeetingChoices {
     private val current = MutableStateFlow(State())
     val state: StateFlow<State> get() = current
 
-    /** Told after a change, on the caller's thread: the app reads the calendar again with the new choices. */
+    /** Told after a change, on the caller's thread: the app judges the calendar again with the new choices. */
     @Volatile var onChange: () -> Unit = {}
+
+    /**
+     * Where the file is written: the app's background thread ([com.meridian11.books.bentobar.items.Env] sets it), so that a
+     * change made on the main thread doesn't wait for the disk. The choices themselves change at once, in memory.
+     */
+    @Volatile var writer: Executor = Executor { it.run() }
+    /** A write is on its way: the next change needs none of its own, since that write takes what is current when it runs. */
+    private var writing = false
 
     /** [noBackupDir]: `Context.getNoBackupFilesDir()`. Reads what was saved; a file that can't be read counts as none. */
     @Synchronized
     fun init(noBackupDir: File) {
         file = File(noBackupDir, FILE)
+        writing = false
         val saved = try {
             file?.takeIf { it.isFile }?.let { json.decodeFromString(Saved.serializer(), it.readText(Charsets.UTF_8)) }
         } catch (e: Exception) {
@@ -75,14 +85,20 @@ object MeetingChoices {
         current.value = clean(State(OnlyMe.of(saved.onlyMe), saved.unanswered, saved.free, saved.words, saved.calendarsOff.toSet()))
     }
 
-    /** Changes the choices, keeps them, and says so ([onChange]); nothing happens when nothing changed. */
+    /**
+     * Changes the choices at once, keeps them (written on [writer], the latest choices whenever it runs), and says so
+     * ([onChange]); nothing happens when nothing changed.
+     */
     fun update(change: (State) -> State) {
         synchronized(this) {
             val before = current.value
             val after = clean(change(before))
             if (after == before) return
             current.value = after
-            save()
+            if (!writing) {
+                writing = true
+                writer.execute { synchronized(this) { writing = false; save() } }
+            }
         }
         onChange()
     }

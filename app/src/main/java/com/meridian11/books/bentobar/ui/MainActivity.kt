@@ -213,7 +213,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        Setup.refresh(this)
+        Setup.cameBack(this)
         Ticker.start("settings")
         Chips.update(this)
     }
@@ -249,7 +249,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) Setup.refresh(this)
+        if (hasFocus) Setup.cameBack(this)
     }
 
     @Composable

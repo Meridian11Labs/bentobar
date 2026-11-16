@@ -190,8 +190,11 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     answer, as the app's own model, never the reply as it came). `MeetingChoices.kt` is the same for which calendar
     events count as meetings (Setup's "Calendar events": the calendars unticked, by `Meetings.Cal.ident`, events with only
     the user, invitations not answered, events marked free, words that leave a title out): one choice for the install,
-    since every Next meeting item, the chip and Live activity must agree, in `meetings.json` beside `online.json`; a change
-    reads the calendar again (`Calendar.choicesChanged`). Calendars and words are personal, so none of it travels.
+    since every Next meeting item, the chip and Live activity must agree, in `meetings.json` beside `online.json`. A change
+    is in memory at once and written on a background thread (`MeetingChoices.writer`); `Calendar.choicesChanged` judges
+    the last reading again and reads the provider again only for a calendar ticked that was unticked at that reading
+    (its attendees weren't read; a word, a switch or "Events with only you" changes nothing that is read). Calendars and
+    words are personal, so none of it travels.
   - `ui/`: `MainActivity` (the settings window: its pages inside `Shell`), `Shell` (the header row directly under the
     system's caption, on the caption's ground: mark and name, the tabs, the status line, and one control, the "Show in
     status bar" switch or Turn on while BentoBar is off, neither on Setup; nothing is ever placed in the caption. Below
@@ -244,7 +247,11 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     "Calendar events" (`CalendarEventsCard`, stateless, so a test gives it made-up calendars): the calendars the user can
     change under their accounts (a `CheckList`; the heading only with more than one account), Events with only you,
     two switches and "Leave out titles with" (`TextSetting`, which keeps what is typed while it has the focus, like
-    `TextRow`); it is there whether or not a Next meeting item is. An item's options turn the window to a page with
+    `TextRow`, and saves it once typing pauses for a second, the focus goes or the field leaves the page: never a word
+    half typed; its help says the limits, 20 words or phrases of 80 characters, and a longer one is dropped whole, never
+    kept cut); it is there whether or not a Next meeting item is. Its calendars are read off the main thread when it is
+    composed, when calendar access changes, when the window comes back (`Setup.returns`) and, while it is shown, when the
+    provider's calendars change (`Calendar.watchCalendars`, an observer that lives only as long as the card). An item's options turn the window to a page with
     `LocalTurnTo` (Next meeting's "Open Setup"), in the process and never by an intent. `SetupRules`, pure, says
     when the window goes to Bar by itself: only at the moment BentoBar comes on while Setup is shown),
     `Disclosure` (the accessibility disclosure and consent Google Play requires, and the one list of
@@ -343,13 +350,16 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
     the events `Meetings.asksAttendees` names) into a `Meetings.Reading`; everything after that is `items/Meetings.kt`, pure
     and unit-tested: `judge` gives each event one verdict, the first that applies (a hidden calendar, canceled, declined,
     a task, all-day, read-only, an unticked calendar, someone else's, a word, free, unanswered, with others, only the
-    user), `events` keeps those that show at all, `pick` says which meeting the bar stands on (the one on now, else the
+    user; declined and unanswered are the user's own `answer`), `verdicts` judges one event on two calendars as its copy
+    on an own calendar (a declined own copy takes the shared one with it), `events` keeps those that show at all and is
+    judged again from the last reading when the choices change, `pick` says which meeting the bar stands on (the one on now, else the
     next; one that starts inside a long one takes over at the lead), `once` counts one meeting on two calendars once,
     `listed` is Next meeting's menu, `words`/`hasWord` are "Leave out titles with" (whole words), and `report` is
     `event check`'s counts. `meetings(now)` (today, to 03:00) and `upcomingMeetings(now)` (everything not ended: the chip,
     Live activity, "Any day") go through `once`; the month view shows every event that shows (`Verdict.event`).
     `items/EventText.kt` is what Next meeting says in the bar (title and time, or the time alone; a later day by its
-    weekday or date), pure with its words from outside. `items/EventSamples.kt` holds the made-up sets a test stages:
+    weekday or date) and in Live activity (`live`: as the first Next meeting item has it, so no title with the time
+    alone), pure with its words from outside. `items/EventSamples.kt` holds the made-up sets a test stages:
     while one is staged `Calendar.events` is the set as the real rules and choices judge it, `allowed()` is true and the
     provider is not read. Nothing of the calendar is logged: `PrivateTextTest` allows two failure lines, by their kind.
   - `tile/Tiles.kt`: the BentoBar, Keep awake and Timer tiles.
@@ -592,7 +602,13 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   as a guest is `group.calendar.google.com`). Other people and the user not on it: someone else's, whatever the
   choices. The provider does not say who made an event, so a meeting the user makes on a shared calendar without
   inviting themselves is someone else's: the known limit, said in the notes. A call link no longer spares the attendee
-  read (a colleague's meeting with a link was a meeting with nobody asked). A plain canceled event (`eventStatus` 2,
+  read (a colleague's meeting with a link was a meeting with nobody asked). Since `SELF_ATTENDEE_STATUS` on another's
+  calendar is its owner's answer, the user's answer there is the user's own attendee row (`ATTENDEE_STATUS`,
+  `Meetings.answer`), and where the event is also on an own calendar (the same start, end and title) that copy's verdict
+  stands for the others (`Meetings.verdicts`): an invitation declined, not answered or free on the user's calendar is
+  that on a team calendar the user can edit too. On an own calendar an outside organizer is another person only when
+  the event has attendee rows: a booking added from a file (a train, a dentist, a concert, organizer `noreply@…`) lists
+  nobody, and is an event with only the user (a webinar of that kind still counts by its call link, as in 2.2). A plain canceled event (`eventStatus` 2,
   an invitation the organizer canceled) comes back from Instances like any other (seen on the API 34 and 37
   emulators): `judge` drops it. The grown projection (`CALENDAR_ID`, `STATUS`, `AVAILABILITY`, `ORGANIZER`) ran there
   too; a column a device lacks would throw, the catch empties the calendar, and `event check` says `query=failed:…`.

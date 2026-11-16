@@ -164,7 +164,12 @@ learned the hard way" says why. Run it again on every new draft.
   canceled event still on the calendar is not there; an invitation not answered and an event marked free follow
   their switches; `./bento debug state event` prints a length, and `logcat` over the pass has no title; the strip
   comes back from full screen with Next meeting in its first frame, and the CPU figure is as before (the attendee
-  read is once per load). `event stage demo` for the store pictures, then `event off`.
+  read is once per load). A meeting declined on the user's calendar that is also on a team calendar they can edit is
+  in neither Next meeting, the chip, Live activity nor the month view; a booking added from a file (a train, organizer
+  `noreply@…`, nobody invited) is no meeting under "Count with a call link"; with Next meeting's In the bar on Time,
+  Live activity shows no title; typing in "Leave out titles with" changes the bar about a second after the typing
+  stops, not at each key; a calendar added or renamed in the calendar app shows in Setup's list while it stays open.
+  `event stage demo` for the store pictures, then `event off`.
 - **Items that tick.** A clock and a network speed item do not make neighbours move; the bar's CPU use stays low
   (about 1% of one core on a release build).
 - **Keep awake and timers.** Keep awake keeps the screen on and ends when switched off. With three areas exactly one strip

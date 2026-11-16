@@ -69,6 +69,27 @@ object EventText {
             active = until <= soonMs && e.begin < horizon)
     }
 
+    /** What Live activity says: [text] and [desc] (spoken: it always names the title). */
+    class Live(val text: String, val desc: String)
+
+    /**
+     * Live activity's words for [e] at [now], a meeting from ten minutes before it starts ([LiveRules.meeting]): the bar's
+     * countdown, with the title cut so that the countdown stays whole ([LiveRules.around], [chars] at most). [timeOnly]: the
+     * first Next meeting item shows the time alone ("In the bar": Time), and so does Live activity: a title kept off the
+     * bar is not shown beside it either. Never out of [Live.desc].
+     */
+    fun live(e: Calendar.Event, now: Long, timeOnly: Boolean, chars: Int, words: Words): Live {
+        if (e.begin <= now) {
+            val left = Fmt.duration(e.end - now)
+            return Live(if (timeOnly) words.fill(Word.LEFT, left) else LiveRules.around(e.title, chars) { words.fill(Word.NOW_TEXT, it, left) },
+                words.fill(Word.NOW_DESC, e.title, Fmt.spokenMinutes(e.end - now)))
+        }
+        val until = (e.begin - now).coerceAtLeast(60_000)
+        val shown = words.fill(Word.IN, Fmt.duration(until))
+        return Live(if (timeOnly) shown else LiveRules.around(e.title, chars) { words.fill(Word.NEXT_TEXT, it, shown) },
+            words.fill(Word.NEXT_DESC, e.title, words.fill(Word.IN, Fmt.spokenMinutes(until))))
+    }
+
     /** How many local days [begin] is after [now]'s. */
     private fun daysAhead(begin: Long, now: Long, zone: ZoneId): Long =
         ChronoUnit.DAYS.between(Instant.ofEpochMilli(now).atZone(zone).toLocalDate(), Instant.ofEpochMilli(begin).atZone(zone).toLocalDate())

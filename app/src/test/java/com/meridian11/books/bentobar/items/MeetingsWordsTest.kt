@@ -19,10 +19,23 @@ class MeetingsWordsTest {
 
     @Test fun theLimits() {
         assertEquals(Meetings.MAX_WORDS, Meetings.words((1..50).joinToString(",") { "w$it" }).size)
-        assertEquals(Meetings.WORD_CHARS, Meetings.words("x".repeat(500)).single().length)
+        assertEquals(80, Meetings.WORD_CHARS)
+        assertEquals(Meetings.WORD_CHARS, Meetings.words("x".repeat(Meetings.WORD_CHARS)).single().length)
+        // A phrase over the limit is dropped whole, never kept cut: cut, it would be found nowhere or leave out too much.
+        assertEquals(emptyList<String>(), Meetings.words("x".repeat(Meetings.WORD_CHARS + 1)))
+        assertEquals(emptyList<String>(), Meetings.words("x".repeat(500)))
+        assertEquals(listOf("Hold"), Meetings.words("x".repeat(Meetings.WORD_CHARS) + " y, Hold"))
+        assertEquals("spaces count once", listOf("a b"), Meetings.words("a" + " ".repeat(200) + "b"))
         // One line, and nothing that turns the text around.
         assertEquals(listOf("evil"), Meetings.words("‮evil"))
         assertEquals(listOf("one two"), Meetings.cleanWords(listOf("one\ttwo")))
+    }
+
+    @Test fun aLongPhraseIsKeptWholeAndFound() {
+        // 47 characters: cut at 40 before, and then never found.
+        val phrase = "Quarterly business review with the EMEA leaders"
+        assertEquals(listOf(phrase), Meetings.words("$phrase, Hold").take(1))
+        assertTrue(Meetings.hasWord("Prep: $phrase (draft)", Meetings.words(phrase)))
     }
 
     @Test fun aWordIsFoundOnlyAsAWholeWord() {

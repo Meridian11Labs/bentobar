@@ -22,6 +22,7 @@ class MeetingChoicesTest {
 
     @After fun gone() {
         MeetingChoices.onChange = {}
+        MeetingChoices.writer = java.util.concurrent.Executor { it.run() }
         dir.deleteRecursively()
         // Leave the defaults for whoever runs next.
         MeetingChoices.init(File(dir, "empty"))
@@ -84,5 +85,23 @@ class MeetingChoicesTest {
         assertFalse("Therapy" in exported)
         assertFalse("team@example.com" in exported)
         assertFalse(prefs.map.values.any { it is String && ("Therapy" in it || "team@example.com" in it) })
+    }
+
+    @Test fun aChangeIsThereAtOnceAndTheFileIsWrittenOnTheWriterWithTheLatest() {
+        // The app's writer is a background thread: what is queued here runs when the test says.
+        val queued = ArrayDeque<Runnable>()
+        MeetingChoices.writer = java.util.concurrent.Executor { queued.addLast(it) }
+        MeetingChoices.update { it.copy(words = listOf("Hold")) }
+        assertEquals("in memory at once", listOf("Hold"), MeetingChoices.state.value.words)
+        assertEquals(1, told)
+        assertFalse("not written on the caller's thread", File(dir, "meetings.json").exists())
+        MeetingChoices.update { it.copy(words = listOf("Hold", "Lunch")) }
+        assertEquals("one write is on its way: it takes the latest", 1, queued.size)
+        queued.removeFirst().run()
+        MeetingChoices.init(dir)
+        assertEquals(listOf("Hold", "Lunch"), MeetingChoices.state.value.words)
+        MeetingChoices.update { it.copy(free = true) }
+        assertEquals("written, so the next change writes again", 1, queued.size)
+        queued.removeFirst().run()
     }
 }

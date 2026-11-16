@@ -75,21 +75,40 @@ object Calendar {
             changed = { Chips.update(app); loaded(); waiting.arrived() }, minGapMs = 0, mayLoad = { users.active && allowed() }),
     ) { load(System.currentTimeMillis()).takeIf { allowed() } }
 
-    /** A made-up reading a test staged (`./bento debug event stage NAME`), and its events as the choices of [at] judged them. */
-    private class Staged(val name: String, val reading: Meetings.Reading) {
-        @Volatile var at: MeetingChoices.State? = null
-        @Volatile var events: List<Event> = emptyList()
+    /**
+     * A reading and its events, judged by the choices they were last asked with: when the choices change it is judged again,
+     * and the provider is not read again (which events are meetings changes nothing of what is read). [readOff]: the
+     * calendars unticked when it was read, whose attendees were not read: they stay unticked in its judging until a read
+     * with the new choices comes ([choicesChanged] asks for one). Null for a staged set, which has every attendee.
+     */
+    private class Judged(val reading: Meetings.Reading, private val readOff: Set<String>?) {
+        private var at: MeetingChoices.State? = null
+        private var events: List<Event> = emptyList()
+
+        /** Whether it knows every attendee a read with [off] unticked would: no calendar ticked now was unticked when it was read. */
+        fun hasAttendeesFor(off: Set<String>) = readOff == null || readOff.all { it in off }
+
+        /** Its events as [choices] judge them: judged again only when they are other choices than last time. */
+        @Synchronized
+        fun events(choices: MeetingChoices.State, noTitle: () -> String): List<Event> {
+            if (at !== choices) {
+                val judging = if (hasAttendeesFor(choices.calendarsOff)) choices
+                    else choices.copy(calendarsOff = choices.calendarsOff + readOff.orEmpty())
+                events = Meetings.events(reading, judging, noTitle())
+                at = choices
+            }
+            return events
+        }
+    }
+
+    /** A made-up reading a test staged (`./bento debug event stage NAME`). */
+    private class Staged(val name: String, reading: Meetings.Reading) {
+        val judged = Judged(reading, readOff = null)
     }
     @Volatile private var staged: Staged? = null
 
     /** What was read, or while a set is staged, the set: judged by the real rules with the real choices. */
-    val events: List<Event> get() = staged?.let(::judged) ?: loader.peek(Unit).orEmpty()
-
-    private fun judged(s: Staged): List<Event> {
-        val choices = MeetingChoices.state.value
-        if (s.at != choices) { s.events = Meetings.events(s.reading, choices, noTitle()); s.at = choices }
-        return s.events
-    }
+    val events: List<Event> get() = (staged?.judged ?: loader.peek(Unit))?.events(MeetingChoices.state.value, ::noTitle).orEmpty()
 
     private fun noTitle() = if (::app.isInitialized) app.getString(R.string.calendar_no_title) else ""
     private var observer: ContentObserver? = null
@@ -128,17 +147,20 @@ object Calendar {
     }
 
     /**
-     * The choices of which events count changed ([MeetingChoices]): read again and judged by them. A staged set is judged
-     * again where it is read; the items and the chip are told at once. Main thread.
+     * The choices of which events count changed ([MeetingChoices]): what was read is judged again by them where it is read
+     * ([events]), and the items and the chip are told at once. Only a calendar ticked now that was unticked when the
+     * provider was read has it read again, for its attendees; a word, a switch, "Events with only you" or a calendar
+     * unticked read nothing. Main thread.
      */
     fun choicesChanged() {
-        if (staged != null) { if (::app.isInitialized) Chips.update(app); loaded(); return }
-        refresh(force = true)
+        if (::app.isInitialized) Chips.update(app)
+        loaded()
+        if (staged == null && loader.peek(Unit)?.hasAttendeesFor(MeetingChoices.state.value.calendarsOff) != true) refresh(force = true)
     }
 
     /** Calendar switched off in Setup: drop what was read, and whatever a running load returns. */
     fun forget() {
-        val had = loader.peek(Unit).orEmpty().isNotEmpty()
+        val had = loader.peek(Unit)?.reading?.rows.orEmpty().isNotEmpty()
         loader.forget()
         if (had && ::app.isInitialized) Chips.update(app)
     }
@@ -172,13 +194,16 @@ object Calendar {
         if (next != null && allowed()) refresh(force = true)
     }
 
-    private fun load(now: Long): List<Event> = try {
-        val begin = now - 36 * 3_600_000L
-        val end = now + 40 * 86_400_000L
-        Meetings.events(read(Meetings.spans(begin..end, view)), MeetingChoices.state.value, noTitle())
-    } catch (e: Exception) {
-        Log.w(TAG, "calendar query failed: ${e.javaClass.simpleName}")
-        emptyList()
+    /** One load: read, and judged at once (off the main thread) by the choices it was read with. */
+    private fun load(now: Long): Judged {
+        val choices = MeetingChoices.state.value
+        val reading = try {
+            read(Meetings.spans(now - 36 * 3_600_000L..now + 40 * 86_400_000L, view), choices)
+        } catch (e: Exception) {
+            Log.w(TAG, "calendar query failed: ${e.javaClass.simpleName}")
+            Meetings.Reading(emptyMap(), emptyList())
+        }
+        return Judged(reading, choices.calendarsOff).also { it.events(choices, ::noTitle) }
     }
 
     /**
@@ -203,10 +228,11 @@ object Calendar {
 
     /**
      * One reading: the calendars, the occurrences in [spans], and the attendees of the events [Meetings.asksAttendees] names
-     * (read once per load, not per tick, in chunks of [IDS_PER_QUERY]). A row keeps what was found in the description,
-     * never the description. Throws when the provider does (a column it doesn't have): the caller says so by its kind.
+     * by [choices] (read once per load, not per tick, in chunks of [IDS_PER_QUERY]), each with its answer. A row keeps what
+     * was found in the description, never the description. Throws when the provider does (a column it doesn't have): the
+     * caller says so by its kind.
      */
-    private fun read(spans: List<LongRange>): Meetings.Reading {
+    private fun read(spans: List<LongRange>, choices: MeetingChoices.State): Meetings.Reading {
         val calendars = readCalendars()
         val projection = arrayOf(
             CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.TITLE,
@@ -234,18 +260,18 @@ object Calendar {
                 )
             }
         }
-        val choices = MeetingChoices.state.value
         val asked = rows.filter { Meetings.asksAttendees(it, calendars[it.calendarId], choices) }.mapTo(LinkedHashSet()) { it.eventId }
         val guests = HashMap<Long, MutableList<Meetings.Guest>>()
         // Without them nobody is known to be invited: every event is then one with only the user, as before there were rules.
         val failed = try {
             for (chunk in asked.chunked(IDS_PER_QUERY)) app.contentResolver.query(CalendarContract.Attendees.CONTENT_URI,
-                arrayOf(CalendarContract.Attendees.EVENT_ID, CalendarContract.Attendees.ATTENDEE_EMAIL, CalendarContract.Attendees.ATTENDEE_TYPE),
+                arrayOf(CalendarContract.Attendees.EVENT_ID, CalendarContract.Attendees.ATTENDEE_EMAIL, CalendarContract.Attendees.ATTENDEE_TYPE,
+                    CalendarContract.Attendees.ATTENDEE_STATUS),
                 "${CalendarContract.Attendees.EVENT_ID} IN (${chunk.joinToString(",")})", null, null)?.use { c ->
                 while (c.moveToNext()) {
                     val email = c.getString(1).orEmpty()
                     if (email.isBlank()) continue // no one to tell apart (and no one to meet)
-                    guests.getOrPut(c.getLong(0)) { ArrayList() } += Meetings.Guest(email, c.getInt(2))
+                    guests.getOrPut(c.getLong(0)) { ArrayList() } += Meetings.Guest(email, c.getInt(2), c.getInt(3))
                 }
             }
             null
@@ -262,9 +288,28 @@ object Calendar {
      * without calendar access, or when the provider can't be read. Off the main thread.
      */
     fun calendars(): List<Meetings.Cal> {
-        staged?.let { return it.reading.calendars.values.toList() }
+        staged?.let { return it.judged.reading.calendars.values.toList() }
         if (!readable()) return emptyList()
         return try { readCalendars().values.toList() } catch (e: Exception) { emptyList() }
+    }
+
+    /**
+     * Tells [changed], on the main thread, each time the provider's calendars may have changed (an account added, a calendar
+     * shared, left or renamed): for Setup's list, only while it is shown. The provider tells of every change it makes in
+     * one go, events too, so a sync tells it many times. Returns what stops it; null without calendar access, since
+     * Android refuses an observer then. Main thread.
+     */
+    fun watchCalendars(changed: () -> Unit): (() -> Unit)? {
+        if (!readable()) return null
+        val watch = object : ContentObserver(main) {
+            override fun onChange(selfChange: Boolean) = changed()
+        }
+        try {
+            app.contentResolver.registerContentObserver(CalendarContract.Calendars.CONTENT_URI, true, watch)
+        } catch (e: SecurityException) {
+            return null
+        }
+        return { runCatching { app.contentResolver.unregisterContentObserver(watch) } }
     }
 
     /**
@@ -324,8 +369,9 @@ object Calendar {
         val day = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val from = day.atStartOfDay(zone).toInstant().toEpochMilli()
         val to = day.plusDays(2).atStartOfDay(zone).toInstant().toEpochMilli()
-        val reading = try { read(listOf(from..to)) } catch (e: Exception) { return "query=failed:${e.javaClass.simpleName}" }
-        return "query=ok\n" + Meetings.report(reading, MeetingChoices.state.value, now, zone)
+        val choices = MeetingChoices.state.value
+        val reading = try { read(listOf(from..to), choices) } catch (e: Exception) { return "query=failed:${e.javaClass.simpleName}" }
+        return "query=ok\n" + Meetings.report(reading, choices, now, zone)
     }
 
     fun open(e: Event) = Env.launch(openIntent(e))
@@ -355,8 +401,8 @@ object Calendar {
  * How the calendar loads: [Refresher]'s rules, on the calendar's numbers. Pure, so the rules run in a test; [Calendar] gives
  * it the app's wiring and the query.
  */
-internal fun calendarLoader(wiring: Refresher.Wiring, load: () -> List<Calendar.Event>?): Refresher<Unit, List<Calendar.Event>> =
+internal fun <T : Any> calendarLoader(wiring: Refresher.Wiring, load: () -> T?): Refresher<Unit, T> =
     Refresher(wiring, every = { _, _ -> Calendar.RELOAD_MS }, load = { _, _ -> load() })
 
 /** The load under way is the first: nothing has been read yet, so finding no meeting would only mean not knowing. */
-internal fun Refresher<Unit, List<Calendar.Event>>.loadingFirst(): Boolean = loading(Unit) && peek(Unit) == null
+internal fun Refresher<Unit, *>.loadingFirst(): Boolean = loading(Unit) && peek(Unit) == null

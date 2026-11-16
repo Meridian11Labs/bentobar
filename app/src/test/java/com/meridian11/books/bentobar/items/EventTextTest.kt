@@ -100,4 +100,29 @@ class EventTextTest {
     @Test fun aStartWithinAMinuteSaysAMinute() {
         assertEquals("in 1m", bar(meeting("A", now + 10_000, now + 30 * min), true).text)
     }
+
+    // ---- Live activity: the bar's words, as the first Next meeting item has them
+
+    private fun live(e: Calendar.Event, timeOnly: Boolean, chars: Int = 20) = EventText.live(e, now, timeOnly, chars, words)
+
+    @Test fun liveActivitySaysTheTitleAndTheCountdown() {
+        assertEquals("Standup in 5m", live(meeting("Standup", now + 5 * min, now + 30 * min), false).text)
+        assertEquals("Standup · 24m left", live(meeting("Standup", now - 6 * min, now + 24 * min), false).text)
+        // Cut so that the countdown stays whole in Live activity's room.
+        assertEquals("Quarterly plannin… in 5m", live(meeting("Quarterly planning review", now + 5 * min, now + 30 * min), false, chars = 40).text)
+        assertEquals("Quarterl… in 5m", live(meeting("Quarterly planning review", now + 5 * min, now + 30 * min), false, chars = 9).text)
+    }
+
+    @Test fun withTheTimeAloneInTheBarLiveActivityShowsNoTitle() {
+        // "In the bar": Time keeps the title off the bar: Live activity, beside it, doesn't show it either.
+        val soon = meeting("Therapy", now + 5 * min, now + 55 * min)
+        val on = meeting("Therapy", now - 6 * min, now + 24 * min)
+        assertEquals("in 5m", live(soon, true).text)
+        assertEquals("24m left", live(on, true).text)
+        assertEquals(bar(soon, true).text, live(soon, true).text)
+        assertEquals(bar(on, true).text, live(on, true).text)
+        // Spoken, the title is there as in the bar.
+        assertEquals("Next: Therapy in 5 minutes", live(soon, true).desc)
+        assertEquals("Now: Therapy, ends in 24 minutes", live(on, true).desc)
+    }
 }

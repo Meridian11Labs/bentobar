@@ -75,6 +75,7 @@ object Env {
         Online.init(app.noBackupFilesDir)
         // Which calendar events count as meetings: the install's, beside the switches and no part of the layout.
         MeetingChoices.init(app.noBackupFilesDir)
+        MeetingChoices.writer = Background.executor("choices")
         MeetingChoices.onChange = { Background.onMain { Calendar.choicesChanged() } }
         wireOnline()
         FlightItem.sweepAtStart()

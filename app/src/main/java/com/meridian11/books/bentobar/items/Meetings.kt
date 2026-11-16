@@ -14,7 +14,9 @@ import java.util.Locale
  *
  * Whose event it is (AGENTS.md, "Things learned the hard way"): the user is every account on the device ([mine]); an own
  * calendar ([Cal.own]) has the user on every event; a room or a calendar invited as a guest is no person ([isPerson]). An
- * event with other people that the user is not on is someone else's ([Verdict.NOT_MINE]), whatever the choices say.
+ * event with other people that the user is not on is someone else's ([Verdict.NOT_MINE]), whatever the choices say. The
+ * user's answer to an invitation is the row's on an own calendar and the user's attendee row's on another ([answer]), and
+ * one event on two calendars is judged as its copy on an own calendar is ([verdicts]).
  * Nothing here keeps or prints a title or an address: no class that holds one is a data class.
  */
 object Meetings {
@@ -66,8 +68,8 @@ object Meetings {
             owner.trim().lowercase(Locale.ROOT).ifEmpty { name }).joinToString("\n")
     }
 
-    /** One attendee: an address and its `ATTENDEE_TYPE`. */
-    class Guest(val email: String, val type: Int = 0)
+    /** One attendee: an address, its `ATTENDEE_TYPE` and its `ATTENDEE_STATUS` (the answer, numbered as `SELF_ATTENDEE_STATUS`). */
+    class Guest(val email: String, val type: Int = 0, val status: Int = 0)
 
     /**
      * One occurrence of an event, as the rules need it: never its description, only what was found in it ([link], a call
@@ -142,9 +144,11 @@ object Meetings {
     enum class Organizer(val word: String) { MINE("mine"), THE_CALENDAR("the-calendar"), ANOTHER("another"), NONE("none") }
 
     /**
-     * Who is on an event. [others]: a person who is not the user, or an organizer who is another person. [onIt]: an own
-     * calendar, the user among the persons, or the user its organizer. [byAccount]: the user found among the persons by an
-     * account; [byOwnerOnly]: on an own calendar, only as the calendar's owner (an alias, as far as the accounts go).
+     * Who is on an event. [others]: a person who is not the user, or an organizer who is another person: on an own calendar
+     * only when the event has attendee rows, since a booking added from a file (a train, a dentist, a concert) names an
+     * outside organizer and nobody else. [onIt]: an own calendar, the user among the persons, or the user its organizer.
+     * [byAccount]: the user found among the persons by an account; [byOwnerOnly]: on an own calendar, only as the
+     * calendar's owner (an alias, as far as the accounts go).
      */
     class Who(val others: Boolean, val onIt: Boolean, val byAccount: Boolean, val byOwnerOnly: Boolean, val persons: Int, val organizer: Organizer)
 
@@ -162,8 +166,11 @@ object Meetings {
             isPerson(0, org) && !(cal.own && org == owner) -> Organizer.ANOTHER
             else -> Organizer.THE_CALENDAR
         }
+        // On an own calendar an outside organizer with nobody listed is a booking, not an invitation (a webinar of that kind
+        // still counts by its call link). On another calendar it is whose calendar it is: a colleague's own block.
+        val organizerCounts = organizer == Organizer.ANOTHER && (!cal.own || guests.isNotEmpty())
         return Who(
-            others = persons.any { !me(it) } || organizer == Organizer.ANOTHER,
+            others = persons.any { !me(it) } || organizerCounts,
             onIt = cal.own || byAccount || organizer == Organizer.MINE,
             byAccount = byAccount,
             byOwnerOnly = byOwner && !byAccount,
@@ -174,11 +181,25 @@ object Meetings {
 
     // ---- the verdict
 
-    /** Of the rows 1 to 3 of [judge]: shown nowhere, whatever else is true. */
-    private fun gone(row: Row, cal: Cal?): Verdict? = when {
+    /**
+     * The user's answer to [row] (numbered as `SELF_ATTENDEE_STATUS`). On an own calendar the row's. On another (a team's, a
+     * colleague's) the row's is that calendar owner's answer, so the user's own attendee row says it; of two (two accounts
+     * invited) the one that counts most: yes, maybe or none asked before not answered, before no. Where the user has no
+     * attendee row there, the row's.
+     */
+    fun answer(row: Row, cal: Cal, guests: List<Guest>, mine: Set<String>): Int {
+        if (cal.own) return row.selfStatus
+        return guests.filter { isPerson(it.type, it.email) && it.email.trim().lowercase(Locale.ROOT) in mine }
+            .minByOrNull { answerRank(it.status) }?.status ?: row.selfStatus
+    }
+
+    private fun answerRank(status: Int) = when (status) { SELF_DECLINED -> 2; SELF_INVITED -> 1; else -> 0 }
+
+    /** Of the rows 1 to 3 of [judge]: shown nowhere, whatever else is true. [answer]: the user's ([Meetings.answer]). */
+    private fun gone(row: Row, cal: Cal?, answer: Int): Verdict? = when {
         cal == null || !cal.visible -> Verdict.HIDDEN_CALENDAR
         row.status == STATUS_CANCELED -> Verdict.CANCELED
-        row.selfStatus == SELF_DECLINED -> Verdict.DECLINED
+        answer == SELF_DECLINED -> Verdict.DECLINED
         else -> null
     }
 
@@ -187,10 +208,13 @@ object Meetings {
      * invited) and [mine] the user's accounts. The first that applies, in this order: a hidden calendar, canceled, declined,
      * a task, all-day, a calendar the user can't change, an unticked one, someone else's, a word in its title, free, an
      * invitation not answered, with other people, and with only the user. Tentative, accepted and no answer asked all count.
+     * Declined and not answered are the user's own [answer]. One row alone: [verdicts] judges a copy on another calendar as
+     * the one on the user's own.
      */
     fun judge(row: Row, cal: Cal?, guests: List<Guest>, mine: Set<String>, choices: MeetingChoices.State): Verdict {
-        gone(row, cal)?.let { return it }
-        cal!!
+        if (cal == null) return Verdict.HIDDEN_CALENDAR
+        val said = answer(row, cal, guests, mine)
+        gone(row, cal, said)?.let { return it }
         val who = who(row, cal, guests, mine)
         return when {
             row.linksTask && row.link == null && !who.others -> Verdict.TASK
@@ -200,7 +224,7 @@ object Meetings {
             who.others && !who.onIt -> Verdict.NOT_MINE
             hasWord(row.title, choices.words) -> Verdict.WORD
             row.availability == AVAILABILITY_FREE && !choices.free -> Verdict.FREE
-            row.selfStatus == SELF_INVITED && !choices.unanswered -> Verdict.UNANSWERED
+            said == SELF_INVITED && !choices.unanswered -> Verdict.UNANSWERED
             who.others -> Verdict.WITH_OTHERS
             else -> when (choices.onlyMe) {
                 MeetingChoices.OnlyMe.NEVER -> Verdict.ONLY_ME
@@ -211,22 +235,57 @@ object Meetings {
     }
 
     /**
-     * Whether [row]'s attendees are read: not gone (rows 1 to 3 of [judge]), and either a task app's link with no call link
-     * (an event with others invited is no task) or timed on a calendar the user can change and has not unticked (it may be
-     * a meeting). A call link doesn't spare the read: whose meeting it is decides first.
+     * Whether [row]'s attendees are read: not gone (rows 1 to 3 of [judge]; on a calendar not the user's own, declined is
+     * known only from the attendees, so they are read), and either a task app's link with no call link (an event with
+     * others invited is no task) or timed on a calendar the user can change and has not unticked (it may be a meeting). A
+     * call link doesn't spare the read: whose meeting it is decides first.
      */
     fun asksAttendees(row: Row, cal: Cal?, choices: MeetingChoices.State): Boolean {
-        if (gone(row, cal) != null) return false
-        cal!!
+        if (cal == null || gone(row, cal, if (cal.own) row.selfStatus else 0) != null) return false
         return (row.linksTask && row.link == null) || (!row.allDay && cal.editable && cal.ident !in choices.calendarsOff)
     }
 
-    /** Every row of [reading] that is shown at all, as an event with its verdict, by start. [noTitle] for a title left blank. */
-    fun events(reading: Reading, choices: MeetingChoices.State, noTitle: String): List<Calendar.Event> {
+    /** One event's copies on several calendars: the same start, end and title ([once] counts them once). */
+    private fun copyKey(begin: Long, end: Long, title: String) = Triple(begin, end, title)
+
+    /** Verdicts about a calendar, not about the event: they speak for no copy on another calendar. */
+    private val ABOUT_A_CALENDAR = setOf(Verdict.HIDDEN_CALENDAR, Verdict.READ_ONLY, Verdict.CALENDAR_OFF)
+
+    /**
+     * Each row's verdict ([judge]), with one event on two calendars judged as one: where a copy is on one of the user's own
+     * calendars (the same start, end and title), its verdict stands for the copies on other calendars, a verdict that shows
+     * it nowhere too. The own copy carries the user's answer and the user's "free"; a team or colleague's calendar carries
+     * its owner's. So an invitation declined, not answered or free on the user's own calendar is that on a shared one too.
+     * A verdict about the own copy's calendar (hidden, read-only, unticked) speaks for no other copy, and a copy on a hidden
+     * calendar stays hidden. Of two own copies (two accounts invited), the one that counts most: a meeting, else one shown.
+     */
+    fun verdicts(reading: Reading, choices: MeetingChoices.State): List<Verdict> {
         val mine = mine(reading.calendars.values)
-        return reading.rows.mapNotNull { r ->
+        val judged = reading.rows.map { judge(it, reading.calendars[it.calendarId], reading.guests[it.eventId].orEmpty(), mine, choices) }
+        val ownSays = HashMap<Triple<Long, Long, String>, Verdict>()
+        reading.rows.forEachIndexed { i, r ->
+            val v = judged[i]
+            if (reading.calendars[r.calendarId]?.own != true || v in ABOUT_A_CALENDAR) return@forEachIndexed
+            val key = copyKey(r.begin, r.end, r.title)
+            val had = ownSays[key]
+            if (had == null || weight(v) > weight(had)) ownSays[key] = v
+        }
+        if (ownSays.isEmpty()) return judged
+        return reading.rows.mapIndexed { i, r ->
+            val v = judged[i]
+            if (v == Verdict.HIDDEN_CALENDAR || reading.calendars[r.calendarId]?.own != false) v
+            else ownSays[copyKey(r.begin, r.end, r.title)] ?: v
+        }
+    }
+
+    private fun weight(v: Verdict) = if (v.meeting) 2 else if (v.event) 1 else 0
+
+    /** Every row of [reading] that is shown at all, as an event with its verdict ([verdicts]), by start. [noTitle] for a title left blank. */
+    fun events(reading: Reading, choices: MeetingChoices.State, noTitle: String): List<Calendar.Event> {
+        val verdicts = verdicts(reading, choices)
+        return reading.rows.mapIndexedNotNull { i, r ->
             val cal = reading.calendars[r.calendarId]
-            val v = judge(r, cal, reading.guests[r.eventId].orEmpty(), mine, choices)
+            val v = verdicts[i]
             if (!v.event || cal == null) null else Calendar.Event(
                 eventId = r.eventId, title = r.title.ifBlank { noTitle }, begin = r.begin, end = r.end, allDay = r.allDay,
                 color = r.color, location = r.location, editable = cal.editable, meeting = v.meeting, link = r.link,
@@ -259,7 +318,7 @@ object Meetings {
         if (meetings.size < 2) return meetings
         val kept = HashMap<Triple<Long, Long, String>, Int>()
         meetings.forEachIndexed { i, e ->
-            val key = Triple(e.begin, e.end, e.title)
+            val key = copyKey(e.begin, e.end, e.title)
             val had = kept[key]
             if (had == null || (!meetings[had].ownCalendar && e.ownCalendar)) kept[key] = i
         }
@@ -284,20 +343,25 @@ object Meetings {
 
     // ---- words in a title
 
-    /** How many words or phrases "Leave out titles with" keeps, and how long each may be. */
+    /** How many words or phrases "Leave out titles with" keeps, and how long each may be (a title is [TITLE_CHARS]). Setup says both. */
     const val MAX_WORDS = 20
-    const val WORD_CHARS = 40
+    const val WORD_CHARS = 80
 
     /** What "Leave out titles with" keeps of [raw]: parted at commas and line breaks ([cleanWords]). */
     fun words(raw: String): List<String> = cleanWords(raw.split(',', '\n', '\r'))
 
-    /** Each one line of [WORD_CHARS] at most, blanks dropped, the same word once (ignoring case), [MAX_WORDS] at most. */
+    /**
+     * Each as one line, blanks dropped, the same word once (ignoring case), [MAX_WORDS] at most. One longer than [WORD_CHARS]
+     * is dropped whole, never kept cut: cut inside a word it would never be found, cut between words it would leave out
+     * more than was asked.
+     */
     fun cleanWords(words: List<String>): List<String> {
         val seen = HashSet<String>()
         val out = ArrayList<String>()
         for (w in words) {
-            val clean = TextRules.oneLine(w, WORD_CHARS).trim()
-            if (clean.isEmpty() || !seen.add(clean.lowercase(Locale.ROOT))) continue
+            // Read a good way past the limit, so that what is over it is seen as over it and not cut to fit.
+            val clean = TextRules.oneLine(w, WORD_CHARS * 2).trim()
+            if (clean.isEmpty() || !TextRules.fits(clean, WORD_CHARS) || !seen.add(clean.lowercase(Locale.ROOT))) continue
             out += clean
             if (out.size == MAX_WORDS) break
         }
@@ -337,13 +401,13 @@ object Meetings {
      */
     fun report(reading: Reading, choices: MeetingChoices.State, now: Long, zone: ZoneId): String {
         val mine = mine(reading.calendars.values)
+        val all = verdicts(reading, choices)
         val today = dayOf(now, zone)
         val lines = ArrayList<String>()
         for ((name, day) in listOf("today" to today, "tomorrow" to today.plusDays(1))) {
             val from = day.atStartOfDay(zone).toInstant().toEpochMilli()
             val to = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-            val rows = reading.rows.filter { it.begin < to && it.end > from }
-            val verdicts = rows.map { judge(it, reading.calendars[it.calendarId], reading.guests[it.eventId].orEmpty(), mine, choices) }
+            val verdicts = reading.rows.indices.filter { reading.rows[it].begin < to && reading.rows[it].end > from }.map { all[it] }
             fun n(v: Verdict) = verdicts.count { it == v }
             lines += "$name: events=${verdicts.count { it.event }} meetings=${verdicts.count { it.meeting }} " +
                 "[with-others=${n(Verdict.WITH_OTHERS)} only-me-call=${n(Verdict.ONLY_ME_CALL)} only-me-any=${n(Verdict.ONLY_ME_ANY)}]"
@@ -365,7 +429,10 @@ object Meetings {
             "rooms-by-address-only=${guests.count { it.type != TYPE_RESOURCE && it.email.trim().lowercase(Locale.ROOT).endsWith("resource.calendar.google.com") }} " +
             "calendars-as-guests=${guests.count { it.email.trim().lowercase(Locale.ROOT).endsWith("group.calendar.google.com") }}" +
             (reading.guestsFailed?.let { " failed:$it" } ?: "")
-        val judged = rows.mapNotNull { r -> reading.calendars[r.calendarId]?.takeIf { gone(r, it) == null }?.let { r to it } }
+        val judged = rows.mapNotNull { r ->
+            reading.calendars[r.calendarId]?.takeIf { c -> gone(r, c, answer(r, c, reading.guests[r.eventId].orEmpty(), mine)) == null }?.let { r to it }
+        }
+        fun answered(r: Row, c: Cal) = answer(r, c, reading.guests[r.eventId].orEmpty(), mine)
         val whos = judged.map { (r, c) -> c to who(r, c, reading.guests[r.eventId].orEmpty(), mine) }
         lines += "you: found-by-account=${whos.count { it.second.byAccount }} found-by-owner-only=${whos.count { it.second.byOwnerOnly }} " +
             "own-with-guests-and-you-not-found=${whos.count { (c, w) -> c.own && w.persons > 0 && !w.byAccount && !w.byOwnerOnly }}"
@@ -378,7 +445,7 @@ object Meetings {
             if (e.begin <= now) "$v on now" else "$v in ${(e.begin - now + 59_999) / 60_000}m"
         } ?: "none"
         lines += "free=${judged.count { it.first.availability == AVAILABILITY_FREE }} " +
-            "unanswered=${judged.count { it.first.selfStatus == SELF_INVITED }} tentative=${judged.count { it.first.selfStatus == SELF_TENTATIVE }} " +
+            "unanswered=${judged.count { (r, c) -> answered(r, c) == SELF_INVITED }} tentative=${judged.count { (r, c) -> answered(r, c) == SELF_TENTATIVE }} " +
             "twice=${meetings.size - once(meetings).size} picked=$pickedSaid"
         return lines.joinToString("\n")
     }

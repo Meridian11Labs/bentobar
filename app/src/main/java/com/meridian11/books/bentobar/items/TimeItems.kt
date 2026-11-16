@@ -352,26 +352,19 @@ object EventItem : ItemType("event", R.string.item_event_title, Sym.GROUPS, R.st
 
     /**
      * For the Live activity: a meeting from ten minutes before it starts until ten minutes in ([LiveRules.meeting]), in the
-     * words of [state], its title cut so that the countdown stays whole. Woken with no item of its own, nobody runs [state],
-     * so this asks for the calendar's refresh as [state] does (it reads again only what has grown old). Without calendar
-     * access, nothing.
+     * words of [state] as the first Next meeting item has them ([EventText.live]: its "Longest title", and with "In the bar"
+     * Time no title). Woken with no item of its own, nobody runs [state], so this asks for the calendar's refresh as [state]
+     * does (it reads again only what has grown old). Without calendar access, nothing.
      */
     override fun liveNow(now: Long, items: List<ItemConfig>): LiveNow? {
         if (!Calendar.allowed()) return null
         Calendar.refresh()
         val wall = System.currentTimeMillis()
         val e = LiveRules.meeting(Calendar.upcomingMeetings(wall), wall) ?: return null
-        val max = items.firstOrNull()?.let(chars::of) ?: chars.default
+        val first = items.firstOrNull()
+        val said = EventText.live(e, wall, timeOnly = first?.let(show::of) == SHOW_TIME, chars = first?.let(chars::of) ?: chars.default, words)
         val since = now - (wall - (e.begin - LiveRules.MEETING_MS)).coerceAtLeast(0)
-        if (e.begin <= wall) {
-            val left = Fmt.duration(e.end - wall)
-            return LiveNow(LiveRank.MEETING, Sym.GROUPS, LiveRules.around(e.title, max) { Env.str(R.string.event_now_text, it, left) },
-                Env.str(R.string.event_now_desc, e.title, Fmt.spokenMinutes(e.end - wall)), Tone.ACCENT, since, open = { Calendar.open(e) })
-        }
-        val until = (e.begin - wall).coerceAtLeast(60_000)
-        val whenText = Env.str(R.string.event_in, Fmt.duration(until))
-        return LiveNow(LiveRank.MEETING, Sym.GROUPS, LiveRules.around(e.title, max) { Env.str(R.string.event_next_text, it, whenText) },
-            Env.str(R.string.event_next_desc, e.title, Env.str(R.string.event_in, Fmt.spokenMinutes(until))), Tone.ACCENT, since, open = { Calendar.open(e) })
+        return LiveNow(LiveRank.MEETING, Sym.GROUPS, said.text, said.desc, Tone.ACCENT, since, open = { Calendar.open(e) })
     }
 
     override fun state(item: ItemConfig): ItemState {

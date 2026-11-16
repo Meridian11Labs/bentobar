@@ -20,16 +20,20 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -54,6 +58,7 @@ import com.meridian11.books.bentobar.items.Usage
 import com.meridian11.books.bentobar.util.Sym
 import com.meridian11.books.bentobar.util.SymIcon
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** The request codes of the two permissions Setup asks Android for. */
@@ -162,12 +167,9 @@ fun SetupPage(setup: SetupState, declined: Boolean, wontAsk: Set<String>, types:
             }
         }
 
-        // Which events count as meetings: the install's choices, whether or not a Next meeting item is in the bar. The
-        // calendars are read off the main thread, when the page is composed and when calendar access changes.
+        // Which events count as meetings: the install's choices, whether or not a Next meeting item is in the bar.
         val choices by MeetingChoices.state.collectAsState()
-        var calendars by remember { mutableStateOf<List<Meetings.Cal>?>(null) }
-        LaunchedEffect(setup.calendar) { calendars = withContext(Dispatchers.IO) { Calendar.calendars() } }
-        val read = calendars
+        val read = shownCalendars(setup.calendar)
         CalendarEventsCard(setup.calendar || !read.isNullOrEmpty(), read.orEmpty(), choices, reading = read == null) { next -> MeetingChoices.update { next } }
 
         // Observed where it is kept: an item's menu can change it while this page is open.
@@ -188,6 +190,32 @@ fun SetupPage(setup: SetupState, declined: Boolean, wontAsk: Set<String>, types:
             Text(stringResource(R.string.setup_online_off_note), Modifier.padding(vertical = Space.m), style = Bento.type.help, color = Bento.colors.ink3)
         }
     }
+}
+
+/** How long the calendars are left to settle after the provider told of a change: a sync tells of many in a row. */
+private const val CALENDARS_SETTLE_MS = 300L
+
+/**
+ * The provider's calendars for Setup's list, observed while the list is composed ("Settings state is observed, not read
+ * while drawing"): read off the main thread when it is composed, when calendar access changes, when the window comes back
+ * ([Setup.returns]: the calendars may have been changed in another window), and when the provider's calendars change.
+ * Null until the first read is back.
+ */
+@Composable
+private fun shownCalendars(access: Boolean): List<Meetings.Cal>? {
+    var calendars by remember { mutableStateOf<List<Meetings.Cal>?>(null) }
+    var changes by remember { mutableIntStateOf(0) }
+    val returns by Setup.returns.collectAsState()
+    // Told only while the list is shown, and only with access: Android refuses an observer without it.
+    DisposableEffect(access) {
+        val stop = if (access) Calendar.watchCalendars { changes++ } else null
+        onDispose { stop?.invoke() }
+    }
+    LaunchedEffect(access, returns, changes) {
+        if (calendars != null) delay(CALENDARS_SETTLE_MS)
+        calendars = withContext(Dispatchers.IO) { Calendar.calendars() }
+    }
+    return calendars
 }
 
 /**
@@ -240,9 +268,13 @@ internal fun CalendarEventsCard(allowed: Boolean, calendars: List<Meetings.Cal>,
             onChange(choices.copy(free = it))
         }
         RowLine()
+        // Saved after a pause or when the focus goes: the choices as they are then, not as they were at the first key.
+        val latest by rememberUpdatedState(choices)
+        val limits = pluralStringResource(R.plurals.events_words_limits, Meetings.MAX_WORDS, Meetings.MAX_WORDS, Meetings.WORD_CHARS)
         TextSetting(stringResource(R.string.events_words), choices.words.joinToString(", "), Modifier.testTag("calendar-words"),
-            help = stringResource(R.string.events_words_help), placeholder = stringResource(R.string.events_words_hint)) {
-            onChange(choices.copy(words = Meetings.words(it)))
+            help = stringResource(R.string.events_words_help) + " " + limits, placeholder = stringResource(R.string.events_words_hint),
+            maxLength = Meetings.MAX_WORDS * (Meetings.WORD_CHARS + 2)) {
+            onChange(latest.copy(words = Meetings.words(it)))
         }
     }
 }

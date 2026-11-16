@@ -23,6 +23,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsOff
@@ -57,6 +58,7 @@ import com.meridian11.books.bentobar.ui.Palette
 import com.meridian11.books.bentobar.ui.SettingsTheme
 import com.meridian11.books.bentobar.ui.SetupPage
 import com.meridian11.books.bentobar.ui.SetupState
+import com.meridian11.books.bentobar.ui.TEXT_SAVE_PAUSE_MS
 import com.meridian11.books.bentobar.ui.Shell
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -203,8 +205,60 @@ class SetupPageTest {
         assertFalse(choices.unanswered)
         assertTrue(choices.free)
         rule.onNode(hasSetTextAction() and within("calendar-words")).performTextInput("Hold, hold, Out of office, ")
+        // Saved once typing pauses.
+        rule.mainClock.advanceTimeBy(TEXT_SAVE_PAUSE_MS + 100)
         rule.waitForIdle()
         assertEquals("the words as they are kept", listOf("Hold", "Out of office"), choices.words)
+    }
+
+    private lateinit var focus: androidx.compose.ui.focus.FocusManager
+
+    private fun wordsField() = rule.onNode(hasSetTextAction() and within("calendar-words"))
+
+    private fun cardWithFocus() = window(Page.SETUP, running = true) {
+        focus = androidx.compose.ui.platform.LocalFocusManager.current
+        PageColumn { CalendarEventsCard(true, listOf(work), choices) { choices = it } }
+    }
+
+    /** "1" on the way to "1:1s" is never saved: the words are saved once typing pauses, and the calendar judged once. */
+    @Test fun theWordsAreSavedWhenTypingPausesNotAtEachKey() {
+        choices = MeetingChoices.State()
+        var saves = 0
+        window(Page.SETUP, running = true) { PageColumn { CalendarEventsCard(true, listOf(work), choices) { saves++; choices = it } } }
+        rule.mainClock.autoAdvance = false
+        wordsField().performTextInput("1")
+        rule.mainClock.advanceTimeBy(500)
+        wordsField().performTextInput(":1s")
+        rule.mainClock.advanceTimeBy(TEXT_SAVE_PAUSE_MS - 200)
+        assertEquals("half typed: nothing saved", emptyList<String>(), choices.words)
+        assertEquals(0, saves)
+        rule.mainClock.advanceTimeBy(400)
+        assertEquals(listOf("1:1s"), choices.words)
+        assertEquals("saved once", 1, saves)
+        // What is typed stays as it is while the field has the focus.
+        wordsField().assert(hasText("1:1s"))
+    }
+
+    @Test fun theWordsAreSavedAtOnceWhenTheFocusGoes() {
+        choices = MeetingChoices.State(words = listOf("Lunch"))
+        cardWithFocus()
+        rule.mainClock.autoAdvance = false
+        wordsField().performTextInput(", Hold,, ")
+        rule.mainClock.advanceTimeBy(100)
+        assertEquals(listOf("Lunch"), choices.words)
+        rule.runOnIdle { focus.clearFocus() }
+        rule.mainClock.advanceTimeBy(100)
+        assertEquals(listOf("Lunch", "Hold"), choices.words)
+        // And then the words as they are kept.
+        wordsField().assert(hasText("Lunch, Hold"))
+    }
+
+    @Test fun theWordsHelpSaysTheLimits() {
+        choices = MeetingChoices.State()
+        card(true, listOf(work))
+        val limits = app.resources.getQuantityString(R.plurals.events_words_limits, Meetings.MAX_WORDS, Meetings.MAX_WORDS, Meetings.WORD_CHARS)
+        assertTrue(limits, limits.contains("${Meetings.MAX_WORDS}") && limits.contains("${Meetings.WORD_CHARS}"))
+        rule.onNode(hasText(limits, substring = true)).assertExists()
     }
 
     @Test fun withoutCalendarAccessTheListSaysWhereToAllowIt() {

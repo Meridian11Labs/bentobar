@@ -131,7 +131,8 @@ Changes apply to the status bar right away.
 Next meeting, the Live Update chip and Live activity count the same events as meetings: timed events on a
 calendar you can change, with someone else invited, or with only you and a call link. A colleague's meeting
 on a calendar shared with you is not yours unless you are invited, a booked room is not someone else, and
-canceled and declined events show nowhere. One meeting on two of your calendars counts once.
+canceled and declined events show nowhere. One meeting on two of your calendars counts once, as its copy on
+your own calendar does: declined there, it doesn't count from a shared calendar either.
 **Setup › Calendar events** changes that for this device:
 
 - **Calendars**: untick one and its events never count (they still show in the month view).
@@ -139,6 +140,7 @@ canceled and declined events show nowhere. One meeting on two of your calendars 
 - **Invitations you haven't answered**: on by default.
 - **Events marked as free**: off by default.
 - **Leave out titles with**: words or phrases; "Hold" leaves out "Hold: desk" and "On hold", not "Shareholders".
+  Up to 20, each of up to 80 characters.
 
 These choices stay on the device: they are no part of your layout, so Copy settings, a backup and a new
 device don't carry them. A meeting you make on a shared calendar without inviting yourself is not counted

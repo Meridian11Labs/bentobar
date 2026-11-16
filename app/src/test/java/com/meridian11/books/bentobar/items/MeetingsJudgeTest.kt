@@ -193,9 +193,24 @@ class MeetingsJudgeTest {
         assertEquals(Verdict.ONLY_ME, judge(row(), listOf(me, Guest("team@group.calendar.google.com"))))
     }
 
-    @Test fun anOrganizerAndNoAttendeeRowsOnAnOwnCalendarIsWithOthers() {
-        // A webinar added from an invitation file: an organizer and nobody listed.
-        assertEquals(Verdict.WITH_OTHERS, judge(row(organizer = "host@example.com")))
+    @Test fun anOutsideOrganizerAndNoAttendeeRowsOnAnOwnCalendarIsOnlyYou() {
+        // A booking added from a file (a train, a dentist, a concert): an organizer such as noreply@… and nobody listed.
+        assertEquals(Verdict.ONLY_ME, judge(row(organizer = "noreply@example.com")))
+        assertEquals(Verdict.ONLY_ME_ANY, judge(row(organizer = "noreply@example.com"), choices = defaults.copy(onlyMe = OnlyMe.ALWAYS)))
+        // A webinar added the same way still counts by its call link, under the default "Count with a call link".
+        assertEquals(Verdict.ONLY_ME_CALL, judge(row(organizer = "host@example.com", link = link)))
+        assertEquals(Verdict.ONLY_ME, judge(row(organizer = "host@example.com", link = link), choices = defaults.copy(onlyMe = OnlyMe.NEVER)))
+    }
+
+    @Test fun anOutsideOrganizerWithAttendeeRowsOnAnOwnCalendarIsAnInvitation() {
+        // Some invitations list only the invitee: the organizer is the other person.
+        assertEquals(Verdict.WITH_OTHERS, judge(row(organizer = "ana@example.com"), listOf(me)))
+        assertEquals(Verdict.WITH_OTHERS, judge(row(organizer = "ana@example.com"), listOf(Guest("alias@example.com"))))
+    }
+
+    @Test fun onAnotherCalendarAnOrganizerWithNoAttendeeRowsIsStillTheOtherPerson() {
+        // A colleague's own block on their calendar: theirs, not a booking of the user's.
+        assertEquals(Verdict.NOT_MINE, judge(row(colleague, organizer = "ana@example.com", link = link)))
     }
 
     @Test fun twoAccountsAreBothTheUser() {
@@ -223,5 +238,117 @@ class MeetingsJudgeTest {
         assertFalse("device" in mine)
         assertEquals(Verdict.ONLY_ME, judge(row(local, organizer = "")))
         assertEquals(Verdict.WITH_OTHERS, judge(row(local, organizer = ""), listOf(ana)))
+    }
+
+    // ---- the user's own answer on a calendar that isn't theirs (SELF_ATTENDEE_STATUS there is its owner's)
+
+    private val accepted = 1
+
+    @Test fun onATeamCalendarTheUsersOwnAttendeeRowSaysDeclined() {
+        // The team calendar's owner said yes; the user said no.
+        val r = row(team, organizer = "ana@example.com", self = accepted)
+        assertEquals(Verdict.DECLINED, judge(r, listOf(ana, Guest(you, status = Meetings.SELF_DECLINED), ben)))
+        assertEquals(Verdict.WITH_OTHERS, judge(r, listOf(ana, Guest(you, status = accepted), ben)))
+        // And the owner's no is not the user's.
+        val theirNo = row(team, organizer = "ana@example.com", self = Meetings.SELF_DECLINED)
+        assertEquals(Verdict.WITH_OTHERS, judge(theirNo, listOf(ana, Guest(you, status = Meetings.SELF_TENTATIVE), ben)))
+    }
+
+    @Test fun onATeamCalendarTheUsersOwnAttendeeRowSaysNotAnswered() {
+        val r = row(team, organizer = "ana@example.com", self = accepted)
+        val guests = listOf(ana, Guest(you, status = Meetings.SELF_INVITED), ben)
+        assertEquals(Verdict.UNANSWERED, judge(r, guests, defaults.copy(unanswered = false)))
+        assertEquals(Verdict.WITH_OTHERS, judge(r, guests))
+    }
+
+    @Test fun ofTheUsersTwoAttendeeRowsTheOneThatCountsMost() {
+        val r = row(team, organizer = "ana@example.com")
+        assertEquals(Verdict.WITH_OTHERS, judge(r, listOf(ana, Guest(you, status = Meetings.SELF_DECLINED), Guest(home, status = accepted))))
+        assertEquals(Verdict.UNANSWERED, judge(r, listOf(ana, Guest(you, status = Meetings.SELF_DECLINED), Guest(home, status = Meetings.SELF_INVITED)),
+            defaults.copy(unanswered = false)))
+    }
+
+    @Test fun onAnOwnCalendarTheRowSaysTheUsersAnswer() {
+        assertEquals(Verdict.WITH_OTHERS, judge(row(self = accepted), listOf(Guest(you, status = Meetings.SELF_DECLINED), ana)))
+        assertEquals(Verdict.DECLINED, judge(row(self = Meetings.SELF_DECLINED), listOf(Guest(you, status = accepted), ana)))
+    }
+
+    @Test fun onAnotherCalendarTheAttendeesAreReadThoughItsOwnerDeclined() {
+        // Only they say what the user answered.
+        assertTrue(Meetings.asksAttendees(row(team, self = Meetings.SELF_DECLINED), team, defaults))
+        assertFalse(Meetings.asksAttendees(row(work, self = Meetings.SELF_DECLINED), work, defaults))
+    }
+
+    // ---- one event on two calendars: the copy on the user's own calendar decides
+
+    private var nextId = 100L
+
+    /** "Team sync" on [cal], from 0 to 1: the same event as every other copy made here. */
+    private fun copy(cal: Cal, self: Int = 0, availability: Int = 0, title: String = "Team sync", guests: List<Guest>) =
+        Row(++nextId, cal.id, title, 0, 1, selfStatus = self, availability = availability, organizer = "ana@example.com") to guests
+
+    private fun reading(vararg copies: Pair<Row, List<Guest>>) =
+        Meetings.Reading(cals.associateBy { it.id }, copies.map { it.first }, copies.associate { it.first.eventId to it.second })
+
+    private fun verdicts(vararg copies: Pair<Row, List<Guest>>, choices: MeetingChoices.State = defaults): List<Verdict> =
+        Meetings.verdicts(reading(*copies), choices)
+
+    private val invited = listOf(ana, me, ben)
+
+    @Test fun aDeclinedOwnCopyTakesTheSharedCopyWithIt() {
+        // Declined on the user's calendar; on the team calendar the user's attendee row has not caught up.
+        val v = verdicts(copy(work, self = Meetings.SELF_DECLINED, guests = invited), copy(team, self = accepted, guests = invited))
+        assertEquals(listOf(Verdict.DECLINED, Verdict.DECLINED), v)
+        val events = Meetings.events(reading(copy(work, self = Meetings.SELF_DECLINED, guests = invited), copy(team, self = accepted, guests = invited)),
+            defaults, "No title")
+        assertEquals("shown nowhere, from neither calendar", emptyList<Calendar.Event>(), events)
+    }
+
+    @Test fun anOwnCopyNotAnsweredOrFreeDecidesForTheSharedCopy() {
+        val notAnswered = verdicts(copy(work, self = Meetings.SELF_INVITED, guests = invited), copy(team, self = accepted, guests = invited),
+            choices = defaults.copy(unanswered = false))
+        assertEquals(listOf(Verdict.UNANSWERED, Verdict.UNANSWERED), notAnswered)
+        val free = verdicts(copy(work, availability = Meetings.AVAILABILITY_FREE, guests = invited), copy(team, guests = invited))
+        assertEquals(listOf(Verdict.FREE, Verdict.FREE), free)
+        assertFalse(free.any { it.meeting })
+    }
+
+    @Test fun anOwnCopyThatCountsMakesTheSharedCopyOneMeetingWithIt() {
+        // A copy on a colleague's calendar the user can edit: alone, someone else's; with the user's own copy, the same meeting.
+        val v = verdicts(copy(colleague, guests = listOf(ana, ben)), copy(work, guests = invited))
+        assertEquals(listOf(Verdict.WITH_OTHERS, Verdict.WITH_OTHERS), v)
+        val events = Meetings.events(reading(copy(colleague, guests = listOf(ana, ben)), copy(work, guests = invited)), defaults, "No title")
+        assertEquals("counted once, the own copy", listOf(work.id), Meetings.once(events.filter { it.meeting }).map { it.calendarId })
+    }
+
+    @Test fun onlyTheSameStartEndAndTitleIsTheSameEvent() {
+        val v = verdicts(copy(work, self = Meetings.SELF_DECLINED, guests = invited), copy(team, title = "Team sync 2", guests = invited))
+        assertEquals(listOf(Verdict.DECLINED, Verdict.WITH_OTHERS), v)
+    }
+
+    @Test fun anUntickedOwnCalendarDecidesNothingForATickedOne() {
+        // "Meetings come from the calendars you tick": the team calendar is ticked.
+        val v = verdicts(copy(work, guests = invited), copy(team, guests = invited), choices = defaults.copy(calendarsOff = setOf(work.ident)))
+        assertEquals(listOf(Verdict.CALENDAR_OFF, Verdict.WITH_OTHERS), v)
+    }
+
+    @Test fun aCopyOnAHiddenCalendarStaysHidden() {
+        val hiddenTeam = Cal(9, you, "com.google", "team2@group.calendar.google.com", "Team 2", 0, 600, visible = false, flagPrimary = false)
+        val all = cals + hiddenTeam
+        val rows = listOf(Row(1, work.id, "Team sync", 0, 1, organizer = "ana@example.com"), Row(2, hiddenTeam.id, "Team sync", 0, 1, organizer = "ana@example.com"))
+        val v = Meetings.verdicts(Meetings.Reading(all.associateBy { it.id }, rows, mapOf(1L to invited, 2L to invited)), defaults)
+        assertEquals(listOf(Verdict.WITH_OTHERS, Verdict.HIDDEN_CALENDAR), v)
+    }
+
+    @Test fun ofTwoOwnCopiesTheOneThatCountsDecides() {
+        // Invited under both accounts, declined under one.
+        val v = verdicts(copy(second, self = Meetings.SELF_DECLINED, guests = listOf(ana, Guest(home))), copy(work, guests = invited),
+            copy(team, guests = invited))
+        assertEquals(listOf(Verdict.DECLINED, Verdict.WITH_OTHERS, Verdict.WITH_OTHERS), v)
+    }
+
+    @Test fun withNoOwnCopyEachCopyIsJudgedAlone() {
+        val v = verdicts(copy(team, guests = listOf(ana, Guest(you, status = Meetings.SELF_DECLINED))), copy(colleague, guests = listOf(ana, ben)))
+        assertEquals(listOf(Verdict.DECLINED, Verdict.NOT_MINE), v)
     }
 }
