@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Moon phase. Every name here starts with moon_, item_moon_ or trigger_moon. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
+    <string name="item_moon_title">Moon phase</string>
+    <string name="item_moon_desc">Current lunar phase, illumination, age and next major phase countdown.</string>
+    <string name="trigger_moon">Show on Full Moon and New Moon</string>
+    <string name="trigger_moon_short">Full or New Moon</string>
+
+    <string name="moon_phase_new">New Moon</string>
+    <string name="moon_phase_waxing_crescent">Waxing Crescent</string>
+    <string name="moon_phase_first_quarter">First Quarter</string>
+    <string name="moon_phase_waxing_gibbous">Waxing Gibbous</string>
+    <string name="moon_phase_full">Full Moon</string>
+    <string name="moon_phase_waning_gibbous">Waning Gibbous</string>
+    <string name="moon_phase_last_quarter">Last Quarter</string>
+    <string name="moon_phase_waning_crescent">Waning Crescent</string>
+
+    <string name="moon_illumination">Illumination: %1$s%%</string>
+    <string name="moon_age">Age: %1$s days</string>
+    <string name="moon_next_today">Today at %1$s</string>
+    <string name="moon_next_tomorrow">Tomorrow at %1$s</string>
+    <plurals name="moon_next_in_days">
+        <item quantity="one">in %1$d day on %2$s</item>
+        <item quantity="other">in %1$d days on %2$s</item>
+    </plurals>
+    <string name="moon_exact_at">at %1$s</string>
+    <string name="moon_desc">%1$s (%2$s%% illuminated)</string>
+
+    <string name="moon_show_label">Show in the bar</string>
+    <string name="moon_show_icon">Icon only</string>
+    <string name="moon_show_pct">Illumination %</string>
+    <string name="moon_show_phase">Phase name</string>
+    <string name="moon_show_both">Phase and illumination</string>
+
+    <string name="moon_southern_label">Southern Hemisphere</string>
+    <string name="moon_southern_help">Mirror the lunar disc horizontally for southern hemisphere observers.</string>
+    <string name="moon_open_nasa">NASA Moon Phases</string>
+</resources>
