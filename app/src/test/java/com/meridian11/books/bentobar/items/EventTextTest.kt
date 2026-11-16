@@ -31,6 +31,11 @@ class EventTextTest {
         for (w in EventText.Word.entries) assertTrue(w.resource, w.resource in texts)
     }
 
+    @Test fun everyStringOfCalendarEventsIsShown() {
+        assertEquals("a string in strings_events.xml that no code shows", emptyList<String>(), StringFiles.unused("src/main/res/values/strings_events.xml"))
+        assertTrue(StringFiles.names("src/main/res/values/strings_events.xml").all { it.startsWith("events_") })
+    }
+
     @Test fun onNow() {
         val e = meeting("Standup", now - 6 * min, now + 24 * min)
         assertEquals("Standup · 24m left", bar(e, false).text)

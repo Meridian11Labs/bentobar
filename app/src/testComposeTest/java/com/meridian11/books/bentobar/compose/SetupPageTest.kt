@@ -160,6 +160,28 @@ class SetupPageTest {
         picture("setup-calendar-events")
     }
 
+    /** Narrow, dark and at twice the text size: the list goes under its name and every row still says it all. */
+    @Config(qualifiers = "w640dp-h1500dp-mdpi")
+    @Test fun theCardNarrowDarkAndAtTwiceTheTextSize() {
+        choices = MeetingChoices.State(words = listOf("Hold", "Commute"))
+        dark = true
+        rule.setContent {
+            view = LocalView.current
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+                androidx.compose.ui.unit.Density(androidx.compose.ui.platform.LocalDensity.current.density, 2f)) {
+                SettingsTheme(dark) {
+                    Shell(Page.SETUP, {}, running = true, enabled = true, status = BarStatus.SHOWN, onEnabled = {}, onTurnOn = {}, insets = WindowInsets(top = 36.dp)) {
+                        PageColumn { CalendarEventsCard(true, listOf(work, team, personal), choices) { choices = it } }
+                    }
+                }
+            }
+        }
+        rule.waitForIdle()
+        rule.onAllNodes(checkbox).assertCountEquals(3)
+        rule.onNode(hasText("Hold, Commute") and within("calendar-words")).assertExists()
+        picture("setup-calendar-events-narrow-large-dark")
+    }
+
     @Test fun withOneAccountNoAccountNameStandsOverTheList() {
         choices = MeetingChoices.State()
         card(true, listOf(work, team))
