@@ -165,9 +165,10 @@ fun SetupPage(setup: SetupState, declined: Boolean, wontAsk: Set<String>, types:
         // Which events count as meetings: the install's choices, whether or not a Next meeting item is in the bar. The
         // calendars are read off the main thread, when the page is composed and when calendar access changes.
         val choices by MeetingChoices.state.collectAsState()
-        var calendars by remember { mutableStateOf(emptyList<Meetings.Cal>()) }
+        var calendars by remember { mutableStateOf<List<Meetings.Cal>?>(null) }
         LaunchedEffect(setup.calendar) { calendars = withContext(Dispatchers.IO) { Calendar.calendars() } }
-        CalendarEventsCard(setup.calendar || calendars.isNotEmpty(), calendars, choices) { next -> MeetingChoices.update { next } }
+        val read = calendars
+        CalendarEventsCard(setup.calendar || !read.isNullOrEmpty(), read.orEmpty(), choices, reading = read == null) { next -> MeetingChoices.update { next } }
 
         // Observed where it is kept: an item's menu can change it while this page is open.
         val online by Online.state.collectAsState()
@@ -192,16 +193,20 @@ fun SetupPage(setup: SetupState, declined: Boolean, wontAsk: Set<String>, types:
 /**
  * Setup's "Calendar events": which events count as meetings, for every Next meeting item, the Live Update chip and Live
  * activity ([MeetingChoices]). [allowed]: the calendars can be read; [calendars]: all of them, of which only those the user
- * can change are listed (the others never count). [onChange] gets the choices as they are to be.
+ * can change are listed (the others never count); [reading]: the first read of them is on its way. [onChange] gets the
+ * choices as they are to be.
  */
 @Composable
-internal fun CalendarEventsCard(allowed: Boolean, calendars: List<Meetings.Cal>, choices: MeetingChoices.State, onChange: (MeetingChoices.State) -> Unit) {
+internal fun CalendarEventsCard(allowed: Boolean, calendars: List<Meetings.Cal>, choices: MeetingChoices.State, reading: Boolean = false,
+                                onChange: (MeetingChoices.State) -> Unit) {
     val c = Bento.colors
     PageSection(stringResource(R.string.events_title), stringResource(R.string.events_sub))
     PageCard(Modifier.testTag("calendar-events")) {
         WideSettingRow(stringResource(R.string.events_calendars), help = stringResource(R.string.events_calendars_help)) {
             val listed = calendars.filter { it.editable }
             when {
+                // The first read is on its way: saying "none" for a moment would be untrue.
+                reading -> Spacer(Modifier.height(36.dp))
                 !allowed -> Text(stringResource(R.string.events_calendars_need_access), Modifier.padding(top = Space.s), style = Bento.type.small, color = c.ink2)
                 listed.isEmpty() -> Text(stringResource(R.string.events_calendars_none), Modifier.padding(top = Space.s), style = Bento.type.small, color = c.ink2)
                 else -> {
