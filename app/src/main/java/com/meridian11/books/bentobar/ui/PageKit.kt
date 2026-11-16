@@ -23,13 +23,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -146,5 +153,26 @@ internal fun SwitchSetting(name: String, checked: Boolean, help: String? = null,
         SettingName(name, help, Modifier.weight(1f), enabled)
         Spacer(Modifier.width(Space.l))
         SwitchMark(checked, enabled = enabled)
+    }
+}
+
+/**
+ * A text the user types in a card, saved as it is typed ([onChange]), beside the setting's name. Like an item's text options
+ * ([TextRow]) it keeps what is typed while it has the focus, since what is stored may be cleaned (words parted and trimmed),
+ * and shows the stored [value] again when the focus goes. No more than [maxLength] characters can be typed.
+ */
+@Composable
+internal fun TextSetting(name: String, value: String, modifier: Modifier = Modifier, help: String? = null, placeholder: String = "",
+                         maxLength: Int = 1_000, onChange: (String) -> Unit) {
+    var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(value, focused) { if (!focused && field.text != value) field = TextFieldValue(value, TextRange(value.length)) }
+    WideSettingRow(name, modifier, help) {
+        BentoField(field, { typed ->
+            val text = typed.text.take(maxLength)
+            val changed = text != field.text
+            field = if (text == typed.text) typed else typed.copy(text = text, selection = TextRange(text.length))
+            if (changed) onChange(text)
+        }, name, Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused }, placeholder = placeholder)
     }
 }

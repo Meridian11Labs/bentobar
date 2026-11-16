@@ -19,6 +19,13 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -32,16 +39,20 @@ import androidx.test.core.app.ApplicationProvider
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.bar.BarStatus
 import com.meridian11.books.bentobar.data.ItemConfig
+import com.meridian11.books.bentobar.data.MeetingChoices
 import com.meridian11.books.bentobar.data.Online
 import com.meridian11.books.bentobar.items.Access
 import com.meridian11.books.bentobar.items.Env
 import com.meridian11.books.bentobar.items.ItemGroup
 import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.items.ItemType
+import com.meridian11.books.bentobar.items.Meetings
 import com.meridian11.books.bentobar.ui.AboutPage
 import com.meridian11.books.bentobar.ui.AccessibilityDisclosure
+import com.meridian11.books.bentobar.ui.CalendarEventsCard
 import com.meridian11.books.bentobar.ui.DANGER_VEIL
 import com.meridian11.books.bentobar.ui.Page
+import com.meridian11.books.bentobar.ui.PageColumn
 import com.meridian11.books.bentobar.ui.Palette
 import com.meridian11.books.bentobar.ui.SettingsTheme
 import com.meridian11.books.bentobar.ui.SetupPage
@@ -110,6 +121,93 @@ class SetupPageTest {
 
     private fun disclosure() = window(Page.SETUP, running = false) {
         AccessibilityDisclosure(onAgree = { answers += "agree" }, onDecline = { answers += "decline" }, onDismiss = { answers += "dismiss" })
+    }
+
+    // ---- Calendar events
+
+    private val you = "you@example.com"
+    private val home = "you.home@example.com"
+    private val work = Meetings.Cal(1, you, "com.google", you, "Work", 0xFF3F7EDB.toInt(), 700, visible = true, flagPrimary = true)
+    private val team = Meetings.Cal(2, you, "com.google", "team@example.com", "Team", 0xFFE08A1E.toInt(), 600, visible = true, flagPrimary = false)
+    private val personal = Meetings.Cal(3, home, "com.google", home, "Personal", 0xFF2E9E6B.toInt(), 700, visible = true, flagPrimary = true)
+    private val holidays = Meetings.Cal(4, you, "com.google", "holidays@example.com", "Holidays", 0xFF8E63CE.toInt(), 200, visible = true, flagPrimary = false)
+    private var choices by mutableStateOf(MeetingChoices.State())
+
+    private fun card(allowed: Boolean, calendars: List<Meetings.Cal>) =
+        window(Page.SETUP, running = true) { PageColumn { CalendarEventsCard(allowed, calendars, choices) { choices = it } } }
+
+    private val checkbox = role(Role.Checkbox)
+
+    @Test fun theCalendarsYouCanChangeAreTickedUnderTheirAccounts() {
+        choices = MeetingChoices.State()
+        card(true, listOf(holidays, team, personal, work))
+        rule.onAllNodes(checkbox).assertCountEquals(3)
+        rule.onNode(hasText("Holidays", substring = true)).assertDoesNotExist()
+        // Two accounts: each account's name over its calendars.
+        rule.onNode(hasText(you) and within("calendar-list"), useUnmergedTree = true).assertExists()
+        rule.onNode(hasText(home) and within("calendar-list"), useUnmergedTree = true).assertExists()
+        for (cal in listOf(work, team, personal)) rule.onNode(checkbox and hasContentDescription(str(R.string.events_calendar_said, cal.name, cal.accountName))).assertIsOn()
+        // The primary calendar stands first in its account.
+        val tops = listOf(work, team).map { cal -> rule.onNode(checkbox and hasContentDescription("${cal.name}, $you")).fetchSemanticsNode().boundsInRoot.top }
+        assertTrue(tops[0] < tops[1])
+        rule.onNode(checkbox and hasContentDescription("Team, $you")).performClick()
+        rule.waitForIdle()
+        assertEquals(setOf(team.ident), choices.calendarsOff)
+        rule.onNode(checkbox and hasContentDescription("Team, $you")).assertIsOff()
+        rule.onNode(checkbox and hasContentDescription("Team, $you")).performClick()
+        rule.waitForIdle()
+        assertEquals(emptySet<String>(), choices.calendarsOff)
+        picture("setup-calendar-events")
+    }
+
+    @Test fun withOneAccountNoAccountNameStandsOverTheList() {
+        choices = MeetingChoices.State()
+        card(true, listOf(work, team))
+        rule.onAllNodes(checkbox).assertCountEquals(2)
+        rule.onNode(hasText(you) and within("calendar-list"), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun theChoicesOfWhichEventsCount() {
+        choices = MeetingChoices.State()
+        card(true, listOf(work))
+        rule.onNode(hasText(str(R.string.events_only_me_call))).assertIsSelected()
+        rule.onNode(hasText(str(R.string.events_only_me_never))).performClick()
+        rule.waitForIdle()
+        assertEquals(MeetingChoices.OnlyMe.NEVER, choices.onlyMe)
+        rule.onNode(hasText(str(R.string.events_only_me_never))).assertIsSelected()
+        rule.onNode(hasText(str(R.string.events_unanswered), substring = true)).assertIsOn().performClick()
+        rule.onNode(hasText(str(R.string.events_free), substring = true)).assertIsOff().performClick()
+        rule.waitForIdle()
+        assertFalse(choices.unanswered)
+        assertTrue(choices.free)
+        rule.onNode(hasSetTextAction() and within("calendar-words")).performTextInput("Hold, hold, Out of office, ")
+        rule.waitForIdle()
+        assertEquals("the words as they are kept", listOf("Hold", "Out of office"), choices.words)
+    }
+
+    @Test fun withoutCalendarAccessTheListSaysWhereToAllowIt() {
+        choices = MeetingChoices.State()
+        card(false, emptyList())
+        rule.onNodeWithText(str(R.string.events_calendars_need_access)).assertExists()
+        rule.onAllNodes(checkbox).assertCountEquals(0)
+        // The rows that need no access work all the same.
+        rule.onNode(hasText(str(R.string.events_only_me_always))).performClick()
+        rule.waitForIdle()
+        assertEquals(MeetingChoices.OnlyMe.ALWAYS, choices.onlyMe)
+    }
+
+    @Test fun withAccessAndOnlyCalendarsYouCanReadTheListSaysSo() {
+        choices = MeetingChoices.State()
+        card(true, listOf(holidays))
+        rule.onNodeWithText(str(R.string.events_calendars_none)).assertExists()
+    }
+
+    @Test fun theCardIsOnSetupBetweenThePermissionsAndTheOnlineServices() {
+        setup(SetupState(serviceOn = true))
+        val card = rule.onNodeWithTag("calendar-events").fetchSemanticsNode().positionInRoot.y
+        val calendar = rule.onNodeWithTag("permission:calendar").fetchSemanticsNode().positionInRoot.y
+        val online = rule.onNode(hasText(str(R.string.setup_online_title)) and heading).fetchSemanticsNode().positionInRoot.y
+        assertTrue("$calendar < $card < $online", calendar < card && card < online)
     }
 
     /** One kind, one look: a service's "remove the key" is the red button, under that service's switch and in line with its name. */
