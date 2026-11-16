@@ -3,6 +3,7 @@ package com.meridian11.books.bentobar.bar
 import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.Pill
 import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.items.BarProgress
 import com.meridian11.books.bentobar.items.BarRoute
 import com.meridian11.books.bentobar.items.BarSlider
 import com.meridian11.books.bentobar.items.ItemState
@@ -23,27 +24,32 @@ internal object StripContent {
      * [iconDrawn] and [textDrawn] whether that puts anything on the screen: a place for an icon the item doesn't have is empty, and
      * words made of nothing but spaces keep their place and show nothing.
      */
-    data class Parts(val slider: BarSlider?, val route: BarRoute?, val icon: Boolean, val text: Boolean, val iconDrawn: Boolean, val textDrawn: Boolean,
+    data class Parts(val slider: BarSlider?, val route: BarRoute?, val progress: BarProgress?, val icon: Boolean, val text: Boolean,
+                     val iconDrawn: Boolean, val textDrawn: Boolean,
                      /** The route line has words or a slider after it: a gap between the two. */
                      val gapAfterRoute: Boolean,
+                     /** An expressive progress graphic has words or a slider after it: a gap between the two. */
+                     val gapAfterProgress: Boolean,
                      /** An icon that shows stands before the words or the slider: a gap between the two. */
                      val gapAfterIcon: Boolean,
-                     /** Something stands before the words (a route line or an icon): the words keep to its side, and the spare room trails. */
+                     /** Something stands before the words (a route line, progress graphic or icon): the words keep to its side, and the spare room trails. */
                      val leadInBeforeText: Boolean)
 
     fun parts(state: ItemState, display: Display): Parts {
         val slider = state.slider?.takeIf { display != Display.ICON }
         val route = state.route?.takeIf { display.line }
-        val icon = route == null && (display != Display.TEXT || state.text.isNullOrEmpty())
+        val progress = state.progress?.takeIf { route == null && display.line && it.fractions.isNotEmpty() }
+        val icon = route == null && progress == null && (display != Display.TEXT || state.text.isNullOrEmpty())
         val text = slider == null && display != Display.ICON && !state.text.isNullOrEmpty()
         // A day badge is an icon too, but it brings no gap of its own: as it was, only a picture or a symbol does.
         val iconShows = icon && (state.image != null || !state.icon.isNullOrEmpty())
-        return Parts(slider, route, icon, text,
+        return Parts(slider, route, progress, icon, text,
             iconDrawn = icon && (state.image != null || state.dayNumber != null || !state.icon.isNullOrEmpty()),
             textDrawn = text && !state.text.isNullOrBlank(),
             gapAfterRoute = route != null && (text || slider != null),
+            gapAfterProgress = progress != null && (text || slider != null),
             gapAfterIcon = iconShows && (text || slider != null),
-            leadInBeforeText = route != null || iconShows)
+            leadInBeforeText = route != null || progress != null || iconShows)
     }
 
     /** Whether a spacer draws its line. */
@@ -57,7 +63,7 @@ internal object StripContent {
         if (type == com.meridian11.books.bentobar.items.SpacerItem.TYPE) return line(state)
         if (capsule(state)) return true // around whatever is in it
         val parts = parts(state, display)
-        return parts.slider != null || parts.route != null || parts.iconDrawn || parts.textDrawn
+        return parts.slider != null || parts.route != null || parts.progress != null || parts.iconDrawn || parts.textDrawn
     }
 
     /**

@@ -127,4 +127,20 @@ class ProgressRulesTest {
         assertEquals(Of.DAY, ProgressRules.of(null))
         for (of in Of.entries) assertEquals(of, ProgressRules.of(ProgressRules.key(of)))
     }
+
+    @Test fun lifeSpanAndCustomYearStartWork() {
+        val midLife = at("2030-01-01T00:00", ZoneId.of("UTC"))
+        assertEquals(0.5f, ProgressRules.fraction(Of.LIFE, midLife, weekStart = DayOfWeek.MONDAY, lifeStart = 1990, lifeEnd = 2070), close)
+        assertEquals("40 years left", ProgressRules.left(Of.LIFE, midLife, weekStart = DayOfWeek.MONDAY, lifeStart = 1990, lifeEnd = 2070))
+        assertEquals("40 years elapsed", ProgressRules.elapsed(Of.LIFE, midLife, weekStart = DayOfWeek.MONDAY, lifeStart = 1990, lifeEnd = 2070))
+
+        // Fiscal year starting July 1: on Jan 1 it is ~halfway through
+        val jan1 = at("2027-01-01T00:00", ZoneId.of("UTC"))
+        val f = ProgressRules.fraction(Of.YEAR, jan1, weekStart = DayOfWeek.MONDAY, yearMonth = 7, yearDay = 1)
+        assertTrue(f in 0.49f..0.52f)
+    }
+
+    @Test fun elapsedReadsHoursAndMinutesOnDay() {
+        assertEquals("6 h 15 elapsed", ProgressRules.elapsed(Of.DAY, at("2027-03-10T06:15"), weekStart = DayOfWeek.MONDAY))
+    }
 }
