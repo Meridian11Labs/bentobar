@@ -135,6 +135,24 @@ class HidePathTest {
         assertEquals("no other call in onConfig: $onConfig", 1, Regex("""Chips\.update\(""").findAll(onConfig).count())
     }
 
+    /**
+     * A ‹ coming or going changes a strip's width, so the bar is placed again: by the reading it has (a strip of ours is
+     * no part of the status bar's tree), and on a call of its own, which a window event's checks don't take the place of.
+     */
+    @Test fun whatHasNoRoomPlacesTheBarAgainWithoutReadingItsTree() {
+        val publish = code.substringAfter("private fun publishOverflow() {").substringBefore("\n    }\n")
+        assertTrue(publish, "main.post(placeAgain)" in publish)
+        assertFalse(publish, "scanNow" in publish)
+        assertTrue(Regex("""private val placeAgain = Runnable \{ check\(full = false\) \}""").containsMatchIn(code))
+    }
+
+    /** What the trace says of a placing is put into words only while the trace is on: place() runs for every measure. */
+    @Test fun aPlacingIsPutIntoWordsOnlyForTheTrace() {
+        val words = place.substringAfter("if (tracing) {").substringBefore("\n        }\n")
+        assertTrue(words, "joinToString" in words && "lastWhere" in words)
+        assertEquals("the words of a placing are built in that branch alone", 1, Regex("""joinToString""").findAll(place).count())
+    }
+
     /** A measure posted before the bar left arrives after it: it finds a bar that is gone, and places nothing. */
     @Test fun aMeasureThatComesLateNeverPutsBackABarThatHasLeft() {
         inOrder(hide, "showing = false", "strip.hide()")

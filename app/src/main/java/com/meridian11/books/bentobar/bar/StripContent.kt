@@ -80,6 +80,13 @@ internal object StripContent {
     fun empty(width: Int, drawn: Boolean) = width <= 0 || !drawn
 
     /**
+     * Whether a strip asks for a measure by hand after its composition changed: only while its window is invisible
+     * ([empty]), which draws nothing and so never measures by itself, and only when it now has something to draw ([drawn]).
+     * A measure of nothing to draw would find it [empty] again, and an item waiting for its rule changes every second.
+     */
+    fun measureAgain(empty: Boolean, drawn: Boolean) = empty && drawn
+
+    /**
      * What Settings says about a bar that has a place. [refused]: Android gave an area with a place no window, so the bar
      * isn't all there, whatever the strips that came have to show.
      */

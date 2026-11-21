@@ -235,6 +235,8 @@ class BarController(private val service: AccessibilityService) {
 
     private val scanNow = Runnable { scan() }
     private val quickCheck = Runnable { check(full = false) }
+    /** The bar placed again by the reading it has: a strip's width changed, which is no change of the status bar's tree. */
+    private val placeAgain = Runnable { check(full = false) }
     /**
      * Status bar icons come and go without window changes. Every 2 s while shown, refresh just the
      * spacer node (one call) and read the whole bar again only if it moved, or every 30 s.
@@ -403,12 +405,12 @@ class BarController(private val service: AccessibilityService) {
 
     /**
      * What has no room right now, for Settings' rows and the ‹ menu: every strip's own and what the areas with no window
-     * are owed, as one set. A ‹ coming or going changes a strip's width, so the bar is looked at again, and only when the
-     * set changed.
+     * are owed, as one set. A ‹ coming or going changes a strip's width, so the bar is placed again, and only when the set
+     * changed: by the reading it has, since nothing of the status bar's own tree changed with it.
      */
     private fun publishOverflow() {
         val ids = strips.flatMapTo(mutableSetOf()) { it.dropped } + owedItems
-        if (BarOverflow.ids.value != ids) { BarOverflow.ids.value = ids; main.post(scanNow) }
+        if (BarOverflow.ids.value != ids) { BarOverflow.ids.value = ids; main.post(placeAgain) }
     }
 
     /** Window events, logged only where asked for: `adb shell setprop log.tag.BentoBarEvents DEBUG`. */
@@ -550,8 +552,10 @@ class BarController(private val service: AccessibilityService) {
             strips = strips.associate { it.area to it.state() })
         firstBudget.intValue = a.spots.first().budget
         heightDp.value = (s.bar.height() / density).dp
-        val where = "free=${s.free.toShortString()} ${a.spots.joinToString(" ") { "${word(it.area)} x=${it.x} maxW=${it.budget}" }} [${s.summary}]"
-        if (where != lastWhere) { trace("place $where"); lastWhere = where }
+        if (tracing) {
+            val where = "free=${s.free.toShortString()} ${a.spots.joinToString(" ") { "${word(it.area)} x=${it.x} maxW=${it.budget}" }} [${s.summary}]"
+            if (where != lastWhere) { trace("place $where"); lastWhere = where }
+        }
         // Which strip is the first and which areas are owed only name areas, and are said before any window goes or comes:
         // a window that is added has the watch for presses outside the bar in its params already, as the one strip's had.
         val before = carrier
@@ -641,9 +645,9 @@ class BarController(private val service: AccessibilityService) {
         val drawn = StripContent.drawn(shownEntries + revealedEntries, plan.chevron, look.value.pill,
             home = strip.area == StripContent.capsuleArea(cfg.homeArea(), carrier, owed.value) && (onView.value - strip.area).isEmpty())
         // While the window is invisible nothing draws, and the remeasure Compose hands to the next draw would wait for it for
-        // good. Measuring still runs, if it is asked for: the rule above is heard as soon as the composition changes.
+        // good. Measuring still runs, if it is asked for: the rule above is heard as soon as there is something to draw.
         val view = LocalView.current
-        SideEffect { if (strip.empty) view.requestLayout() }
+        SideEffect { if (StripContent.measureAgain(strip.empty, drawn)) view.requestLayout() }
         // Its reach is known when its items are laid out, before its width is. It is read as state where the width is
         // reported, so a fit that changed under an unchanged width (an item gone, a ‹ come) is still heard.
         val reach = remember { mutableIntStateOf(0) }
