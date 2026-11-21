@@ -144,6 +144,39 @@ class BarRulesTest {
         assertNull(look(list(bar, strip), last = reading.copy(windowId = 99), interactive = false).read)
     }
 
+    // ---- whose window the bar is ----------------------------------------------------------------
+
+    /** The status bar is SystemUI's window, on Googlebook OS as on the emulator (its spacer is `com.android.systemui:id/…`). */
+    @Test fun aSystemUiRootIsReadAsTheBar() {
+        assertTrue(BarRules.isStatusBarPackage("com.android.systemui"))
+        // Nothing found to be another app's yet: the system window along the top is the bar, as it always was.
+        assertEquals(BAR_ID, BarRules.findBar(WindowDump(list(bar, strip, maximized)).listed, 1920, 45, notBar = emptySet())?.id)
+        assertEquals(BAR_ID, BarRules.findBar(WindowDump(list(bar, strip, maximized)).listed, 1920, 45)?.id)
+    }
+
+    /**
+     * Another app's window in the bar's shape (an overlay the list reports as a system window, along the top) is not the
+     * bar: nothing under its root is read, and while it is listed it is passed over for the real one. With the real bar
+     * hidden by a full-screen app there is then no bar, and no strip over that app.
+     */
+    @Test fun anotherAppsWindowInTheBarsShapeIsNotRead() {
+        for (other in listOf("com.example.overlay", "com.android.systemui.plugin", "", null)) assertFalse("$other", BarRules.isStatusBarPackage(other))
+        val impostor = "70:t3:Overlay:[0,0][1920,41]"
+        val both = WindowDump(list(impostor, bar, strip, maximized)).listed
+        assertEquals("first in the list, it is the one asked first", 70, BarRules.findBar(both, 1920, 45)?.id)
+        assertEquals("found not to be SystemUI's, the real bar after it is the bar", BAR_ID, BarRules.findBar(both, 1920, 45, notBar = setOf(70))?.id)
+        val alone = WindowDump(list(impostor, fullScreen)).listed
+        assertNull("the bar hidden by a full-screen app: no bar at all", BarRules.findBar(alone, 1920, 45, notBar = setOf(70)))
+        assertEquals(BarStatus.NO_BAR, look(list(impostor, fullScreen), now = null).status)
+    }
+
+    @Test fun systemUisPackageIsNamedOnce() {
+        val named = com.meridian11.books.bentobar.SourceScan.sources.filter { "com.android.systemui" in com.meridian11.books.bentobar.SourceScan.code(it) }.map { it.name }
+        assertEquals("one constant, in the rules: $named", listOf("BarRules.kt"), named)
+        val code = File("src/main/java/com/meridian11/books/bentobar/bar/BarRules.kt").readText()
+        assertEquals(1, Regex(Regex.escape("\"com.android.systemui\"")).findAll(code).count())
+    }
+
     // ---- the rest of the rules ----------------------------------------------------------------
 
     @Test fun aShadeOverTheBarHidesTheStrip() {

@@ -154,9 +154,20 @@ internal object BarRules {
     const val NO_TREE = "no-tree"
     private val timeRe = Regex("""\d{1,2}[:.]\d{2}""")
 
-    /** The status bar window: a system window along the top edge, shorter than [maxHeight]. */
-    fun findBar(listed: List<WindowFact>, screenWidth: Int, maxHeight: Int): WindowFact? =
-        listed.firstOrNull { w -> w.kind == WindowFact.Kind.SYSTEM && w.box.top == 0 && w.box.height() in 1..maxHeight && w.box.width() >= screenWidth / 2 }
+    /** The package whose window the status bar is: SystemUI's, on Googlebook OS as on the emulator. */
+    private const val SYSTEM_UI = "com.android.systemui"
+
+    /** Whether a window whose root is [packageName]'s may be the status bar, and so be read. */
+    fun isStatusBarPackage(packageName: String?) = packageName == SYSTEM_UI
+
+    /**
+     * The status bar window: a system window along the top edge, shorter than [maxHeight]. [notBar] are the windows of that
+     * shape whose root was found not to be SystemUI's ([isStatusBarPackage]): they are passed over.
+     */
+    fun findBar(listed: List<WindowFact>, screenWidth: Int, maxHeight: Int, notBar: Set<Int> = emptySet()): WindowFact? =
+        listed.firstOrNull { w ->
+            w.id !in notBar && w.kind == WindowFact.Kind.SYSTEM && w.box.top == 0 && w.box.height() in 1..maxHeight && w.box.width() >= screenWidth / 2
+        }
 
     /** Whether the last reading still stands: a cheap look at the same bar window in the same place reads no node. */
     fun keepsReading(full: Boolean, last: BarSnapshot?, bar: WindowFact) = !full && last != null && last.windowId == bar.id && last.bar == bar.box

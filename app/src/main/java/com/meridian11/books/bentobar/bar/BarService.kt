@@ -215,6 +215,8 @@ class BarController(private val service: AccessibilityService) {
     }
     private var snap: BarSnapshot? = null
     private var overlayIds = emptySet<Int>()
+    /** The windows in the status bar's shape whose root is not SystemUI's ([BarRules.findBar] passes them over). */
+    private val notBar = HashSet<Int>()
     /** The areas whose strip the pointer is over: an Exit from one strip can arrive after the Enter of the next. */
     private var hoverAreas = emptySet<Position>()
     /** The pointer is over the bar. */
@@ -500,22 +502,30 @@ class BarController(private val service: AccessibilityService) {
         // Plain facts from here on: what kind each window is and where, and nothing of what is in it.
         val listed = windows.map { StatusBarScan.fact(it) }
         overlayIds = listed.filter { it.kind == WindowFact.Kind.OVERLAY }.map { it.id }.toSet()
-        val barFact = BarRules.findBar(listed, screenW, maxH)
+        // A window found not to be SystemUI's is passed over while it is listed; one that left the list is forgotten.
+        notBar.retainAll(listed.mapTo(HashSet()) { it.id })
+        var barFact = BarRules.findBar(listed, screenW, maxH, notBar)
         val prev = snap
-        val s = when {
-            barFact == null -> null
-            BarRules.keepsReading(full, prev, barFact) -> prev
-            else -> {
-                lastFullScan = SystemClock.uptimeMillis()
-                // Without content-change events the node cache can go stale: read the status bar fresh.
-                service.clearCache()
-                val since = SystemClock.uptimeMillis()
-                val scanned = runCatching { StatusBarScan.scan(windows[listed.indexOf(barFact)]) }.onFailure { Log.w(tag, "scan failed", it) }.getOrNull()
-                timed(BarRules.Call.SCAN, since)
-                // A reading kept from before has no node (a scan without a tree brought none).
-                spacerNode = scanned?.spacerNode
-                BarRules.settled(scanned?.snapshot, prev)
+        var s: BarSnapshot? = null
+        while (barFact != null) {
+            if (BarRules.keepsReading(full, prev, barFact)) { s = prev; break }
+            lastFullScan = SystemClock.uptimeMillis()
+            // Without content-change events the node cache can go stale: read the status bar fresh.
+            service.clearCache()
+            val since = SystemClock.uptimeMillis()
+            val scanned = runCatching { StatusBarScan.scan(windows[listed.indexOf(barFact)]) }.onFailure { Log.w(tag, "scan failed", it) }.getOrNull()
+            timed(BarRules.Call.SCAN, since)
+            if (scanned?.notTheBar == true) {
+                // Another app's window in the bar's shape: nothing of it was read but whose it is, and the next one is asked.
+                Log.i(tag, "a window in the status bar's place is not SystemUI's: passed over")
+                notBar += barFact.id
+                barFact = BarRules.findBar(listed, screenW, maxH, notBar)
+                continue
             }
+            // A reading kept from before has no node (a scan without a tree brought none).
+            spacerNode = scanned?.spacerNode
+            s = BarRules.settled(scanned?.snapshot, prev)
+            break
         }
         if (s == null) spacerNode = null
         snap = s
