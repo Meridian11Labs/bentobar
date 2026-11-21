@@ -157,6 +157,24 @@ class PrivateTextTest {
         assertEquals(setOf("p"), Kept.own("prompter").names())
     }
 
+    /**
+     * A stored layout this version can't read (from a newer one, or damaged) is set aside and the bar starts fresh: the
+     * start's sweep keeps the notes of its prompters, so Put back brings them back with them, and a discard lets them go.
+     */
+    @Test fun aSetAsideLayoutsPromptersKeepTheirNotesUntilItIsPutBackOrDiscarded() {
+        Kept.own("prompter").write("p", script, 1)
+        val raw = """{"version":${com.meridian11.books.bentobar.data.LAYOUT_VERSION + 1},"items":[{"id":"p","type":"prompter"},{"id":"c","type":"clock"}]}"""
+        Store.open(MapPrefs(mapOf("bar" to raw))) { }
+        assertTrue(Store.config.value.items.none { it.id == "p" })
+        PrompterItem.settle(Settle.SERVICE_STARTED)
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
+        Store.discardSetAside()
+        PrompterItem.settle(Settle.SERVICE_STARTED)
+        settled(PrompterItem.type)
+        assertEquals(emptySet<String>(), Kept.own("prompter").names())
+    }
+
     @Test fun aRemovedPromptersNotesStayWhileUndoCanBringItBackAndGoWhenItNoLongerCan() {
         PrompterItem.edit("p", script)
         PrompterItem.save("p")

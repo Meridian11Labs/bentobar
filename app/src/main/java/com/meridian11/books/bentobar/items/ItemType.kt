@@ -326,12 +326,16 @@ abstract class ItemType(
     open fun forgetOwn(id: String) {}
 
     /**
-     * This type's items in the layout and any the Bar page's Undo can still bring back: what a type keeps under another
-     * id belonged to an item that is gone. Main thread.
+     * This type's items in the layout, any the Bar page's Undo can still bring back, and those of a layout set aside that
+     * Backup can still put back ([Store.asideIds][com.meridian11.books.bentobar.data.Store.asideIds]): what a type keeps
+     * under another id belonged to an item that is gone. Main thread.
      */
-    internal fun ids(): Set<String> =
-        com.meridian11.books.bentobar.data.Store.config.value.items.filter { it.type == type }.mapTo(HashSet()) { it.id }
-            .also { it += com.meridian11.books.bentobar.ui.Undo.held(type) }
+    internal fun ids(): Set<String> {
+        // The set-aside layout's first: Put back writes the layout before it names them no more.
+        val aside = com.meridian11.books.bentobar.data.Store.asideIds(type)
+        return com.meridian11.books.bentobar.data.Store.config.value.items.filter { it.type == type }.mapTo(HashSet()) { it.id }
+            .also { it += com.meridian11.books.bentobar.ui.Undo.held(type); it += aside }
+    }
 
     /**
      * Gives back what outlives the bar being on screen (a mute, a Do Not Disturb rule, a keyboard's light), at the moments

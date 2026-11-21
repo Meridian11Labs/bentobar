@@ -155,6 +155,21 @@ class FlightRemovedTest {
         assertEquals(emptySet<String>(), notes())
     }
 
+    /** A layout set aside at the start (from a newer version) keeps its items' flights through the start's sweep, until it is discarded. */
+    @Test fun aSetAsideLayoutsFlightsStayThroughTheStartsSweepUntilItIsDiscarded() {
+        follow("f")
+        val raw = """{"version":${com.meridian11.books.bentobar.data.LAYOUT_VERSION + 1},"items":[{"id":"f","type":"flight"},{"id":"c","type":"clock"}]}"""
+        Store.open(MapPrefs(mapOf("bar" to raw))) { }
+        assertTrue(Store.config.value.items.none { it.type == FlightItem.type })
+        FlightItem.sweepAtStart()
+        settled()
+        assertEquals(setOf("f"), notes())
+        Store.discardSetAside()
+        FlightItem.sweepAtStart()
+        settled()
+        assertEquals(emptySet<String>(), notes())
+    }
+
     @Test fun anItemThatUndoTakesOutAgainTakesTheFlightItFollowedSinceWithIt() {
         assertTrue(Undo.change(added = "h") { c -> c.copy(items = c.items + flight.copy(id = "h")) })
         follow("h")
