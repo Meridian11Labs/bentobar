@@ -110,7 +110,12 @@ object Fmt {
         else String.format(Locale.ROOT, "%d:%02d", m, sec)
     }
 
-    fun percent(f: Double) = percent((f * 100).toInt())
+    /**
+     * A share (0 to 1) as a whole percentage, the one below until the next is reached, as the system shows a battery level
+     * (level × 100 / scale in whole numbers). The tolerance is for the fraction as it is stored: 0.29 × 100 is 28.999…, and a
+     * Float's 0.58 widened is 0.5799999…
+     */
+    fun percent(f: Double) = percent(kotlin.math.floor(f * 100 + 1e-4).toInt())
 
     /**
      * The widest text [text] can become while its numbers change, for a fixed-width slot in the
