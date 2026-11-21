@@ -53,6 +53,8 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.areAnyPressed
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.isTertiaryPressed
@@ -964,26 +966,31 @@ private fun Modifier.clicks(onClick: () -> Unit, onContext: () -> Unit, onScroll
                         act(did, gesture.downX)
                         continue
                     }
-                    val c = e.changes.firstOrNull()
+                    // Every pointer's change goes to the gesture, which keeps to the one whose press it is: another finger
+                    // going down, moving or lifting is reported here too, as a Press or a Release of this item's own.
                     when (e.type) {
                         PointerEventType.Press -> {
-                            gesture.press(e.changes.any { it.isConsumed }, e.buttons.isSecondaryPressed, c?.type == PointerType.Touch, e.buttons.areAnyPressed,
-                                c?.position?.x ?: 0f, c?.position?.y ?: 0f, c?.uptimeMillis ?: 0L, viewConfiguration.longPressTimeoutMillis)
+                            e.changes.filter { it.changedToDownIgnoreConsumed() }.forEach { c ->
+                                gesture.press(c.isConsumed, e.buttons.isSecondaryPressed, c.type == PointerType.Touch, e.buttons.areAnyPressed,
+                                    c.position.x, c.position.y, c.uptimeMillis, viewConfiguration.longPressTimeoutMillis, c.id.value)
+                            }
                             if (gesture.armed) e.changes.forEach { it.consume() }
                         }
-                        PointerEventType.Move -> if (c != null) {
-                            val did = gesture.move(c.position.x, c.position.y, inside(c), c.pressed, c.isConsumed, drag != null, c.uptimeMillis)
+                        PointerEventType.Move -> e.changes.forEach { c ->
+                            val did = gesture.move(c.position.x, c.position.y, inside(c), c.pressed, c.isConsumed, drag != null, c.uptimeMillis, c.id.value)
                             if (did is ClickGesture.Did.Drag) { act(did, gesture.downX); c.consume() }
                         }
-                        PointerEventType.Release -> if (c != null) {
+                        PointerEventType.Release -> {
                             val pressed = gesture.armed
                             val downX = gesture.downX
                             // Where it was let go: the pointer can travel past the last move event.
-                            act(gesture.release(c.position.x, inside(c), c.isConsumed), downX)
+                            e.changes.filter { it.changedToUpIgnoreConsumed() }.forEach { c ->
+                                act(gesture.release(c.position.x, inside(c), c.isConsumed, c.id.value), downX)
+                            }
                             if (pressed) e.changes.forEach { it.consume() }
                         }
                         PointerEventType.Scroll -> scroll?.let { onWheel ->
-                            val dy = c?.scrollDelta?.y ?: 0f
+                            val dy = e.changes.firstOrNull()?.scrollDelta?.y ?: 0f
                             if (dy != 0f) onWheel(if (dy < 0) 1 else -1)
                             e.changes.forEach { it.consume() }
                         }

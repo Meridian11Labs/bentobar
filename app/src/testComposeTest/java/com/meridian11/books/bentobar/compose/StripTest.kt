@@ -25,6 +25,7 @@ import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
@@ -212,6 +213,45 @@ class StripTest {
             assertTrue(events.drags.contains("a"))
             assertTrue("no drop: ${events.dropped}", events.dropped.isEmpty())
             assertEquals(listOf("a"), events.takenAway)
+        }
+    }
+
+    /**
+     * A second finger put on an item being dragged and lifted again is nothing to the drag: it lands where the first lets
+     * go, not when the second lifts.
+     */
+    @Test fun aSecondFingerOnADraggedItemLeavesTheDragToTheFirst() {
+        strip(listOf(plain))
+        val node = rule.onNodeWithContentDescription("Alpha desc")
+        node.performTouchInput { down(0, center); moveBy(0, Offset(30f, 0f)); moveBy(0, Offset(10f, 0f)) }
+        node.performTouchInput { down(1, center); up(1) }
+        rule.runOnIdle { assertTrue("the drag goes on: ${events.dropped}", events.dropped.isEmpty()) }
+        node.performTouchInput { moveBy(0, Offset(3f, 0f)); up(0) }
+        rule.runOnIdle {
+            assertEquals(listOf("a"), events.dropped)
+            assertTrue("not taken away: ${events.takenAway}", events.takenAway.isEmpty())
+            assertTrue("no click: ${events.clicks}", events.clicks.isEmpty())
+        }
+    }
+
+    /** A finger resting on one item while another taps the next: the tap is the next item's click, and none of the first's. */
+    @Test fun aTapBesideAFingerRestingOnAnItemIsTheOtherItemsClickAlone() {
+        val beta = entry("b", ItemState(icon = "X", text = "Beta", desc = "Beta desc"))
+        strip(listOf(plain, beta), timing = 60_000)
+        val a = rule.onNodeWithContentDescription("Alpha desc").getBoundsInRoot()
+        val b = rule.onNodeWithContentDescription("Beta desc").getBoundsInRoot()
+        fun mid(r: androidx.compose.ui.unit.DpRect) = with(rule.density) { Offset(((r.left + r.right) / 2).toPx(), ((r.top + r.bottom) / 2).toPx()) }
+        rule.onRoot().performTouchInput {
+            down(0, mid(a))
+            down(1, mid(b))
+            up(1)
+            // The resting finger is pulled down off its item and lifted: no click of its own either.
+            moveBy(0, Offset(0f, 300f))
+            up(0)
+        }
+        rule.runOnIdle {
+            assertEquals(listOf("b"), events.clicks)
+            assertTrue("no menu: ${events.contexts}", events.contexts.isEmpty())
         }
     }
 
