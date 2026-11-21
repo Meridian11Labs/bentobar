@@ -140,7 +140,8 @@ class BarController(private val service: AccessibilityService) {
     private val colors = ColorReader(service, main, object : ColorReader.Facts {
         override val started get() = this@BarController.started
         override val onScreen get() = strips.any { it.shown }
-        override val empty get() = stripEmpty
+        // None on view: a strip shown and not measured yet has an invisible window, as one with nothing to draw has.
+        override val empty get() = onView.value.isEmpty()
         override val interactive get() = pm.isInteractive
         override val snapshot get() = snap
     }) { s, done -> StatusBarScan.shoot(service, s, done) }
@@ -380,10 +381,19 @@ class BarController(private val service: AccessibilityService) {
         publishOverflow()
     }
 
-    /** Which strips are on view is asked again: a strip was measured, or went. The first of them hears a press outside the bar. */
+    /**
+     * Which strips are on view is asked again: a strip was measured, or went. The first of them hears a press outside the
+     * bar. The bar's colours are read only while one is: the colour reader is told here when the first comes or the last
+     * goes, and the readings owed meanwhile come then.
+     */
     private fun noteOnView() {
+        val none = onView.value.isEmpty()
         onView.value = strips.filter { it.shown && !it.pending && !it.empty }.mapTo(mutableSetOf()) { it.area }
         watchOutside()
+        if (onView.value.isEmpty() != none) {
+            trace("strip ${if (none) "on view" else "off view"}")
+            colors.contentChanged(!none)
+        }
     }
 
     /** The first strip says what the areas with no window would draw now, each time it is composed. */
@@ -538,7 +548,6 @@ class BarController(private val service: AccessibilityService) {
         heightDp.value = (s.bar.height() / density).dp
         val where = "free=${s.free.toShortString()} ${a.spots.joinToString(" ") { "${word(it.area)} x=${it.x} maxW=${it.budget}" }} [${s.summary}]"
         if (where != lastWhere) { trace("place $where"); lastWhere = where }
-        val was = stripEmpty
         // Which strip is the first and which areas are owed only name areas, and are said before any window goes or comes:
         // a window that is added has the watch for presses outside the bar in its params already, as the one strip's had.
         val before = carrier
@@ -590,11 +599,6 @@ class BarController(private val service: AccessibilityService) {
             colors.readSoon(ColorWatch.Cause.SLOW, 250)
             Ticker.start("bar")
             Log.i(tag, "bar shown: bar=${s.bar.toShortString()} free=${s.free.toShortString()} [${s.summary}]")
-        } else if (stripEmpty != was) {
-            // An area came or went and with it the last thing drawn, or the first: no reading of its own, only what an
-            // empty bar owes or is owed.
-            trace("strip ${if (stripEmpty) "empty" else "has content"}")
-            colors.contentChanged(stripEmpty)
         }
     }
 
@@ -676,8 +680,8 @@ class BarController(private val service: AccessibilityService) {
      * measure says). A strip with nothing to draw ([StripContent.empty]: every item off, only rule items that don't apply
      * now, only blank items) has its window made invisible rather than left up empty, which is what Android's threat
      * detection looks for ("imperceptible content" from an accessibility service). Its content keeps being measured, so
-     * it shows again as soon as there's something to draw ([StripHost] asks for that measure). Keep awake and the colours
-     * are told when this changes.
+     * it shows again as soon as there's something to draw ([StripHost] asks for that measure). The status says so; keep
+     * awake and the colours go by which strips are on view ([onView]), where a strip not measured yet counts as nothing.
      */
     private var stripEmpty = false
     /** An area with a place has no window: Android refused it at the last placing. */
@@ -691,15 +695,10 @@ class BarController(private val service: AccessibilityService) {
      */
     private fun applyWidth(strip: AreaStrip, window: Int, w: Int, empty: Boolean, reach: Int) {
         if (!strip.shown || window != strip.generation) return // it left meanwhile, or left and came back: another window's measure
-        val was = stripEmpty
         strip.measured = w; strip.empty = empty; strip.reach = reach; strip.pending = false
         strip.setContentVisible(!empty) // the one place a strip's window becomes visible, or invisible again
-        noteOnView()
+        noteOnView() // and the colour reader hears of it, if it was the first on view or the last
         stripEmpty = strips.none { it.draws }
-        if (stripEmpty != was) {
-            trace("strip ${if (stripEmpty) "empty" else "has content"}")
-            colors.contentChanged(stripEmpty)
-        }
         // Placed again first, then keep awake is told once, by the placing: told before, it would choose by the placing
         // that is about to change, and take a wake lock and let it go within one measure.
         val placing = if (showing) lastPlace else null // never puts back a bar that has left

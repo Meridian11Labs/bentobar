@@ -72,6 +72,20 @@ class HidePathTest {
         assertTrue("windows that moved are told to the colour reader", "else if (d.read == BarRules.Read.WINDOWS_MOVED) colors.windowsMoved()" in check)
     }
 
+    /**
+     * A reading is a screenshot, and one is taken only while a strip of ours is on view (Play Protect, AGENTS.md): a strip
+     * shown and not measured yet has an invisible window, so to the colour reader it is as empty as one with nothing to
+     * draw. Which strips are on view is said in one place, and that place alone tells the reader when the first comes or
+     * the last goes: what was owed meanwhile is read then.
+     */
+    @Test fun theBarIsReadOnlyWhileAStripIsOnView() {
+        val facts = code.substringAfter("private val colors = ColorReader(").substringBefore("}) {")
+        assertTrue(facts, Regex("""override val empty get\(\) = onView\.value\.isEmpty\(\)""").containsMatchIn(facts))
+        val noteOnView = code.substringAfter("private fun noteOnView() {").substringBefore("\n    }\n")
+        inOrder(noteOnView, "onView.value = ", "colors.contentChanged(")
+        assertEquals("the reader hears of it from noteOnView alone", 1, Regex("""colors\.contentChanged\(""").findAll(code).count())
+    }
+
     /** A screenshot's answer can come after stop(): running it is what closes its buffer, so the thread it runs on stays. */
     @Test fun aScreenshotAnsweredAfterStopStillClosesItsBuffer() {
         val scan = File("src/main/java/com/meridian11/books/bentobar/bar/StatusBarScan.kt").readText()
