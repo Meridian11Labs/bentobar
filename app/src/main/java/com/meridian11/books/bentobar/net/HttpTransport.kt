@@ -46,7 +46,7 @@ class HttpTransport(
             // Asked for by name and unpacked below, so Android and the JVM (the unit tests) behave alike.
             c.setRequestProperty("Accept-Encoding", "gzip")
             val status = c.responseCode
-            if (status !in 200..299) return Reply.Failed(Why.STATUS, status, retryAfter(c))
+            if (status !in 200..299) return Reply.Failed(Why.STATUS, status, retryAfter(status, c.getHeaderField("Retry-After")))
             // Connecting and the headers can use up the whole allowance: an answer that took that long is given up too, even an empty one.
             if (System.nanoTime() - deadline > 0) throw SocketTimeoutException()
             val packed = c.contentEncoding.orEmpty().trim().equals("gzip", ignoreCase = true)
@@ -78,9 +78,6 @@ class HttpTransport(
         }
     }
 
-    private fun retryAfter(c: HttpURLConnection): Long? =
-        c.getHeaderField("Retry-After")?.trim()?.toLongOrNull()?.takeIf { it in 0..86_400 }
-
     companion object {
         private val PATH = Regex("(/[A-Za-z0-9._~-]+)+")
 
@@ -106,6 +103,14 @@ class HttpTransport(
             check(url.protocol == "https" && Host.entries.any { it.domain == url.host }) { "not one of BentoBar's hosts" }
             return url.openConnection() as HttpURLConnection
         }
+
+        /**
+         * The wait a reply with [status] asks for in its Retry-After [header], in seconds, or null: none. Only a 429 (too
+         * many requests) or a 503 (unavailable) asks: on a redirect or another error the header is some proxy's word, not
+         * the service's. A date instead of seconds, or a day and more, is no number here.
+         */
+        internal fun retryAfter(status: Int, header: String?): Long? =
+            if (status != 429 && status != 503) null else header?.trim()?.toLongOrNull()?.takeIf { it in 0..86_400 }
 
         /** What went wrong, as one of a few kinds. The exception itself is dropped here. */
         internal fun why(t: Throwable): Why = when (t) {
