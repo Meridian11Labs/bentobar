@@ -100,6 +100,23 @@ internal object BarRules {
 
     fun geometry(cfg: BarConfig) = Geometry(cfg.enabled, cfg.pill, cfg.spacing, cfg.items.map { Triple(it.id, it.section, it.area) })
 
+    /** What a configuration change asks of the bar ([afterConfig]). */
+    enum class AfterConfig {
+        /** Only the input devices or the SIM changed (a keyboard attached or taken off): the bar is looked at again, and that is all. */
+        RESCAN,
+        /**
+         * Anything else (density, size, orientation, theme, locale, text size, the window's bounds): a popup or tooltip placed
+         * for the old display closes, the bar is looked at again, and its colors are read over the time it may take.
+         */
+        RESET,
+    }
+
+    /** The configuration bits of the input devices and the SIM: ActivityInfo's CONFIG_MCC, MNC, TOUCHSCREEN, KEYBOARD, KEYBOARD_HIDDEN and NAVIGATION. */
+    const val INPUT_CONFIG = 0x0001 or 0x0002 or 0x0008 or 0x0010 or 0x0020 or 0x0040
+
+    /** What a configuration change whose [diff] (`Configuration.diff`) is that asks of the bar. Nothing known to differ is no reason to do less. */
+    fun afterConfig(diff: Int): AfterConfig = if (diff != 0 && diff and INPUT_CONFIG.inv() == 0) AfterConfig.RESCAN else AfterConfig.RESET
+
     /** What asks [decide] for a reading of the bar's colors. */
     enum class Read { NEW_BAR_WINDOW, WINDOWS_MOVED }
 

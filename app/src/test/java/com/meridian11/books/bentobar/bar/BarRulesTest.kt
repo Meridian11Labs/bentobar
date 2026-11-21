@@ -1,5 +1,6 @@
 package com.meridian11.books.bentobar.bar
 
+import android.content.pm.ActivityInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
@@ -309,5 +310,39 @@ class BarRulesTest {
         assertNotEquals(g, BarRules.geometry(two.copy(items = two.items.map { if (it.id == "u") it.copy(area = com.meridian11.books.bentobar.data.Position.CENTER) else it })))
         // Since version 4 the items say where they are: the Position a layout had before is only what the migration reads.
         assertEquals(g, BarRules.geometry(two.copy(position = com.meridian11.books.bentobar.data.Position.LEFT)))
+    }
+
+    // ---- what a configuration change asks of the bar ---------------------------------------------------
+
+    private val keyboard = ActivityInfo.CONFIG_KEYBOARD or ActivityInfo.CONFIG_KEYBOARD_HIDDEN
+
+    @Test fun theInputBitsAreAndroidsOwn() {
+        // BarRules names no Android type: the numbers there are these constants.
+        val mask = ActivityInfo.CONFIG_MCC or ActivityInfo.CONFIG_MNC or ActivityInfo.CONFIG_TOUCHSCREEN or
+            ActivityInfo.CONFIG_KEYBOARD or ActivityInfo.CONFIG_KEYBOARD_HIDDEN or ActivityInfo.CONFIG_NAVIGATION
+        assertEquals(mask, BarRules.INPUT_CONFIG)
+    }
+
+    @Test fun aKeyboardAttachedOrASimChangedOnlyLooksAtTheBarAgain() {
+        // An open popup stays, and the bar is not read six times over ten seconds for it.
+        assertEquals(BarRules.AfterConfig.RESCAN, BarRules.afterConfig(keyboard))
+        assertEquals(BarRules.AfterConfig.RESCAN, BarRules.afterConfig(keyboard or ActivityInfo.CONFIG_NAVIGATION))
+        assertEquals(BarRules.AfterConfig.RESCAN, BarRules.afterConfig(ActivityInfo.CONFIG_TOUCHSCREEN))
+        assertEquals(BarRules.AfterConfig.RESCAN, BarRules.afterConfig(ActivityInfo.CONFIG_MCC or ActivityInfo.CONFIG_MNC))
+    }
+
+    @Test fun aNewDisplayOrThemeClosesThePopupAndReadsTheBarAsBefore() {
+        for (bit in listOf(ActivityInfo.CONFIG_DENSITY, ActivityInfo.CONFIG_SCREEN_SIZE, ActivityInfo.CONFIG_ORIENTATION,
+            ActivityInfo.CONFIG_UI_MODE, ActivityInfo.CONFIG_FONT_SCALE, ActivityInfo.CONFIG_LOCALE, ActivityInfo.CONFIG_LAYOUT_DIRECTION,
+            0x20000000 /* the window's own configuration */, 0x80000000.toInt() /* the assets: a theme overlay */)) {
+            assertEquals("0x${Integer.toHexString(bit)}", BarRules.AfterConfig.RESET, BarRules.afterConfig(bit))
+        }
+    }
+
+    @Test fun aKeyboardTogetherWithAnythingElseIsTheAnythingElse() {
+        // A convertible folded into a tablet: the keyboard goes, and the screen turns with it.
+        assertEquals(BarRules.AfterConfig.RESET, BarRules.afterConfig(keyboard or ActivityInfo.CONFIG_ORIENTATION))
+        // Nothing known to have changed: as before there was a difference to look at.
+        assertEquals(BarRules.AfterConfig.RESET, BarRules.afterConfig(0))
     }
 }

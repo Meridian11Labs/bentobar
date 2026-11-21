@@ -91,7 +91,7 @@ class BarService : AccessibilityService() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        bar?.onConfigChanged()
+        bar?.onConfigChanged(newConfig)
     }
 
     override fun onUnbind(intent: Intent?): Boolean { shutdown(); return super.onUnbind(intent) }
@@ -306,6 +306,7 @@ class BarController(private val service: AccessibilityService) {
     }
     fun start() {
         started = true
+        lastConfig = Configuration(service.resources.configuration)
         // Pinned open with ‹ before a restart: open again.
         Store.config.value.let { if (it.pinnedOpen && it.hiddenMode != HiddenMode.SHOW_ALL) { expanded.value = true; pinned = true } }
         service.registerReceiver(screen, IntentFilter().apply {
@@ -419,10 +420,21 @@ class BarController(private val service: AccessibilityService) {
         }
     }
 
-    /** Rotation, density or resolution: a menu or tooltip placed for the old display would be off, so close them. */
-    fun onConfigChanged() {
-        menus.closeMenu(now = true); menus.hideTip()
-        main.postDelayed(scanNow, 200); colors.readSoon(ColorWatch.Cause.SLOW, 500)
+    /** The configuration the last change brought, against which the next one is told apart ([BarRules.afterConfig]). */
+    private var lastConfig: Configuration? = null
+
+    /**
+     * Rotation, density or resolution: a menu or tooltip placed for the old display would be off, so close them, and the
+     * bar may look different. A keyboard attached or taken off is none of that: the bar is only looked at again.
+     */
+    fun onConfigChanged(newConfig: Configuration) {
+        val diff = lastConfig?.diff(newConfig) ?: 0
+        lastConfig = Configuration(newConfig)
+        val step = BarRules.afterConfig(diff)
+        Log.i(tag, "configuration changed 0x${Integer.toHexString(diff)}: ${step.name.lowercase()}")
+        if (step == BarRules.AfterConfig.RESET) { menus.closeMenu(now = true); menus.hideTip() }
+        main.postDelayed(scanNow, 200)
+        if (step == BarRules.AfterConfig.RESET) colors.readSoon(ColorWatch.Cause.SLOW, 500)
     }
 
     private var lastGeometry: BarRules.Geometry? = null
