@@ -117,6 +117,11 @@ object Http {
      * service's slow-down pace), which is why it is short; a press of Try again is the soonest asked again (ten seconds).
      */
     private const val SLOW_DOWN_SEC = 10L
+    /**
+     * The longest one reply holds its whole service: a service that asked for a day is asked again in an hour by its other
+     * items (its own item keeps the pace it was given). What is held is in memory only, so a restart ends it too.
+     */
+    private const val MOST_HOLD_SEC = 60 * 60L
 
     private val counts = AtomicIntegerArray(Host.entries.size)
     /** Per service, the moment by [clock] before which nothing is sent to it: set from a 429 or a Retry-After. 0: none. */
@@ -163,9 +168,12 @@ object Http {
         return Reply.Failed(Why.STATUS, holdStatus.get(service), retryAfterSec = (wait + 999) / 1000, sent = false)
     }
 
-    /** What a service asked for, kept for every request to it: at [Reply.Failed.retryAfterSec], or for a 429 that names none, [SLOW_DOWN_SEC]. */
+    /**
+     * What a service asked for, kept for every request to it: at [Reply.Failed.retryAfterSec], or for a 429 that names none
+     * (or none at all: 0), [SLOW_DOWN_SEC]; [MOST_HOLD_SEC] at the longest.
+     */
     private fun noteWait(service: Int, reply: Reply.Failed) {
-        val seconds = waitSeconds(reply) ?: return
+        val seconds = waitSeconds(reply)?.coerceAtMost(MOST_HOLD_SEC) ?: return
         synchronized(notBefore) {
             val until = clock() + seconds * 1000
             // The longer wait wins, and so does its status.
@@ -175,7 +183,7 @@ object Http {
 
     /** How long [reply] asks to be left alone, in seconds, or null: it doesn't. */
     private fun waitSeconds(reply: Reply.Failed): Long? =
-        (reply.retryAfterSec ?: if (reply.status == 429) SLOW_DOWN_SEC else null)?.takeIf { it > 0 }
+        reply.retryAfterSec?.takeIf { it > 0 } ?: if (reply.status == 429) SLOW_DOWN_SEC else null
 
     /** A network that can carry a request: there is one and it isn't a sign-in page's. Validated isn't asked for: Android's own check fails on some working networks. */
     fun usable(hasNetwork: Boolean, captivePortal: Boolean): Boolean = hasNetwork && !captivePortal

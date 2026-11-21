@@ -88,6 +88,32 @@ class FxRulesTest {
         assertEquals("100.5", FxRules.formatAmount(100.5, Locale.US))
     }
 
+    @Test fun aRateOrAnAmountBelowOneHasFourSignificantDigits() {
+        // IDR/USD and IDR/GBP: "0.0001" was 65% off, and "0.0000" no rate at all.
+        assertEquals("0.00006123", FxRules.formatRate(0.000061234, Locale.US))
+        assertEquals("0.00004660", FxRules.formatRate(0.0000466, Locale.US))
+        assertEquals("0.0007246", FxRules.formatRate(0.00072461, Locale.US))     // KRW/USD
+        assertEquals("0.06123", FxRules.formatRate(0.061234, Locale.US))
+        assertEquals("0.9157", FxRules.formatRate(0.91573, Locale.US))
+        assertEquals("0,00006123", FxRules.formatRate(0.000061234, german))
+        // Eight decimals at the most.
+        assertEquals("0.00000001", FxRules.formatRate(0.0000000123, Locale.US))
+        // From one up, as before.
+        assertEquals("1.0920", FxRules.formatRate(1.092, Locale.US))
+        assertEquals("16.340", FxRules.formatRate(16.34, Locale.US))
+        assertEquals("163.40", FxRules.formatRate(163.4, Locale.US))
+        // 100 IDR in dollars: no "0.01".
+        assertEquals("0.006123", FxRules.formatConverted(100.0, 0.000061234, Locale.US))
+        assertEquals("0,006123", FxRules.formatConverted(100.0, 0.000061234, german))
+        assertEquals("0.5000", FxRules.formatConverted(1.0, 0.5, Locale.US))
+        assertEquals("0.00000001", FxRules.formatConverted(1.0, 0.0000000123, Locale.US))
+        assertEquals("1.09", FxRules.formatConverted(1.0, 1.092, Locale.US))
+        assertEquals("109.20", FxRules.formatConverted(100.0, 1.092, Locale.US))
+        // However small a cross rate comes out, it is written, with eight decimals.
+        assertEquals("0.00000000", FxRules.formatRate(Double.MIN_VALUE, Locale.US))
+        assertEquals("0.00000000", FxRules.formatConverted(1.0, Double.MIN_VALUE, Locale.US))
+    }
+
     @Test fun aDecimalCommaIsADecimalComma() {
         assertEquals(100.5, FxRules.parseAmount("100,50", german)!!, 0.001)
         assertEquals(1000.5, FxRules.parseAmount("1.000,50", german)!!, 0.001)

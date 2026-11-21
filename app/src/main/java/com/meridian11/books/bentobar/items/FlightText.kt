@@ -329,7 +329,8 @@ object FlightText {
         val v = l.v
         val at = l.f.to.time
         val belt = l.where.belt
-        val since = Duration.between(at?.let(l.f.to::moment) ?: Instant.ofEpochMilli(l.t.heardAt), l.now)
+        // (A landing said without its UTC twin is no moment: its hour runs from when the service said it.)
+        val since = Duration.between(at?.takeUnless { FlightRules.guessed(l.f) }?.let(l.f.to::moment) ?: Instant.ofEpochMilli(l.t.heardAt), l.now)
         val inItsHour = since < FlightRules.LANDED_SHOWN
         // For its hour in the bar the plane stands at the far end of its line, all of it flown.
         val route = if (inItsHour) l.route(1.0) else null

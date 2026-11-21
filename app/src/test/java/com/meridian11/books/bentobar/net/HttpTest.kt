@@ -258,6 +258,41 @@ class HttpTest {
         assertEquals("a held request says what started the hold", 503, held.status)
     }
 
+    @Test fun aManyRequestsThatAsksForNoTimeAtAllHoldsTheRestOfThisPassToo() {
+        clocked()
+        fake.fail(Host.FINNHUB, "/api/v1/quote", Why.STATUS, 429, retryAfterSec = 0)
+        Http.get(quote)
+        now += 9_000
+        assertFalse("a 429 with Retry-After: 0 still holds the pass", (Http.get(other) as Reply.Failed).sent)
+        now += 1_000
+        Http.get(other)
+        assertEquals(2, fake.asked.size)
+    }
+
+    @Test fun oneReplyHoldsItsServiceForAnHourAtMost() {
+        clocked()
+        fake.fail(Host.OPEN_METEO, "/v1/forecast", Why.STATUS, 503, retryAfterSec = 86_400)
+        Http.get(forecast)
+        val air = Request(Host.OPEN_METEO_AIR, "/v1/air-quality")
+        now += 3_599_000
+        val held = Http.get(air) as Reply.Failed
+        assertFalse(held.sent)
+        assertEquals(1L, held.retryAfterSec)
+        now += 1_000
+        Http.get(air)
+        assertEquals("the hour is over", 2, fake.asked.size)
+    }
+
+    @Test fun aRetryAfterCountsOnlyOnATooManyRequestsOrAnUnavailable() {
+        assertEquals(120L, HttpTransport.retryAfter(429, "120"))
+        assertEquals(120L, HttpTransport.retryAfter(503, " 120 "))
+        assertEquals(0L, HttpTransport.retryAfter(429, "0"))
+        assertEquals(86_400L, HttpTransport.retryAfter(503, "86400"))
+        for (status in listOf(301, 302, 400, 404, 500, 502, 504)) assertNull("$status", HttpTransport.retryAfter(status, "86400"))
+        // A date instead of seconds, or nonsense, is no number: the caller's own back-off applies.
+        for (header in listOf(null, "", "Wed, 21 Oct 2026 07:28:00 GMT", "-1", "86401", "1.5", "soon")) assertNull("$header", HttpTransport.retryAfter(429, header))
+    }
+
     @Test fun aRequestThatWasHeldCountsAsNothingSent() {
         clocked()
         fake.fail(Host.FINNHUB, "/api/v1/quote", Why.STATUS, 429, retryAfterSec = 30)
