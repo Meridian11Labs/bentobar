@@ -83,8 +83,8 @@ class MeetingsTest {
         assertFalse(Meetings.asksAttendees(row(), work, choices.copy(calendarsOff = setOf(work.ident))))
     }
 
-    private fun meeting(title: String, begin: Long, end: Long, own: Boolean = false, cal: Long = 1) =
-        Calendar.Event(begin, title, begin, end, false, 0, "", true, true, null, calendarId = cal, ownCalendar = own)
+    private fun meeting(title: String, begin: Long, end: Long, own: Boolean = false, cal: Long = 1, link: String? = null, id: Long = begin) =
+        Calendar.Event(id, title, begin, end, false, 0, "", true, true, link, calendarId = cal, ownCalendar = own)
 
     @Test fun oneMeetingOnTwoCalendarsCountsOnceAndTheOwnCopyIsKept() {
         val team = meeting("Team sync", 100, 200, own = false, cal = 3)
@@ -106,6 +106,27 @@ class MeetingsTest {
         val later = meeting("Later", 50, 300)
         assertEquals(listOf(later, a), Meetings.once(listOf(later, a, b)))
         assertEquals(emptyList<Calendar.Event>(), Meetings.once(emptyList()))
+    }
+
+    @Test fun twoMeetingsAlikeOnOneCalendarAreTwo() {
+        // Two interviews at ten on the user's calendar: one calendar has no event twice, so neither is a copy of the other.
+        val a = meeting("Interview", 100, 200, own = true, cal = 1, link = "https://meet.google.com/aaa-aaaa-aaa", id = 1)
+        val b = meeting("Interview", 100, 200, own = true, cal = 1, link = "https://meet.google.com/bbb-bbbb-bbb", id = 2)
+        assertEquals(listOf(a, b), Meetings.once(listOf(a, b)))
+        val c = meeting("Interview", 100, 200, cal = 3, id = 3)
+        val d = meeting("Interview", 100, 200, cal = 3, id = 4)
+        assertEquals("with no link either", listOf(c, d), Meetings.once(listOf(c, d)))
+    }
+
+    @Test fun copiesWithTwoDifferentCallLinksAreTwoMeetings() {
+        val mine = meeting("Interview", 100, 200, own = true, cal = 1, link = "https://meet.google.com/aaa-aaaa-aaa", id = 1)
+        val other = meeting("Interview", 100, 200, cal = 3, link = "https://meet.google.com/bbb-bbbb-bbb", id = 2)
+        assertEquals(listOf(other, mine), Meetings.once(listOf(other, mine)))
+        // The same link, or a link on one copy only: one meeting, the own copy.
+        val same = meeting("Interview", 100, 200, cal = 3, link = "https://meet.google.com/aaa-aaaa-aaa", id = 3)
+        val bare = meeting("Interview", 100, 200, cal = 4, id = 4)
+        assertEquals(listOf(mine), Meetings.once(listOf(same, mine)))
+        assertEquals(listOf(mine), Meetings.once(listOf(bare, mine)))
     }
 
     @Test fun theMenuListsTodayAndWithAnyDayTheFirstLaterDayThatHasOne() {

@@ -245,15 +245,23 @@ object Meetings {
         return (row.linksTask && row.link == null) || (!row.allDay && cal.editable && cal.ident !in choices.calendarsOff)
     }
 
-    /** One event's copies on several calendars: the same start, end and title ([once] counts them once). */
+    /** What one event's copies on several calendars have in common: the same start, end and title ([copies]). */
     private fun copyKey(begin: Long, end: Long, title: String) = Triple(begin, end, title)
+
+    /**
+     * Of two occurrences with the same [copyKey], whether they are one event's copies on two calendars (an invitation from a
+     * team calendar is on it and on the user's own): on different calendars, and where both have a call link, the same one.
+     * Two events of one calendar are two, however alike (two interviews at ten).
+     */
+    private fun copies(cal: Long, link: String?, otherCal: Long, otherLink: String?) =
+        cal != otherCal && (link == null || otherLink == null || link == otherLink)
 
     /** Verdicts about a calendar, not about the event: they speak for no copy on another calendar. */
     private val ABOUT_A_CALENDAR = setOf(Verdict.HIDDEN_CALENDAR, Verdict.READ_ONLY, Verdict.CALENDAR_OFF)
 
     /**
      * Each row's verdict ([judge]), with one event on two calendars judged as one: where a copy is on one of the user's own
-     * calendars (the same start, end and title), its verdict stands for the copies on other calendars, a verdict that shows
+     * calendars ([copies]), its verdict stands for the copies on other calendars, a verdict that shows
      * it nowhere too. The own copy carries the user's answer and the user's "free"; a team or colleague's calendar carries
      * its owner's. So an invitation declined, not answered or free on the user's own calendar is that on a shared one too.
      * A verdict about the own copy's calendar (hidden, read-only, unticked) speaks for no other copy, and a copy on a hidden
@@ -262,19 +270,19 @@ object Meetings {
     fun verdicts(reading: Reading, choices: MeetingChoices.State): List<Verdict> {
         val mine = mine(reading.calendars.values)
         val judged = reading.rows.map { judge(it, reading.calendars[it.calendarId], reading.guests[it.eventId].orEmpty(), mine, choices) }
-        val ownSays = HashMap<Triple<Long, Long, String>, Verdict>()
+        // The own copies that may speak for others, by what copies have in common.
+        val own = HashMap<Triple<Long, Long, String>, MutableList<Int>>()
         reading.rows.forEachIndexed { i, r ->
-            val v = judged[i]
-            if (reading.calendars[r.calendarId]?.own != true || v in ABOUT_A_CALENDAR) return@forEachIndexed
-            val key = copyKey(r.begin, r.end, r.title)
-            val had = ownSays[key]
-            if (had == null || weight(v) > weight(had)) ownSays[key] = v
+            if (reading.calendars[r.calendarId]?.own != true || judged[i] in ABOUT_A_CALENDAR) return@forEachIndexed
+            own.getOrPut(copyKey(r.begin, r.end, r.title)) { ArrayList() } += i
         }
-        if (ownSays.isEmpty()) return judged
+        if (own.isEmpty()) return judged
         return reading.rows.mapIndexed { i, r ->
             val v = judged[i]
             if (v == Verdict.HIDDEN_CALENDAR || reading.calendars[r.calendarId]?.own != false) v
-            else ownSays[copyKey(r.begin, r.end, r.title)] ?: v
+            else own[copyKey(r.begin, r.end, r.title)].orEmpty()
+                .filter { k -> copies(reading.rows[k].calendarId, reading.rows[k].link, r.calendarId, r.link) }
+                .map { judged[it] }.maxByOrNull { weight(it) } ?: v
         }
     }
 
@@ -312,17 +320,17 @@ object Meetings {
 
     /**
      * One event on two calendars (an invitation from a team calendar is on it and on the user's own) counts once: of meetings
-     * with the same start, end and title, the first, an own calendar's before any other. The order stays.
+     * that are [copies], the first, an own calendar's before any other. The order stays.
      */
     fun once(meetings: List<Calendar.Event>): List<Calendar.Event> {
         if (meetings.size < 2) return meetings
-        val kept = HashMap<Triple<Long, Long, String>, Int>()
+        val kept = HashMap<Triple<Long, Long, String>, MutableList<Int>>()
         meetings.forEachIndexed { i, e ->
-            val key = copyKey(e.begin, e.end, e.title)
-            val had = kept[key]
-            if (had == null || (!meetings[had].ownCalendar && e.ownCalendar)) kept[key] = i
+            val same = kept.getOrPut(copyKey(e.begin, e.end, e.title)) { ArrayList() }
+            val j = same.indexOfFirst { k -> copies(meetings[k].calendarId, meetings[k].link, e.calendarId, e.link) }
+            if (j < 0) same += i else if (!meetings[same[j]].ownCalendar && e.ownCalendar) same[j] = i
         }
-        val chosen = kept.values.toHashSet()
+        val chosen = kept.values.flatten().toHashSet()
         return meetings.filterIndexed { i, _ -> i in chosen }
     }
 
