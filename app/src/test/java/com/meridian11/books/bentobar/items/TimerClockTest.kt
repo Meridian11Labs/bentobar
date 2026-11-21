@@ -135,6 +135,20 @@ class TimerClockTest {
         assertEquals("never past a second left", 1000L, timer.remaining(timer.state.value!!))
     }
 
+    @Test fun aWheelNotchUpStartsATimerAndANotchDownOverNoTimerDoesNothing() {
+        timer.wheel(-1)
+        assertNull("down over no timer starts none", timer.state.value)
+        assertTrue("nothing armed, nothing saved", armed.isEmpty() && prefs.string("state") == null)
+        timer.wheel(0)
+        assertNull(timer.state.value)
+        timer.wheel(2)
+        assertEquals(2 * minutes, timer.remaining(timer.state.value!!))
+        timer.wheel(3)
+        assertEquals(5 * minutes, timer.remaining(timer.state.value!!))
+        timer.wheel(-1)
+        assertEquals("down takes a minute from a running one", 4 * minutes, timer.remaining(timer.state.value!!))
+    }
+
     @Test fun anAlarmThatComesEarlyIsArmedAgainForWhatIsLeft() {
         // After a small correction the wall clock is behind the alarm's real time: nothing ends and the timer must ring later.
         timer.startTimer(10 * minutes)

@@ -110,6 +110,14 @@ open class TimerClock(private val w: Wiring) {
         }
     }
 
+    /**
+     * The wheel's [steps] over the item, a minute a notch: up over no timer starts a countdown of that many minutes, and over
+     * one adds them; down takes them from one, and over no timer does nothing (a scroll past the item must not start one).
+     */
+    fun wheel(steps: Int) {
+        if (_state.value != null) add(steps * 60_000L) else if (steps > 0) startTimer(steps * 60_000L)
+    }
+
     fun stop() { set(null); finishedAt = 0; w.prefs().edit { put("finishedAt", 0L) }; w.stopped() }
 
     /** Called every tick and by the alarm: finishes a countdown whose time is up. */

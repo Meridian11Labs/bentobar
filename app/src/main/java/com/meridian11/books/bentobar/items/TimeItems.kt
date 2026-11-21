@@ -498,10 +498,7 @@ object TimerItem : ItemType("timer", R.string.item_timer_title, Sym.TIMER, R.str
     }
 
     override val usesWheel = true
-    override fun onScroll(item: ItemConfig, steps: Int) {
-        val s = Timers.state.value
-        if (s == null) Timers.startTimer(steps.coerceAtLeast(1) * 60_000L) else Timers.add(steps * 60_000L)
-    }
+    override fun onScroll(item: ItemConfig, steps: Int) = Timers.wheel(steps)
 
     override val menu: @Composable (ItemConfig, MenuHost) -> Unit = { item, host ->
         rememberTick()
