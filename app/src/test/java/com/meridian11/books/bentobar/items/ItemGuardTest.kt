@@ -39,6 +39,28 @@ class ItemGuardTest {
         assertFalse(message, "title" in message)
     }
 
+    /**
+     * Android's log gets a failure's kind and where it was thrown, never what it said, for any type: a message can quote a
+     * link, a path or a reply, and so can a cause's.
+     */
+    @Test fun theLogGetsAFailuresKindAndFramesNeverItsMessage() {
+        val e = IllegalStateException("file:///sdcard/notes for the talk.txt", RuntimeException("geo:0,0?q=Home"))
+        val logged = ItemGuard.forLog(e)
+        val trace = logged.stackTraceToString()
+        assertTrue(trace, "IllegalStateException" in trace)
+        assertFalse(trace, "notes" in trace)
+        assertFalse(trace, "Home" in trace)
+        assertEquals(e.stackTrace.toList(), logged.stackTrace.toList())
+        assertNull(logged.cause)
+        // The wiring's log, which every guard and the ticker write to, hands Android only that.
+        var items = SourceScan.code(File("src/main/java/com/meridian11/books/bentobar/items/Items.kt"))
+        for (a in listOf("Log.w(TAG, what)", "Log.w(TAG, what, ItemGuard.forLog(e))")) {
+            assertTrue(a, a in items)
+            items = items.replace(a, "")
+        }
+        assertFalse(items, "Log." in items)
+    }
+
     /** What the guard cannot save the process from is not its to swallow. */
     @Test(expected = OutOfMemoryError::class) fun outOfMemoryIsNotAnItemsFailure() {
         ItemGuard.run<Unit>(false, "x", log) { throw OutOfMemoryError() }

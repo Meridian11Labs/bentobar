@@ -95,9 +95,10 @@ internal data class Follow(val id: String, val focus: Boolean, val serial: Int)
  * One key of the Bar page: the press ([key] with Alt or Ctrl, or bare; Shift held too is the same press), and what it
  * does in words ([does]). The page's key handler, the keycaps the window draws and the system's list of shortcuts
  * ([BarKeys.listed], which the window hands the system) all read the binding, so they cannot disagree. [also] is a
- * second key that does the same and is not listed.
+ * second key that does the same and is not listed. [once]: held down, it acts at the press and not at each repeat.
  */
-internal data class Binding(val key: Key, val alt: Boolean = false, val ctrl: Boolean = false, @StringRes val does: Int, val also: Key? = null) {
+internal data class Binding(val key: Key, val alt: Boolean = false, val ctrl: Boolean = false, @StringRes val does: Int, val also: Key? = null,
+                            val once: Boolean = false) {
     fun pressed(e: KeyEvent): Boolean = (e.key == key || (also != null && e.key == also)) && e.isAltPressed == alt && e.isCtrlPressed == ctrl && !e.isMetaPressed
 
     /** As the system counts keys: for its list of shortcuts. */
@@ -130,8 +131,9 @@ internal object BarKeys {
     val UP = Binding(Key.DirectionUp, alt = true, does = R.string.row_move_up)
     val DOWN = Binding(Key.DirectionDown, alt = true, does = R.string.row_move_down)
     val FIND = Binding(Key.F, ctrl = true, does = R.string.library_filter)
-    val DUPLICATE = Binding(Key.D, ctrl = true, does = R.string.detail_duplicate)
-    val REMOVE = Binding(Key.Delete, does = R.string.detail_remove, also = Key.Backspace)
+    // Held down, these would remove or copy row after row, and Undo takes back only the last: once per press.
+    val DUPLICATE = Binding(Key.D, ctrl = true, does = R.string.detail_duplicate, once = true)
+    val REMOVE = Binding(Key.Delete, does = R.string.detail_remove, also = Key.Backspace, once = true)
     val UNDO = Binding(Key.Z, ctrl = true, does = R.string.bar_undo)
     val ESC = Binding(Key.Escape, does = R.string.key_esc_does)
     val all = listOf(UP, DOWN, FIND, DUPLICATE, REMOVE, UNDO, ESC)
@@ -498,6 +500,8 @@ internal class BarEdit(private val res: Resources, side: MutableState<PanelSide>
         // No field has a use for Ctrl+F, so it finds from inside one too.
         if (BarKeys.FIND.pressed(e)) { find(); return true }
         if (typing) return false
+        // A key held down repeats: one that acts [Binding.once] has acted at the press, and its repeats are swallowed.
+        if (e.nativeKeyEvent.repeatCount > 0 && BarKeys.all.any { it.once && it.pressed(e) }) return true
         val target = focusedRow ?: selected
         return when {
             BarKeys.UP.pressed(e) || BarKeys.DOWN.pressed(e) -> target?.let { step(it, down = BarKeys.DOWN.pressed(e)) } != null

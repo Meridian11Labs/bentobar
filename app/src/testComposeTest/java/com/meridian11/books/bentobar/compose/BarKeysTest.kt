@@ -172,6 +172,21 @@ class BarKeysTest {
         assertEquals(layout, Store.config.value)
     }
 
+    /** Held down, Delete and Ctrl+D repeat: the first press acts, the repeats do nothing, so Undo has the one change. */
+    @Test fun aHeldDeleteRemovesOneRowAndAHeldCtrlDMakesOneCopy() {
+        val layout = page("a", *three)
+        rule.onNodeWithTag("bar-list").performKeyInput { keyDown(Key.Delete); advanceEventTime(1_000); keyUp(Key.Delete) }
+        rule.waitForIdle()
+        assertEquals(listOf("b", "c"), ids())
+        press(Key.CtrlLeft, Key.Z)
+        assertEquals(layout, Store.config.value)
+
+        row("a").requestFocus()
+        rule.onNodeWithTag("bar-list").performKeyInput { withKeyDown(Key.CtrlLeft) { keyDown(Key.D); advanceEventTime(1_000); keyUp(Key.D) } }
+        rule.waitForIdle()
+        assertEquals(4, ids().size)
+    }
+
     @Test fun ctrlDCopiesTheItemAndEscLetsItGo() {
         page("a", *three)
         press(Key.CtrlLeft, Key.D)

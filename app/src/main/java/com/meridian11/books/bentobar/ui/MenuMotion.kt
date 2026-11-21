@@ -127,6 +127,23 @@ object MenuMotion {
         return Block(x, smoothstep(0f, 0.6f, 1f - abs(x) / DROP_DP), false)
     }
 
+    /**
+     * Which block each of a card's children is, in order: a child that [joinsBelow] (a divider) arrives with the block
+     * under it, and one with none under it (the card's last child) is a block of its own.
+     */
+    fun blocks(joinsBelow: List<Boolean>): IntArray {
+        val blocks = IntArray(joinsBelow.size)
+        var next = 0
+        for (i in joinsBelow.indices) {
+            blocks[i] = next
+            if (!joinsBelow[i]) next++
+        }
+        return blocks
+    }
+
+    /** How many blocks [blocks] names: one more than the last's index, a last divider's too. */
+    fun count(blocks: IntArray): Int = if (blocks.isEmpty()) 0 else blocks.last() + 1
+
     /** The time when every block of a popup with [blocks] blocks is at rest, for the clock to stop. */
     fun blocksDoneMs(blocks: Int): Float = blockStartMs(blocks - 1, blocks) + 400f
 

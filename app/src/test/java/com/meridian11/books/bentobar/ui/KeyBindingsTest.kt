@@ -30,6 +30,14 @@ class KeyBindingsTest {
         assertEquals(KeyEvent.KEYCODE_DPAD_RIGHT to KeyEvent.META_ALT_ON, AreaKeys.RIGHT.keycode to AreaKeys.RIGHT.modifiers)
     }
 
+    /**
+     * A key held down repeats. Delete and Ctrl+D act once per press: each repeat would remove or copy one more row, and
+     * Undo takes back only the last. A move by a held arrow goes on as an arrow does.
+     */
+    @Test fun aHeldDeleteOrCtrlDActsOnceAndAHeldMoveGoesOn() {
+        assertEquals(setOf(BarKeys.REMOVE, BarKeys.DUPLICATE), all.filter { it.once }.toSet())
+    }
+
     @Test fun theAreasKeysAreListedOnlyWhileTheyDoSomething() {
         val before = BarKeys.handler to BarKeys.several
         try {

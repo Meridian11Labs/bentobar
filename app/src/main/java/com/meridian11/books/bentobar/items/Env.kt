@@ -132,18 +132,22 @@ object Env {
         if ("storage" in types) storage.sample(now)
     }
 
-    /** Starts an activity from a non-activity context. [quiet]: no toast when nothing can open it (the caller has a fallback). */
+    /**
+     * Starts an activity from a non-activity context. [quiet]: no toast when nothing can open it (the caller has a fallback).
+     * What fails is logged by the intent's action and scheme and the exception's kind: the intent holds a link from the
+     * layout or an event's place, and the exception can quote it.
+     */
     fun launch(intent: Intent, quiet: Boolean = false): Boolean = try {
         app.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         true
     } catch (e: ActivityNotFoundException) {
-        Log.w(TAG, "no activity for $intent")
+        Log.w(TAG, "no activity for ${intent.action} ${intent.scheme}")
         if (!quiet) Toast.makeText(app, app.getString(R.string.toast_nothing_can_open), Toast.LENGTH_SHORT).show()
         false
     } catch (e: Exception) {
         // Not allowed (SecurityException), or a link Android refuses to hand over, such as a file://
         // one typed into a Text item (FileUriExposedException): a click must never take the bar down.
-        Log.w(TAG, "can't open $intent", e)
+        Log.w(TAG, "can't open ${intent.action} ${intent.scheme}: ${e.javaClass.simpleName}")
         if (!quiet) Toast.makeText(app, app.getString(R.string.toast_nothing_can_open), Toast.LENGTH_SHORT).show()
         false
     }
