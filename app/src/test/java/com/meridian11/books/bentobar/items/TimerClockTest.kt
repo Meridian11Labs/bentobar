@@ -135,6 +135,20 @@ class TimerClockTest {
         assertEquals("never past a second left", 1000L, timer.remaining(timer.state.value!!))
     }
 
+    @Test fun aWheelNotchUpStartsATimerAndANotchDownOverNoTimerDoesNothing() {
+        timer.wheel(-1)
+        assertNull("down over no timer starts none", timer.state.value)
+        assertTrue("nothing armed, nothing saved", armed.isEmpty() && prefs.string("state") == null)
+        timer.wheel(0)
+        assertNull(timer.state.value)
+        timer.wheel(2)
+        assertEquals(2 * minutes, timer.remaining(timer.state.value!!))
+        timer.wheel(3)
+        assertEquals(5 * minutes, timer.remaining(timer.state.value!!))
+        timer.wheel(-1)
+        assertEquals("down takes a minute from a running one", 4 * minutes, timer.remaining(timer.state.value!!))
+    }
+
     @Test fun anAlarmThatComesEarlyIsArmedAgainForWhatIsLeft() {
         // After a small correction the wall clock is behind the alarm's real time: nothing ends and the timer must ring later.
         timer.startTimer(10 * minutes)
@@ -171,6 +185,63 @@ class TimerClockTest {
         after.load()
         assertNull(after.state.value)
         assertEquals(1, alerts.size)
+    }
+
+    /** The device restarts: real time starts again from nothing, in a new boot, and the wall clock goes on. */
+    private fun reboot(downFor: Long, clockBehind: Long = 0) { boot++; elapsed = 20_000; wall += downFor + 20_000 - clockBehind }
+
+    @Test fun aRunningTimerFollowsAClockChangeAgainAfterARestart() {
+        timer.startTimer(30 * minutes)
+        pass(5 * minutes)
+        reboot(downFor = 2 * minutes)
+        val after = clock()
+        after.load()
+        val left = 30 * minutes - 5 * minutes - 2 * minutes - 20_000
+        assertEquals(left, after.remaining(after.state.value!!))
+        // Once the new boot's clock has settled, the timer is anchored in it: a clock set an hour ahead is followed.
+        pass(ClockAnchor.SETTLED_MS); after.check()
+        assertEquals(boot, after.state.value!!.anchorBoot)
+        setClock(3_600_000); after.check()
+        assertEquals(left - ClockAnchor.SETTLED_MS, after.remaining(after.state.value!!))
+        assertTrue("not ended by the clock", alerts.isEmpty())
+    }
+
+    @Test fun theNetworksCorrectionOfTheClockJustAfterARestartIsNotTakenForAClockChange() {
+        // Back after ten minutes with the hardware clock five minutes behind; the network then puts it right.
+        timer.startTimer(30 * minutes)
+        reboot(downFor = 10 * minutes - 20_000, clockBehind = 5 * minutes)
+        val after = clock()
+        after.load()
+        assertEquals(25 * minutes, after.remaining(after.state.value!!))
+        setClock(5 * minutes); after.check()
+        assertEquals("by the wall clock, which is right now", 20 * minutes, after.remaining(after.state.value!!))
+    }
+
+    @Test fun pauseFollowsAClockChangeNoTickHasSeenYet() {
+        timer.startTimer(10 * minutes)
+        pass(2 * minutes)
+        setClock(3_600_000)
+        timer.pause()
+        assertEquals(8 * minutes, timer.remaining(timer.state.value!!))
+        assertTrue(alerts.isEmpty())
+    }
+
+    @Test fun addingTimeFollowsAClockChangeNoTickHasSeenYet() {
+        // The chip's +1 min right after the clock was set ahead.
+        timer.startTimer(10 * minutes)
+        pass(minutes)
+        setClock(30 * minutes)
+        timer.add(5 * minutes)
+        assertEquals(14 * minutes, timer.remaining(timer.state.value!!))
+        assertTrue(alerts.isEmpty())
+    }
+
+    @Test fun aPauseAfterTheTimeIsUpEndsTheTimerInsteadOfPausingItAtNothing() {
+        timer.startTimer(minutes)
+        pass(minutes + 500)
+        timer.pause()
+        assertEquals(1, alerts.size)
+        assertNull(timer.state.value)
     }
 
     @Test fun whatWasSavedByAnEarlierVersionWithoutAnAnchorStillLoads() {

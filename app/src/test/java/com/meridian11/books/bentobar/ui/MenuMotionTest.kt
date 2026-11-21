@@ -81,6 +81,29 @@ class MenuMotionTest {
         assertEquals(1f, MenuMotion.block(8, 152f + 400f, 9).alpha, 0f)
     }
 
+    @Test fun aDividerArrivesWithTheBlockBelowIt() {
+        val blocks = MenuMotion.blocks(listOf(false, false, true, false, false))
+        assertEquals(listOf(0, 1, 2, 2, 3), blocks.toList())
+        assertEquals(4, MenuMotion.count(blocks))
+    }
+
+    /** A divider with nothing under it (the entry after it isn't shown now) is a block of its own, the last. */
+    @Test fun aDividerThatEndsTheCardIsABlockOfItsOwn() {
+        val blocks = MenuMotion.blocks(listOf(false, false, true))
+        assertEquals(listOf(0, 1, 2), blocks.toList())
+        assertEquals(3, MenuMotion.count(blocks))
+        val two = MenuMotion.blocks(listOf(false, true, true))
+        assertEquals(listOf(0, 1, 1), two.toList())
+        assertEquals(2, MenuMotion.count(two))
+    }
+
+    @Test fun aCardOfNothingHasNoBlocksAndDividersInARowJoinTheSameOne() {
+        assertEquals(0, MenuMotion.count(MenuMotion.blocks(emptyList())))
+        val blocks = MenuMotion.blocks(listOf(true, true, false))
+        assertEquals(listOf(0, 0, 0), blocks.toList())
+        assertEquals(1, MenuMotion.count(blocks))
+    }
+
     @Test fun aTallPopupsBlocksSpreadOverTheSameTimeRatherThanArrivingInAClump() {
         // Sixteen blocks (the Weather popup): the last starts at 152 ms, and no two start together, so the lower glass is
         // never left empty while a clump waits (the motion review of the built 1.3; v2's numbers).

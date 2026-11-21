@@ -74,7 +74,12 @@ object SoundItem : ItemType("sound", R.string.item_sound_title, Sym.VOLUME_UP, R
     @Volatile private var fixedStaged: Boolean? = null
     private fun fixed(am: AudioManager): Boolean = fixedStaged ?: fixedNow ?: runCatching { am.isVolumeFixed }.getOrDefault(false).also { fixedNow = it }
 
-    override fun onLive() { fixedNow = null }
+    /** The highest media volume: it doesn't change while the bar shows, so it is asked once each time it comes back. */
+    private var highest: Int? = null
+    private fun max(am: AudioManager): Int =
+        highest ?: am.getStreamMaxVolume(STREAM).coerceAtLeast(1).also { highest = it }
+
+    override fun onLive() { fixedNow = null; highest = null }
 
     override fun sample(now: Long) {
         if (now - fixedAt >= FIXED_GOOD_FOR_MS) { fixedAt = now; fixedNow = null }
@@ -82,7 +87,7 @@ object SoundItem : ItemType("sound", R.string.item_sound_title, Sym.VOLUME_UP, R
 
     override fun state(item: ItemConfig): ItemState {
         val am = am() ?: return ItemState(icon = Sym.VOLUME_UP)
-        val max = am.getStreamMaxVolume(STREAM).coerceAtLeast(1)
+        val max = max(am)
         val v = am.getStreamVolume(STREAM)
         val silenced = am.isStreamMute(STREAM)
         val muted = silenced || v == 0
@@ -117,7 +122,7 @@ object SoundItem : ItemType("sound", R.string.item_sound_title, Sym.VOLUME_UP, R
         val am = am() ?: return
         try {
             val min = min(am)
-            val volume = SoundRules.volume(level, min, am.getStreamMaxVolume(STREAM).coerceAtLeast(1))
+            val volume = SoundRules.volume(level, min, max(am))
             // The level first: on current Android a level above nothing unmutes by itself, and unmuting first
             // would play the level from before the mute for a moment. Where it doesn't, unmute after.
             am.setStreamVolume(STREAM, volume, 0)
@@ -138,7 +143,7 @@ object SoundItem : ItemType("sound", R.string.item_sound_title, Sym.VOLUME_UP, R
         rememberTick()
         val am = am()
         if (am != null) {
-            val max = am.getStreamMaxVolume(STREAM).coerceAtLeast(1)
+            val max = max(am)
             // Follows the volume keys and the scroll wheel while the menu is open, except mid-drag.
             val actual = am.getStreamVolume(STREAM).toFloat()
             var dragging by remember { mutableStateOf(false) }

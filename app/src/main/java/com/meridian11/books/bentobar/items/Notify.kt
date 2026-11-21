@@ -21,6 +21,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.data.ChipMode
 import com.meridian11.books.bentobar.data.Store
@@ -152,9 +153,14 @@ object Chips {
         val meetings = ChipRules.needsCalendar(shows, Timers.state.value != null, meetingChips())
         // Before build() reads it: a process just started finds it loading, and the load comes back here.
         if (meetings) Calendar.hold(CALENDAR_USER) else Calendar.release(CALENDAR_USER)
-        val n = if (shows) build(app) else null
-        if (n != null) { Notify.channels(app); nm.notify(Notify.ID_CHIP, n) }
-        else if (!ChipRules.leaveUp(meetings, Calendar.loadingFirst) { showingTimeout(nm) }) nm.cancel(Notify.ID_CHIP)
+        // A chip Android refuses (one too big for it) is no chip, and the rest still runs: the calendar, the next change.
+        val posted = shows && try {
+            build(app)?.let { Notify.channels(app); nm.notify(Notify.ID_CHIP, it) } != null
+        } catch (e: Exception) {
+            Log.w(Env.TAG, "the chip failed: ${e.javaClass.simpleName}")
+            false
+        }
+        if (!posted && !ChipRules.leaveUp(meetings, Calendar.loadingFirst) { showingTimeout(nm) }) nm.cancel(Notify.ID_CHIP)
         var next: Long? = null
         if (meetings) {
             // Keep the calendar current while the strip (which otherwise asks for it) may be away; a

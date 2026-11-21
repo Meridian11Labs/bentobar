@@ -91,7 +91,7 @@ class BarService : AccessibilityService() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        bar?.onConfigChanged()
+        bar?.onConfigChanged(newConfig)
     }
 
     override fun onUnbind(intent: Intent?): Boolean { shutdown(); return super.onUnbind(intent) }
@@ -140,7 +140,8 @@ class BarController(private val service: AccessibilityService) {
     private val colors = ColorReader(service, main, object : ColorReader.Facts {
         override val started get() = this@BarController.started
         override val onScreen get() = strips.any { it.shown }
-        override val empty get() = stripEmpty
+        // None on view: a strip shown and not measured yet has an invisible window, as one with nothing to draw has.
+        override val empty get() = onView.value.isEmpty()
         override val interactive get() = pm.isInteractive
         override val snapshot get() = snap
     }) { s, done -> StatusBarScan.shoot(service, s, done) }
@@ -214,6 +215,8 @@ class BarController(private val service: AccessibilityService) {
     }
     private var snap: BarSnapshot? = null
     private var overlayIds = emptySet<Int>()
+    /** The windows in the status bar's shape whose root is not SystemUI's ([BarRules.findBar] passes them over). */
+    private val notBar = HashSet<Int>()
     /** The areas whose strip the pointer is over: an Exit from one strip can arrive after the Enter of the next. */
     private var hoverAreas = emptySet<Position>()
     /** The pointer is over the bar. */
@@ -234,6 +237,8 @@ class BarController(private val service: AccessibilityService) {
 
     private val scanNow = Runnable { scan() }
     private val quickCheck = Runnable { check(full = false) }
+    /** The bar placed again by the reading it has: a strip's width changed, which is no change of the status bar's tree. */
+    private val placeAgain = Runnable { check(full = false) }
     /**
      * Status bar icons come and go without window changes. Every 2 s while shown, refresh just the
      * spacer node (one call) and read the whole bar again only if it moved, or every 30 s.
@@ -258,12 +263,18 @@ class BarController(private val service: AccessibilityService) {
         val step = BarRules.lightLook(hasSpacer = node != null, sinceFullMs = SystemClock.uptimeMillis() - lastFullScan)
         if (step == BarRules.LightLook.FULL) return scan()
         if (node == null || step == BarRules.LightLook.WINDOWS) return check(full = false)
-        if (!node.refresh()) return scan()
+        val since = SystemClock.uptimeMillis()
+        val fresh = node.refresh()
+        timed(BarRules.Call.REFRESH, since)
+        if (!fresh) return scan()
         // Against the spacer's own last bounds: with the spacer squeezed to nothing, the free area is
         // the widest gap instead, and comparing with that would run a full scan every time.
         val r = Rect().also { node.getBoundsInScreen(it) }
         if (r.box() != s.spacer) scan()
     }
+    /** A call into the status bar's process that took long on the main thread says so in the log, by its kind and length alone. */
+    private fun timed(call: BarRules.Call, since: Long) { BarRules.slowCall(call, SystemClock.uptimeMillis() - since)?.let { Log.w(tag, it) } }
+
     private val expandOnHover = Runnable { if (hovering) expanded.value = true }
     private val collapse: Runnable = object : Runnable {
         override fun run() {
@@ -306,6 +317,7 @@ class BarController(private val service: AccessibilityService) {
     }
     fun start() {
         started = true
+        lastConfig = Configuration(service.resources.configuration)
         // Pinned open with ‹ before a restart: open again.
         Store.config.value.let { if (it.pinnedOpen && it.hiddenMode != HiddenMode.SHOW_ALL) { expanded.value = true; pinned = true } }
         service.registerReceiver(screen, IntentFilter().apply {
@@ -379,10 +391,19 @@ class BarController(private val service: AccessibilityService) {
         publishOverflow()
     }
 
-    /** Which strips are on view is asked again: a strip was measured, or went. The first of them hears a press outside the bar. */
+    /**
+     * Which strips are on view is asked again: a strip was measured, or went. The first of them hears a press outside the
+     * bar. The bar's colours are read only while one is: the colour reader is told here when the first comes or the last
+     * goes, and the readings owed meanwhile come then.
+     */
     private fun noteOnView() {
+        val none = onView.value.isEmpty()
         onView.value = strips.filter { it.shown && !it.pending && !it.empty }.mapTo(mutableSetOf()) { it.area }
         watchOutside()
+        if (onView.value.isEmpty() != none) {
+            trace("strip ${if (none) "on view" else "off view"}")
+            colors.contentChanged(!none)
+        }
     }
 
     /** The first strip says what the areas with no window would draw now, each time it is composed. */
@@ -392,12 +413,12 @@ class BarController(private val service: AccessibilityService) {
 
     /**
      * What has no room right now, for Settings' rows and the ‹ menu: every strip's own and what the areas with no window
-     * are owed, as one set. A ‹ coming or going changes a strip's width, so the bar is looked at again, and only when the
-     * set changed.
+     * are owed, as one set. A ‹ coming or going changes a strip's width, so the bar is placed again, and only when the set
+     * changed: by the reading it has, since nothing of the status bar's own tree changed with it.
      */
     private fun publishOverflow() {
         val ids = strips.flatMapTo(mutableSetOf()) { it.dropped } + owedItems
-        if (BarOverflow.ids.value != ids) { BarOverflow.ids.value = ids; main.post(scanNow) }
+        if (BarOverflow.ids.value != ids) { BarOverflow.ids.value = ids; main.post(placeAgain) }
     }
 
     /** Window events, logged only where asked for: `adb shell setprop log.tag.BentoBarEvents DEBUG`. */
@@ -419,13 +440,26 @@ class BarController(private val service: AccessibilityService) {
         }
     }
 
-    /** Rotation, density or resolution: a menu or tooltip placed for the old display would be off, so close them. */
-    fun onConfigChanged() {
-        menus.closeMenu(now = true); menus.hideTip()
-        main.postDelayed(scanNow, 200); colors.readSoon(ColorWatch.Cause.SLOW, 500)
+    /** The configuration the last change brought, against which the next one is told apart ([BarRules.afterConfig]). */
+    private var lastConfig: Configuration? = null
+
+    /**
+     * Rotation, density or resolution: a menu or tooltip placed for the old display would be off, so close them, and the
+     * bar may look different. A keyboard attached or taken off is none of that: the bar is only looked at again.
+     */
+    fun onConfigChanged(newConfig: Configuration) {
+        val diff = lastConfig?.diff(newConfig) ?: 0
+        lastConfig = Configuration(newConfig)
+        val step = BarRules.afterConfig(diff)
+        Log.i(tag, "configuration changed 0x${Integer.toHexString(diff)}: ${step.name.lowercase()}")
+        if (step == BarRules.AfterConfig.RESET) { menus.closeMenu(now = true); menus.hideTip() }
+        main.postDelayed(scanNow, 200)
+        if (step == BarRules.AfterConfig.RESET) colors.readSoon(ColorWatch.Cause.SLOW, 500)
     }
 
     private var lastGeometry: BarRules.Geometry? = null
+    private var lastLook: BarRules.LookInputs? = null
+    private var lastChip: BarRules.ChipInputs? = null
 
     private fun onConfig() {
         if (!started) return
@@ -433,11 +467,13 @@ class BarController(private val service: AccessibilityService) {
         colors.onConfig()
         // Switched to Show everything (or presenting) with hidden items out: nothing can fold them back.
         Store.config.value.let { if ((it.hiddenMode == HiddenMode.SHOW_ALL || it.presenting) && expanded.value) fold() }
-        colors.applyLook()
+        // Every Store write lands here, and a label saves on every key: the look, the bar and the chip are asked again only
+        // when what each reads of the layout changed.
+        val cfg = Store.config.value
+        BarRules.lookInputs(cfg).let { if (it != lastLook) { lastLook = it; colors.applyLook() } }
         if (Ticker.running) Ticker.refresh()
-        // Every Store write lands here, and a label saves on every key: only what moves the strip asks the bar again.
-        BarRules.geometry(Store.config.value).let { if (it != lastGeometry) { lastGeometry = it; scan() } }
-        Chips.update(service)
+        BarRules.geometry(cfg).let { if (it != lastGeometry) { lastGeometry = it; scan() } }
+        BarRules.chipInputs(cfg).let { if (it != lastChip) { lastChip = it; Chips.update(service) } }
     }
 
     // ---- where the status bar is -------------------------------------------------------------
@@ -466,20 +502,30 @@ class BarController(private val service: AccessibilityService) {
         // Plain facts from here on: what kind each window is and where, and nothing of what is in it.
         val listed = windows.map { StatusBarScan.fact(it) }
         overlayIds = listed.filter { it.kind == WindowFact.Kind.OVERLAY }.map { it.id }.toSet()
-        val barFact = BarRules.findBar(listed, screenW, maxH)
+        // A window found not to be SystemUI's is passed over while it is listed; one that left the list is forgotten.
+        notBar.retainAll(listed.mapTo(HashSet()) { it.id })
+        var barFact = BarRules.findBar(listed, screenW, maxH, notBar)
         val prev = snap
-        val s = when {
-            barFact == null -> null
-            BarRules.keepsReading(full, prev, barFact) -> prev
-            else -> {
-                lastFullScan = SystemClock.uptimeMillis()
-                // Without content-change events the node cache can go stale: read the status bar fresh.
-                service.clearCache()
-                val scanned = runCatching { StatusBarScan.scan(windows[listed.indexOf(barFact)]) }.onFailure { Log.w(tag, "scan failed", it) }.getOrNull()
-                // A reading kept from before has no node (a scan without a tree brought none).
-                spacerNode = scanned?.spacerNode
-                BarRules.settled(scanned?.snapshot, prev)
+        var s: BarSnapshot? = null
+        while (barFact != null) {
+            if (BarRules.keepsReading(full, prev, barFact)) { s = prev; break }
+            lastFullScan = SystemClock.uptimeMillis()
+            // Without content-change events the node cache can go stale: read the status bar fresh.
+            service.clearCache()
+            val since = SystemClock.uptimeMillis()
+            val scanned = runCatching { StatusBarScan.scan(windows[listed.indexOf(barFact)]) }.onFailure { Log.w(tag, "scan failed", it) }.getOrNull()
+            timed(BarRules.Call.SCAN, since)
+            if (scanned?.notTheBar == true) {
+                // Another app's window in the bar's shape: nothing of it was read but whose it is, and the next one is asked.
+                Log.w(tag, "a window in the status bar's place is not SystemUI's: passed over")
+                notBar += barFact.id
+                barFact = BarRules.findBar(listed, screenW, maxH, notBar)
+                continue
             }
+            // A reading kept from before has no node (a scan without a tree brought none).
+            spacerNode = scanned?.spacerNode
+            s = BarRules.settled(scanned?.snapshot, prev)
+            break
         }
         if (s == null) spacerNode = null
         snap = s
@@ -524,9 +570,10 @@ class BarController(private val service: AccessibilityService) {
             strips = strips.associate { it.area to it.state() })
         firstBudget.intValue = a.spots.first().budget
         heightDp.value = (s.bar.height() / density).dp
-        val where = "free=${s.free.toShortString()} ${a.spots.joinToString(" ") { "${word(it.area)} x=${it.x} maxW=${it.budget}" }} [${s.summary}]"
-        if (where != lastWhere) { trace("place $where"); lastWhere = where }
-        val was = stripEmpty
+        if (tracing) {
+            val where = "free=${s.free.toShortString()} ${a.spots.joinToString(" ") { "${word(it.area)} x=${it.x} maxW=${it.budget}" }} [${s.summary}]"
+            if (where != lastWhere) { trace("place $where"); lastWhere = where }
+        }
         // Which strip is the first and which areas are owed only name areas, and are said before any window goes or comes:
         // a window that is added has the watch for presses outside the bar in its params already, as the one strip's had.
         val before = carrier
@@ -578,11 +625,6 @@ class BarController(private val service: AccessibilityService) {
             colors.readSoon(ColorWatch.Cause.SLOW, 250)
             Ticker.start("bar")
             Log.i(tag, "bar shown: bar=${s.bar.toShortString()} free=${s.free.toShortString()} [${s.summary}]")
-        } else if (stripEmpty != was) {
-            // An area came or went and with it the last thing drawn, or the first: no reading of its own, only what an
-            // empty bar owes or is owed.
-            trace("strip ${if (stripEmpty) "empty" else "has content"}")
-            colors.contentChanged(stripEmpty)
         }
     }
 
@@ -621,9 +663,9 @@ class BarController(private val service: AccessibilityService) {
         val drawn = StripContent.drawn(shownEntries + revealedEntries, plan.chevron, look.value.pill,
             home = strip.area == StripContent.capsuleArea(cfg.homeArea(), carrier, owed.value) && (onView.value - strip.area).isEmpty())
         // While the window is invisible nothing draws, and the remeasure Compose hands to the next draw would wait for it for
-        // good. Measuring still runs, if it is asked for: the rule above is heard as soon as the composition changes.
+        // good. Measuring still runs, if it is asked for: the rule above is heard as soon as there is something to draw.
         val view = LocalView.current
-        SideEffect { if (strip.empty) view.requestLayout() }
+        SideEffect { if (StripContent.measureAgain(strip.empty, drawn)) view.requestLayout() }
         // Its reach is known when its items are laid out, before its width is. It is read as state where the width is
         // reported, so a fit that changed under an unchanged width (an item gone, a ‹ come) is still heard.
         val reach = remember { mutableIntStateOf(0) }
@@ -664,8 +706,8 @@ class BarController(private val service: AccessibilityService) {
      * measure says). A strip with nothing to draw ([StripContent.empty]: every item off, only rule items that don't apply
      * now, only blank items) has its window made invisible rather than left up empty, which is what Android's threat
      * detection looks for ("imperceptible content" from an accessibility service). Its content keeps being measured, so
-     * it shows again as soon as there's something to draw ([StripHost] asks for that measure). Keep awake and the colours
-     * are told when this changes.
+     * it shows again as soon as there's something to draw ([StripHost] asks for that measure). The status says so; keep
+     * awake and the colours go by which strips are on view ([onView]), where a strip not measured yet counts as nothing.
      */
     private var stripEmpty = false
     /** An area with a place has no window: Android refused it at the last placing. */
@@ -679,15 +721,10 @@ class BarController(private val service: AccessibilityService) {
      */
     private fun applyWidth(strip: AreaStrip, window: Int, w: Int, empty: Boolean, reach: Int) {
         if (!strip.shown || window != strip.generation) return // it left meanwhile, or left and came back: another window's measure
-        val was = stripEmpty
         strip.measured = w; strip.empty = empty; strip.reach = reach; strip.pending = false
         strip.setContentVisible(!empty) // the one place a strip's window becomes visible, or invisible again
-        noteOnView()
+        noteOnView() // and the colour reader hears of it, if it was the first on view or the last
         stripEmpty = strips.none { it.draws }
-        if (stripEmpty != was) {
-            trace("strip ${if (stripEmpty) "empty" else "has content"}")
-            colors.contentChanged(stripEmpty)
-        }
         // Placed again first, then keep awake is told once, by the placing: told before, it would choose by the placing
         // that is about to change, and take a wake lock and let it go within one measure.
         val placing = if (showing) lastPlace else null // never puts back a bar that has left

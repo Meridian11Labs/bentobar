@@ -87,6 +87,32 @@ class MeetingChoicesTest {
         assertFalse(prefs.map.values.any { it is String && ("Therapy" in it || "team@example.com" in it) })
     }
 
+    /**
+     * A write that fails (a full disk) leaves the file as it was: a start in between has the choices written before, not
+     * none of them, which would count every calendar's events again. The next change writes the whole file, the failed one
+     * with it.
+     */
+    @Test fun aFailedWriteLeavesTheLastChoicesWrittenAndTheNextChangeWritesThemAll() {
+        val file = File(dir, "meetings.json")
+        MeetingChoices.update { it.copy(words = listOf("Therapy"), calendarsOff = setOf("com.google\nyou@example.com\nteam@example.com")) }
+        val written = MeetingChoices.state.value
+        val text = file.readText()
+        // Where the file is written first can't be written now.
+        val part = File(dir, "meetings.json.part").also { it.mkdirs(); File(it, "taken").writeText("") }
+        MeetingChoices.update { it.copy(free = true) }
+        assertEquals("the file as it was", text, file.readText())
+        val chosen = MeetingChoices.state.value
+        part.deleteRecursively()
+        MeetingChoices.update { it.copy(unanswered = false) }
+        MeetingChoices.init(dir)
+        assertEquals(chosen.copy(unanswered = false), MeetingChoices.state.value)
+        // And a start right after a failed write has what was written before it.
+        part.mkdirs(); File(part, "taken").writeText("")
+        MeetingChoices.update { written }
+        MeetingChoices.init(dir)
+        assertEquals(chosen.copy(unanswered = false), MeetingChoices.state.value)
+    }
+
     @Test fun aChangeIsThereAtOnceAndTheFileIsWrittenOnTheWriterWithTheLatest() {
         // The app's writer is a background thread: what is queued here runs when the test says.
         val queued = ArrayDeque<Runnable>()

@@ -29,10 +29,12 @@ internal object NoticeIcons {
 
     /**
      * [icon] (a notification's small icon) drawn as a [PX] square, or null where it can't be loaded: the app's resources
-     * out of reach, or nothing drawn. Slow (another app's resources): the listener's thread, never the main one.
+     * out of reach, nothing drawn, or a kind that is not drawn ([NoticesRules.drawn]: by address or as data), which is
+     * never opened. Slow (another app's resources): the listener's thread, never the main one.
      */
     fun mask(context: Context, icon: Icon?): Bitmap? = runCatching {
-        val drawable = icon?.loadDrawable(context) ?: return@runCatching null
+        if (icon == null || !NoticesRules.drawn(icon.type)) return@runCatching null
+        val drawable = icon.loadDrawable(context) ?: return@runCatching null
         val b = createBitmap(PX, PX)
         drawable.setBounds(0, 0, PX, PX)
         drawable.draw(Canvas(b))

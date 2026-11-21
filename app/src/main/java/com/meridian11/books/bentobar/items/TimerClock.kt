@@ -84,6 +84,8 @@ open class TimerClock(private val w: Wiring) {
     fun startPomodoro() = set(State(Mode.POMODORO, true, now() + Timers.POMO_WORK, lengthMs = Timers.POMO_WORK, phase = Phase.WORK))
 
     fun pause() {
+        // A clock change no tick has followed yet, or a time that is up: as a check finds them, before the time left is taken.
+        check()
         val s = _state.value ?: return
         if (!s.running) return
         set(s.copy(running = false, pausedMs = if (s.mode == Mode.STOPWATCH) elapsed(s) else remaining(s)))
@@ -99,6 +101,7 @@ open class TimerClock(private val w: Wiring) {
 
     /** Adds (or with negative [ms], removes) time from a countdown. */
     fun add(ms: Long) {
+        check()
         val s = _state.value ?: return
         if (s.mode == Mode.STOPWATCH) return
         if (s.running) {
@@ -110,6 +113,14 @@ open class TimerClock(private val w: Wiring) {
         }
     }
 
+    /**
+     * The wheel's [steps] over the item, a minute a notch: up over no timer starts a countdown of that many minutes, and over
+     * one adds them; down takes them from one, and over no timer does nothing (a scroll past the item must not start one).
+     */
+    fun wheel(steps: Int) {
+        if (_state.value != null) add(steps * 60_000L) else if (steps > 0) startTimer(steps * 60_000L)
+    }
+
     fun stop() { set(null); finishedAt = 0; w.prefs().edit { put("finishedAt", 0L) }; w.stopped() }
 
     /** Called every tick and by the alarm: finishes a countdown whose time is up. */
@@ -118,8 +129,11 @@ open class TimerClock(private val w: Wiring) {
         if (s.running) {
             // The clock was set since [at] was: move [at] with it, so the time left (or, for the
             // stopwatch, the time taken) stays what it really is.
-            val jump = s.anchor.jump(w.anchor())
+            val now = w.anchor()
+            val jump = s.anchor.jump(now)
             if (jump != 0L) { w.log("clock moved ${jump / 1000} s: timer follows"); s = s.copy(at = s.at + jump); set(s) }
+            // Set before a restart: anchored in this boot, so the next clock change is followed too ([set] anchors).
+            else if (s.anchor.stale(now)) set(s)
         }
         if (s.mode == Mode.STOPWATCH || !s.running || now() < s.at) return
         finish(s)

@@ -127,6 +127,23 @@ class MenuCompositionTest {
         assertTrue("composed only $composed cases", composed > 100)
     }
 
+    /**
+     * A card whose last child is a divider (the entry after it isn't shown now) composes on the glass, as a popup's window
+     * has it, its divider a block of its own.
+     */
+    @Test fun aCardThatEndsInADividerComposes() {
+        Env.init(ApplicationProvider.getApplicationContext<Application>())
+        rule.setContent {
+            MenuSurface(300.dp, 2000.dp, com.meridian11.books.bentobar.ui.MenuGlassState()) {
+                com.meridian11.books.bentobar.ui.MenuCard("x", "A card") {
+                    com.meridian11.books.bentobar.ui.MenuNote("One line")
+                    com.meridian11.books.bentobar.ui.MenuDivider()
+                }
+            }
+        }
+        rule.onNode(hasText("One line")).assertExists()
+    }
+
     @Test fun aHookRefusesAStateItDoesNotKnowAndStagesNothing() {
         layout()
         for (type in Items.all) for (word in type.stages.map { it.substringBefore(' ') }.distinct())

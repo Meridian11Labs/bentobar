@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -37,8 +38,13 @@ object HeatItem : ItemType("heat", R.string.item_heat_title, Sym.DEVICE_THERMOST
     override val group = ItemGroup.SYSTEM
     override val canBeActive = true
     override val addsWhenActive = true
-    // The battery's sampler reads the thermal status and the battery's temperature; the CPU's is for the menu's "CPU load" row.
-    override val samples = setOf("battery", "cpu")
+    private val battery = setOf("battery")
+    private val withCpu = setOf("battery", "cpu")
+    /** Heat menus that are open: their "CPU load" row is all the CPU's sampler runs for here. */
+    @Volatile private var menus = 0
+
+    // The battery's sampler reads the thermal status and the battery's temperature; the CPU's only while a menu shows its row.
+    override val samples: Set<String> get() = if (menus > 0) withCpu else battery
 
     /** From which of Android's levels on the item shows: 1 warm, 2 hot (when Android starts to slow the device), 3 very hot. */
     private val atLeast = Threshold("level", HeatRules.MODERATE, HeatRules.LIGHT..HeatRules.SEVERE) {
@@ -78,6 +84,8 @@ object HeatItem : ItemType("heat", R.string.item_heat_title, Sym.DEVICE_THERMOST
 
     override val menu: @Composable (ItemConfig, MenuHost) -> Unit = { item, host ->
         rememberTick()
+        // The CPU's sampler runs from the next tick on; its row waits for a reading of now (Env.cpu.current).
+        DisposableEffect(Unit) { menus++; onDispose { menus-- } }
         val status = Heat.status()
         // From "Hot" on the status is the news, in the color the CPU menu's Heat row gives it: on a device that
         // reports no heat level there is nothing else in this menu to carry it.
@@ -101,7 +109,7 @@ object HeatItem : ItemType("heat", R.string.item_heat_title, Sym.DEVICE_THERMOST
                 InfoRow(stringResource(R.string.heat_battery_temp),
                     stringResource(if (fahrenheit) R.string.heat_temp_f else R.string.heat_temp_c, HeatRules.oneDecimal(temp, fahrenheit)))
             }
-            if (Env.cpu.available) InfoRow(stringResource(R.string.heat_cpu_load), Fmt.percent(Env.cpu.total))
+            if (Env.cpu.current()) InfoRow(stringResource(R.string.heat_cpu_load), Fmt.percent(Env.cpu.total))
             Spacer(Modifier.height(6.dp))
             MenuNote(stringResource(if (level != null) R.string.heat_note else R.string.heat_note_no_level))
             MenuDivider()

@@ -1,5 +1,6 @@
 package com.meridian11.books.bentobar.bar
 
+import android.content.pm.ActivityInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
@@ -141,6 +142,40 @@ class BarRulesTest {
         assertNull(look(list(bar, shade, maximized)).read)
         // The same for a new status bar window.
         assertNull(look(list(bar, strip), last = reading.copy(windowId = 99), interactive = false).read)
+    }
+
+    // ---- whose window the bar is ----------------------------------------------------------------
+
+    /** The status bar is SystemUI's window, on Googlebook OS as on the emulator (its spacer is `com.android.systemui:id/…`). */
+    @Test fun aSystemUiRootIsReadAsTheBar() {
+        assertTrue(BarRules.isStatusBarPackage("com.android.systemui"))
+        // Nothing found to be another app's yet: the system window along the top is the bar, as it always was.
+        assertEquals(BAR_ID, BarRules.findBar(WindowDump(list(bar, strip, maximized)).listed, 1920, 45, notBar = emptySet())?.id)
+        assertEquals(BAR_ID, BarRules.findBar(WindowDump(list(bar, strip, maximized)).listed, 1920, 45)?.id)
+    }
+
+    /**
+     * Another app's window in the bar's shape (an overlay the list reports as a system window, along the top) is not the
+     * bar: nothing under its root is read, and while it is listed it is passed over for the real one. With the real bar
+     * hidden by a full-screen app there is then no bar, and no strip over that app.
+     */
+    @Test fun anotherAppsWindowInTheBarsShapeIsNotRead() {
+        for (other in listOf("com.example.overlay", "com.android.systemui.plugin", "")) assertFalse(other, BarRules.isStatusBarPackage(other))
+        assertTrue("a root that names nobody is read as before", BarRules.isStatusBarPackage(null))
+        val impostor = "70:t3:Overlay:[0,0][1920,41]"
+        val both = WindowDump(list(impostor, bar, strip, maximized)).listed
+        assertEquals("first in the list, it is the one asked first", 70, BarRules.findBar(both, 1920, 45)?.id)
+        assertEquals("found not to be SystemUI's, the real bar after it is the bar", BAR_ID, BarRules.findBar(both, 1920, 45, notBar = setOf(70))?.id)
+        val alone = WindowDump(list(impostor, fullScreen)).listed
+        assertNull("the bar hidden by a full-screen app: no bar at all", BarRules.findBar(alone, 1920, 45, notBar = setOf(70)))
+        assertEquals(BarStatus.NO_BAR, look(list(impostor, fullScreen), now = null).status)
+    }
+
+    @Test fun systemUisPackageIsNamedOnce() {
+        val named = com.meridian11.books.bentobar.SourceScan.sources.filter { "com.android.systemui" in com.meridian11.books.bentobar.SourceScan.code(it) }.map { it.name }
+        assertEquals("one constant, in the rules: $named", listOf("BarRules.kt"), named)
+        val code = File("src/main/java/com/meridian11/books/bentobar/bar/BarRules.kt").readText()
+        assertEquals(1, Regex(Regex.escape("\"com.android.systemui\"")).findAll(code).count())
     }
 
     // ---- the rest of the rules ----------------------------------------------------------------
@@ -309,5 +344,80 @@ class BarRulesTest {
         assertNotEquals(g, BarRules.geometry(two.copy(items = two.items.map { if (it.id == "u") it.copy(area = com.meridian11.books.bentobar.data.Position.CENTER) else it })))
         // Since version 4 the items say where they are: the Position a layout had before is only what the migration reads.
         assertEquals(g, BarRules.geometry(two.copy(position = com.meridian11.books.bentobar.data.Position.LEFT)))
+    }
+
+    /** Every Store write reaches the controller, a label on every key: the strip's look is made again only when what it is made of changed. */
+    @Test fun aLabelTypedLetterByLetterLeavesTheLookAndTheChipAsTheyAre() {
+        val typed = layout.copy(items = layout.items.map { it.with("text", "h") }, pinnedOpen = true, autoCollapseSec = 5)
+        assertEquals(BarRules.lookInputs(layout), BarRules.lookInputs(typed))
+        assertEquals(BarRules.chipInputs(layout), BarRules.chipInputs(typed))
+        // An item moved to another area, or a new one that is no meeting, is nothing to either.
+        val moved = layout.copy(items = layout.items.map { it.copy(area = com.meridian11.books.bentobar.data.Position.LEFT) } +
+            com.meridian11.books.bentobar.data.ItemConfig("u", "text"))
+        assertEquals(BarRules.lookInputs(layout), BarRules.lookInputs(moved))
+        assertEquals(BarRules.chipInputs(layout), BarRules.chipInputs(moved))
+    }
+
+    @Test fun whatTheLookIsMadeOfIsALookInput() {
+        val l = BarRules.lookInputs(layout)
+        assertNotEquals(l, BarRules.lookInputs(layout.copy(color = com.meridian11.books.bentobar.data.ColorMode.DARK)))
+        assertNotEquals(l, BarRules.lookInputs(layout.copy(textSize = com.meridian11.books.bentobar.data.TextSize.LARGE)))
+        assertNotEquals(l, BarRules.lookInputs(layout.copy(spacing = layout.spacing + 2)))
+        assertNotEquals(l, BarRules.lookInputs(layout.copy(pill = com.meridian11.books.bentobar.data.Pill.SOLID)))
+    }
+
+    @Test fun whatTheChipReadsOfTheLayoutIsAChipInput() {
+        val c = BarRules.chipInputs(layout)
+        assertNotEquals(c, BarRules.chipInputs(layout.copy(enabled = false)))
+        assertNotEquals(c, BarRules.chipInputs(layout.copy(chipMode = com.meridian11.books.bentobar.data.ChipMode.ALWAYS)))
+        assertNotEquals(c, BarRules.chipInputs(layout.copy(chipMode = com.meridian11.books.bentobar.data.ChipMode.OFF)))
+        // A Next meeting item makes the chip a meeting's too.
+        val meeting = layout.copy(items = layout.items + com.meridian11.books.bentobar.data.ItemConfig("m", com.meridian11.books.bentobar.items.EventItem.type))
+        assertNotEquals(c, BarRules.chipInputs(meeting))
+        assertEquals(BarRules.chipInputs(meeting), BarRules.chipInputs(meeting.copy(items = meeting.items.map { it.with("text", "h") })))
+    }
+
+    // ---- calls into the status bar's process -----------------------------------------------------------
+
+    /** The tree walk and the spacer's refresh run on the main thread and wait for SystemUI: one that is slow says so in the log. */
+    @Test fun aSlowCallIntoTheStatusBarIsLoggedByItsKindAndLengthAlone() {
+        assertNull(BarRules.slowCall(BarRules.Call.SCAN, 0))
+        assertNull("a quarter of a second is still quick", BarRules.slowCall(BarRules.Call.SCAN, 250))
+        assertEquals("slow scan on the main thread: 251 ms", BarRules.slowCall(BarRules.Call.SCAN, 251))
+        assertEquals("slow refresh on the main thread: 3000 ms", BarRules.slowCall(BarRules.Call.REFRESH, 3_000))
+    }
+
+    // ---- what a configuration change asks of the bar ---------------------------------------------------
+
+    private val keyboard = ActivityInfo.CONFIG_KEYBOARD or ActivityInfo.CONFIG_KEYBOARD_HIDDEN
+
+    @Test fun theInputBitsAreAndroidsOwn() {
+        // BarRules names no Android type: the numbers there are these constants.
+        val mask = ActivityInfo.CONFIG_MCC or ActivityInfo.CONFIG_MNC or ActivityInfo.CONFIG_TOUCHSCREEN or
+            ActivityInfo.CONFIG_KEYBOARD or ActivityInfo.CONFIG_KEYBOARD_HIDDEN or ActivityInfo.CONFIG_NAVIGATION
+        assertEquals(mask, BarRules.INPUT_CONFIG)
+    }
+
+    @Test fun aKeyboardAttachedOrASimChangedOnlyLooksAtTheBarAgain() {
+        // An open popup stays, and the bar is not read six times over ten seconds for it.
+        assertEquals(BarRules.AfterConfig.RESCAN, BarRules.afterConfig(keyboard))
+        assertEquals(BarRules.AfterConfig.RESCAN, BarRules.afterConfig(keyboard or ActivityInfo.CONFIG_NAVIGATION))
+        assertEquals(BarRules.AfterConfig.RESCAN, BarRules.afterConfig(ActivityInfo.CONFIG_TOUCHSCREEN))
+        assertEquals(BarRules.AfterConfig.RESCAN, BarRules.afterConfig(ActivityInfo.CONFIG_MCC or ActivityInfo.CONFIG_MNC))
+    }
+
+    @Test fun aNewDisplayOrThemeClosesThePopupAndReadsTheBarAsBefore() {
+        for (bit in listOf(ActivityInfo.CONFIG_DENSITY, ActivityInfo.CONFIG_SCREEN_SIZE, ActivityInfo.CONFIG_ORIENTATION,
+            ActivityInfo.CONFIG_UI_MODE, ActivityInfo.CONFIG_FONT_SCALE, ActivityInfo.CONFIG_LOCALE, ActivityInfo.CONFIG_LAYOUT_DIRECTION,
+            0x20000000 /* the window's own configuration */, 0x80000000.toInt() /* the assets: a theme overlay */)) {
+            assertEquals("0x${Integer.toHexString(bit)}", BarRules.AfterConfig.RESET, BarRules.afterConfig(bit))
+        }
+    }
+
+    @Test fun aKeyboardTogetherWithAnythingElseIsTheAnythingElse() {
+        // A convertible folded into a tablet: the keyboard goes, and the screen turns with it.
+        assertEquals(BarRules.AfterConfig.RESET, BarRules.afterConfig(keyboard or ActivityInfo.CONFIG_ORIENTATION))
+        // Nothing known to have changed: as before there was a difference to look at.
+        assertEquals(BarRules.AfterConfig.RESET, BarRules.afterConfig(0))
     }
 }

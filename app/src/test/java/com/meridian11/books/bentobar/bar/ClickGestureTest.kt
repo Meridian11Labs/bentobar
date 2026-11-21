@@ -19,6 +19,39 @@ class ClickGestureTest {
         assertFalse(g.armed)
     }
 
+    /**
+     * A second finger while one is pressed (a touch screen) is none of this press's: the first keeps its drag, and its own
+     * letting go is the drop. Before, the second finger's press began the gesture again and its lift ended it, and the
+     * item stayed lifted.
+     */
+    @Test fun aSecondFingersPressAndLiftLeaveTheFirstFingersDragAsItWas() {
+        val g = gesture()
+        g.press(pointer = 1, taken = false, secondary = false, touch = true, button = false, x = 10f, y = 5f, at = 0, longPressMs = 400)
+        assertEquals(Did.Drag(30f), g.move(pointer = 1, x = 30f, y = 5f, inside = true, pressed = true, taken = false, draggable = true, at = 20))
+        g.press(pointer = 2, taken = false, secondary = false, touch = true, button = false, x = 80f, y = 5f, at = 30, longPressMs = 400)
+        assertTrue(g.armed)
+        assertTrue(g.dragging)
+        assertEquals(10f, g.downX, 0f)
+        assertEquals(Did.Nothing, g.move(pointer = 2, x = 120f, y = 5f, inside = true, pressed = true, taken = false, draggable = true, at = 40))
+        assertEquals(Did.Nothing, g.release(pointer = 2, x = 120f, inside = true, taken = false))
+        assertTrue(g.dragging)
+        assertEquals(Did.Drag(40f), g.move(pointer = 1, x = 40f, y = 5f, inside = true, pressed = true, taken = false, draggable = true, at = 50))
+        assertEquals(Did.Drop(45f), g.release(pointer = 1, x = 45f, inside = true, taken = false))
+        assertFalse(g.armed)
+    }
+
+    /** A finger resting on an item while another taps elsewhere: the tap's lift is no click here, and the rest is still a press. */
+    @Test fun anotherFingersLiftIsNoClickAndItsMovesNeitherDragNorEndAHold() {
+        val g = gesture()
+        g.press(pointer = 1, taken = false, secondary = false, touch = true, button = false, x = 10f, y = 5f, at = 0, longPressMs = 400)
+        assertEquals(Did.Nothing, g.move(pointer = 2, x = 90f, y = 40f, inside = false, pressed = true, taken = false, draggable = true, at = 100))
+        assertEquals("the hold still counts from the first finger's last event", 400L, g.holdMs)
+        assertEquals(Did.Nothing, g.release(pointer = 2, x = 90f, inside = true, taken = false))
+        assertTrue(g.armed)
+        assertFalse(g.dragging)
+        assertEquals(Did.Click, g.release(pointer = 1, x = 10f, inside = true, taken = false))
+    }
+
     @Test fun aPressThatLetsGoOutsideIsNothing() {
         val g = gesture()
         g.press(taken = false, secondary = false, touch = false, button = true, x = 10f, y = 5f, at = 0, longPressMs = 400)

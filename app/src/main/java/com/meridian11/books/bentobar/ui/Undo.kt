@@ -53,23 +53,38 @@ object Undo {
     fun noted(kept: Kept?, over: Kept?): Kept? = kept?.takeIf { it !== over }
 
     /**
-     * The layout a change that is being made started from, from before it is written until it is kept ([change]). A
-     * type's sweep runs on its own thread ([held]), and in between the item a change removed is in no layout and in no
-     * kept change yet: without this its kept text could go while Undo was about to hold it. Never read on the main
-     * thread's behalf: there the write and the keeping are one step.
+     * A type's sweep runs on its own thread and asks what Undo holds ([idsOf], [held]) while the main thread changes the
+     * layout and what is kept: this makes the asking one reading of both, and Undo's offer and its hold one step. Held
+     * only to set [pending] or [lapsed] and to read and compare what is in memory: never around the Store's write, a
+     * flow's subscribers, a type's code or anything that waits, and no other lock is taken inside it, so it can be in no
+     * deadlock. The Store's write is outside it: [pending], set before and cleared after under it, holds the items meanwhile.
+     */
+    private val lock = Any()
+
+    /**
+     * The layout a change that is being made started from, from before it is written until it is kept ([change]), and the
+     * one an [undo] brings back while it writes it. A type's sweep runs on its own thread ([held]), and in between the
+     * item is in no layout and in no kept change: without this its kept text could go while Undo was about to hold it, or
+     * had just brought it back. Never read on the main thread's behalf: there the write and the keeping are one step.
      */
     @Volatile var pending: BarConfig? = null
         private set
 
+    /**
+     * The kept change that a reading ([held]) found it could hold no more, the layout being arranged otherwise: what was
+     * kept for its items may have gone since, so it is [offered] no more, whatever the layout does next.
+     */
+    @Volatile private var lapsed: Kept? = null
+
     /** Makes [step] the layout's next change and keeps it to be undone. False if it changed nothing: then nothing is kept. */
     fun change(removed: String? = null, added: String? = null, allTo: Position? = null, area: Position? = null, step: (BarConfig) -> BarConfig): Boolean {
         val before = Store.config.value
-        pending = before
+        synchronized(lock) { pending = before }
         try {
             Store.update(step)
             return note(before, removed, added, allTo, area)
         } finally {
-            pending = null
+            synchronized(lock) { pending = null }
         }
     }
 
@@ -90,14 +105,28 @@ object Undo {
     /**
      * The ids of the items of [type] that the kept change can still bring back: what is kept for one outside the layout
      * stays that long. None once the change can no longer be [offered] (the layout was arranged otherwise since): a
-     * removed item's kept text then goes at the type's next sweep, not at the next start. With them the items of a
-     * change that is being made right now ([pending]). Any thread.
+     * removed item's kept text then goes at the type's next sweep, not at the next start, and the change is [lapsed].
+     * With them the items of a change that is being made or undone right now ([pending]). Any thread.
      */
-    fun held(type: String): Set<String> {
-        // In this order, as a change sets them in the other: the one being made first, which is kept before it is pending no more.
-        val making = pending?.items.orEmpty()
-        val kept = last.value?.takeIf { offered(it, Store.config.value) }?.before?.items.orEmpty()
-        return (making + kept).filter { it.type == type }.mapTo(HashSet()) { it.id }
+    fun held(type: String): Set<String> = synchronized(lock) { holding(type, last.value, Store.config.value) }
+
+    /** [type]'s items in the layout and those Undo [held], read as one: what a type's sweep keeps. Any thread. */
+    fun idsOf(type: String): Set<String> = synchronized(lock) {
+        // The kept change before the layout: a change is kept after its layout is written, so a reading never pairs a
+        // change with the layout from before it, which would find it not offered.
+        val kept = last.value
+        val now = Store.config.value
+        holding(type, kept, now).also { ids -> now.items.forEach { if (it.type == type) ids += it.id } }
+    }
+
+    /** Under [lock]: what Undo holds of [type], with [kept] the change kept and [now] the layout. */
+    private fun holding(type: String, kept: Kept?, now: BarConfig): MutableSet<String> {
+        val keeps = when {
+            kept == null -> emptyList()
+            offered(kept, now) -> kept.before.items
+            else -> { lapsed = kept; emptyList() }
+        }
+        return (pending?.items.orEmpty() + keeps).filter { it.type == type }.mapTo(HashSet()) { it.id }
     }
 
     /**
@@ -145,8 +174,11 @@ object Undo {
         letGo(old)
     }
 
-    /** Whether [kept] can still be taken back from [now]: the layout is arranged as that change left it. */
-    fun offered(kept: Kept, now: BarConfig): Boolean = now.undone(kept.before, kept.after) != null
+    /**
+     * Whether [kept] can still be taken back from [now]: the layout is arranged as that change left it, and Undo has not
+     * let go of its items meanwhile ([lapsed]).
+     */
+    fun offered(kept: Kept, now: BarConfig): Boolean = kept !== lapsed && now.undone(kept.before, kept.after) != null
 
     /** The item the library's last + put in the bar, while that can still be taken back. */
     fun added(kept: Kept?, now: BarConfig): ItemConfig? {
@@ -163,11 +195,15 @@ object Undo {
      */
     fun undo(): Boolean {
         val kept = last.value ?: return false
-        val back = offered(kept, Store.config.value)
-        // The layout first: until the item is back in it, what is kept for it is held by this change being the last.
-        if (back) Store.update { it.undone(kept.before, kept.after) ?: it }
-        last.value = null
-        over.value = null
+        // Offered, and held while it is written, in one step: a sweep can't let its items go in between.
+        val back = synchronized(lock) { offered(kept, Store.config.value).also { if (it) pending = kept.before } }
+        try {
+            if (back) Store.update { it.undone(kept.before, kept.after) ?: it }
+            last.value = null
+            over.value = null
+        } finally {
+            if (back) synchronized(lock) { pending = null }
+        }
         letGo(kept)
         return back
     }

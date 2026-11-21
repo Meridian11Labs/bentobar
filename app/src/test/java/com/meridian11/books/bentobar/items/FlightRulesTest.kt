@@ -231,6 +231,54 @@ class FlightRulesTest {
         assertNull(FlightRules.pace(flight("flight-LH1184-cancelled"), at("2026-10-02T07:29:00Z")))
     }
 
+    /**
+     * Frankfurt to Los Angeles, its landing said without the UTC twin: 13:00 at Los Angeles is 20:00 UTC, and read as UTC
+     * it would be seven hours early. [utc]: the reply with the twin, the same flight with clocks that can be read.
+     */
+    private fun toLax(status: String, utc: Boolean = false) = AirLabs.flight("""{"response":{"flight_iata":"LH456","dep_iata":"FRA","arr_iata":"LAX",
+        "status":"$status","dep_time":"2026-10-02 10:15","dep_time_utc":"2026-10-02 08:15","arr_time":"2026-10-02 13:00"${if (utc) ""","arr_time_utc":"2026-10-02 20:00"""" else ""}}}""").value!!
+
+    @Test fun aFlightWithoutItsUtcTimesLandsWhenTheServiceSaysSoAndNotByTheClock() {
+        val air = toLax("en-route")
+        assertTrue(air.loose && !air.timetable)
+        // Three and a half hours after 13:00 UTC, and as long before it really lands: still in the air, and still asked about.
+        val midway = at("2026-10-02T16:30:00Z")
+        assertEquals(Stage.IN_AIR, FlightRules.standing(air, midway).stage)
+        assertEquals(FlightRules.NEAR, FlightRules.pace(air, midway))
+        assertTrue(FlightRules.shown(air, midway) === air)
+        // Long after: what was last heard stands until the service says more (each ask may), never a landing nobody saw.
+        assertEquals(Stage.IN_AIR, FlightRules.standing(air, at("2026-10-03T02:00:00Z")).stage)
+        assertEquals(FlightRules.NEAR, FlightRules.pace(air, at("2026-10-03T02:00:00Z")))
+        // Until a guess as far out as a time zone can make it, plus the three hours a known landing has: then it landed,
+        // and nothing more is asked.
+        assertEquals(Stage.IN_AIR, FlightRules.standing(air, at("2026-10-03T05:59:00Z")).stage)
+        assertEquals(Stage.LANDED, FlightRules.standing(air, at("2026-10-03T06:01:00Z")).stage)
+        assertNull(FlightRules.pace(air, at("2026-10-03T06:01:00Z")))
+        // The service's word lands it.
+        assertEquals(Stage.LANDED, FlightRules.standing(toLax("landed"), midway).stage)
+        assertNull(FlightRules.pace(toLax("landed"), midway))
+        // The other side: with clocks that can be read, a landing three hours past and unheard of is a landing.
+        val known = toLax("en-route", utc = true)
+        assertFalse(known.loose)
+        assertEquals(Stage.IN_AIR, FlightRules.standing(known, at("2026-10-02T22:59:00Z")).stage)
+        assertEquals(Stage.LANDED, FlightRules.standing(known, at("2026-10-02T23:01:00Z")).stage)
+        assertEquals(FlightState.LANDED, FlightRules.shown(known, at("2026-10-02T23:01:00Z")).state)
+        // And a timetable's plan, whose clocks may be an hour out, still goes by its plan alone.
+        val plan = known.copy(state = FlightState.PLANNED, timetable = true, loose = true)
+        assertEquals(Stage.LANDED, FlightRules.standing(plan, at("2026-10-02T20:01:00Z")).stage)
+    }
+
+    @Test fun aFlightWithoutItsUtcTimesThatLandedOrIsCanceledIsOverAtOnce() {
+        // Nobody can say that it landed within the last three hours: the next of its number is what was asked for.
+        assertTrue(FlightRules.over(toLax("landed"), at("2026-10-02T14:00:00Z")))
+        assertTrue(FlightRules.over(toLax("cancelled"), at("2026-10-02T09:00:00Z")))
+        assertFalse(FlightRules.over(toLax("en-route"), at("2026-10-03T12:00:00Z")))
+        assertFalse(FlightRules.over(toLax("scheduled"), at("2026-10-03T12:00:00Z")))
+        // With clocks that can be read: three hours after it landed.
+        assertFalse(FlightRules.over(toLax("landed", utc = true), at("2026-10-02T22:59:00Z")))
+        assertTrue(FlightRules.over(toLax("landed", utc = true), at("2026-10-02T23:01:00Z")))
+    }
+
     @Test fun askingAgainIsOneRequestAboutTheSameFlightAndAnotherDaysFlightEndsIt() {
         val air = flight("flight-LH455-in-the-air")
         // The same flight, landed now.

@@ -92,7 +92,9 @@ object Store {
                 file.edit { put(KEY_UNREADABLE, raw) }
             }
         }
-        setAsideState.value = file.string(KEY_UNREADABLE)?.let(::whyKept)
+        val aside = file.string(KEY_UNREADABLE)
+        asideIds = aside?.let(::idsIn).orEmpty()
+        setAsideState.value = aside?.let(::whyKept)
     }
 
     /**
@@ -187,6 +189,15 @@ object Store {
     private val setAsideState = MutableStateFlow<SetAside?>(null)
     val setAside: StateFlow<SetAside?> get() = setAsideState.asStateFlow()
 
+    /** The ids of the set-aside layout's items, by type ([idsIn]): read once at [open], none once it is put back or discarded. */
+    @Volatile private var asideIds: Map<String, Set<String>> = emptyMap()
+
+    /**
+     * The items of [type] in the layout set aside: what the type keeps for one outside the layout stays while Backup can
+     * put it back, so it comes back whole. Any thread.
+     */
+    fun asideIds(type: String): Set<String> = asideIds[type].orEmpty()
+
     private fun whyKept(raw: String) = when (readLayout(raw)) {
         is LayoutRead.Ok -> SetAside.READABLE_NOW
         is LayoutRead.Newer -> SetAside.FROM_NEWER_VERSION
@@ -202,6 +213,8 @@ object Store {
         val read = readLayout(raw) as? LayoutRead.Ok ?: return false
         update { read.config.keepingLocal(it) }
         prefs.edit { remove(KEY_UNREADABLE) }
+        // Its items are in the layout now, before they are named here no more: a sweep in between keeps them either way.
+        asideIds = emptyMap()
         setAsideState.value = null
         return true
     }
@@ -214,6 +227,7 @@ object Store {
             remove(KEY_UNREADABLE)
             if (stale) put(KEY, layoutJson.encodeToString(BarConfig.serializer(), state.value))
         }
+        asideIds = emptyMap()
         setAsideState.value = null
     }
 

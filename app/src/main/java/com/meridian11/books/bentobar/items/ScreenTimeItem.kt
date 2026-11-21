@@ -64,17 +64,14 @@ object ScreenTimeItem : ItemType("screentime", R.string.item_screentime_title, S
     )
 
     /** When the bar last came back (wall clock): the screen has been on since, which a reading from before can't know. */
-    @Volatile private var liveSince = 0L
+    @Volatile internal var liveSince = 0L; private set
     /** The test hook's day, shown instead of what was read; null: none staged. */
     @Volatile private var staged: ScreenTimeRules.Staged? = null
 
     private fun dayStart(now: Long) = ScreenTimeRules.dayStart(ZonedDateTime.ofInstant(Instant.ofEpochMilli(now), ZoneId.systemDefault()))
 
-    override fun onLive() {
-        liveSince = Now.wall()
-        // What was read before the bar went away is as old as the time it was away: read it again now.
-        ScreenTimeLoad.day.refresh(Unit)
-    }
+    // What was read before the bar went away is as old as the time it was away: it is read again (ScreenTimeRules.every).
+    override fun onLive() { liveSince = Now.wall() }
 
     // Which apps were in front is not kept while nobody looks.
     override fun onIdle() = ScreenTimeLoad.apps.forget()

@@ -14,6 +14,9 @@ package com.meridian11.books.bentobar.bar
  *
  * A press that something inside the item took for itself (the slider's track) is none of the item's: no click and no drag
  * come of it. A press the system takes away arrives as a Release already consumed: never a click and never a drop.
+ *
+ * A press is its pointer's: while it is under way, another pointer (a second finger on a touch screen) going down, moving
+ * or lifting is nothing to it, and only its own pointer's letting go ends it.
  */
 internal class ClickGesture(private val slop: Float) {
     /** Whether a press is a finger's, one that can hold: a touch, with no button pressed. */
@@ -38,6 +41,8 @@ internal class ClickGesture(private val slop: Float) {
     var dragging = false; private set
     /** Where the press went down. */
     var downX = 0f; private set
+    /** The pointer whose press it is. */
+    private var pointer = 0L
     private var downY = 0f
     private var secondary = false
     private var finger = false
@@ -56,11 +61,16 @@ internal class ClickGesture(private val slop: Float) {
      */
     val holdMs: Long? get() = if (!armed || !finger || secondary || moved) null else (longPressMs - (lastAt - downAt)).coerceAtLeast(0)
 
-    /** The pointer went down at [x], [y]. [taken]: something inside the item has it already. [button]: a button is pressed. */
-    fun press(taken: Boolean, secondary: Boolean, touch: Boolean, button: Boolean, x: Float, y: Float, at: Long, longPressMs: Long) {
+    /**
+     * The [pointer] went down at [x], [y]. [taken]: something inside the item has it already. [button]: a button is pressed.
+     * Nothing while a press is under way: that one keeps it.
+     */
+    fun press(taken: Boolean, secondary: Boolean, touch: Boolean, button: Boolean, x: Float, y: Float, at: Long, longPressMs: Long, pointer: Long = 0) {
+        if (armed) return
         reset()
         if (taken) return
         armed = true
+        this.pointer = pointer
         this.secondary = secondary
         finger = isFinger(touch, button)
         downX = x
@@ -70,9 +80,9 @@ internal class ClickGesture(private val slop: Float) {
         this.longPressMs = longPressMs
     }
 
-    /** The pointer moved. Only a primary press that has gone past the slop along the strip drags, and only an item that [draggable] says can. */
-    fun move(x: Float, y: Float, inside: Boolean, pressed: Boolean, taken: Boolean, draggable: Boolean, at: Long): Did {
-        if (!armed) return Did.Nothing
+    /** The [pointer] moved. Only a primary press that has gone past the slop along the strip drags, and only an item that [draggable] says can. */
+    fun move(x: Float, y: Float, inside: Boolean, pressed: Boolean, taken: Boolean, draggable: Boolean, at: Long, pointer: Long = 0): Did {
+        if (!armed || pointer != this.pointer) return Did.Nothing
         lastAt = at
         if (!pressed || taken) return Did.Nothing
         if (kotlin.math.abs(x - downX) > slop) across = true
@@ -82,9 +92,9 @@ internal class ClickGesture(private val slop: Float) {
         return if (dragging) Did.Drag(x) else Did.Nothing
     }
 
-    /** The pointer let go at [x]. [taken]: the system took the press away, which arrives as a Release already consumed. */
-    fun release(x: Float, inside: Boolean, taken: Boolean): Did {
-        if (!armed) return Did.Nothing
+    /** The [pointer] let go at [x]. [taken]: the system took the press away, which arrives as a Release already consumed. */
+    fun release(x: Float, inside: Boolean, taken: Boolean, pointer: Long = 0): Did {
+        if (!armed || pointer != this.pointer) return Did.Nothing
         val drag = dragging
         val menu = secondary
         reset()

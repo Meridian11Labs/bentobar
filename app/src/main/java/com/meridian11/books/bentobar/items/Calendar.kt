@@ -11,11 +11,13 @@ import android.database.ContentObserver
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.CalendarContract
 import android.util.Log
 import com.meridian11.books.bentobar.R
 import com.meridian11.books.bentobar.util.Now
 import java.time.ZoneId
+import java.util.concurrent.Executor
 
 /**
  * Calendar events from the Calendar provider (needs READ_CALENDAR), each with its verdict ([Meetings.judge]): what is shown at
@@ -48,8 +50,16 @@ object Calendar {
     }
 
     private const val TAG = "BentoBar"
-    /** How long what was read stays fresh. The provider changing reloads it at once, so this is only for a change it didn't tell of. */
+    /** How long what was read stays fresh. The provider changing reloads it once the change has settled, so this is only for a change it didn't tell of. */
     const val RELOAD_MS = 15 * 60_000L
+    /**
+     * How long the provider is quiet after a change before it is read again, and how long after the first change of a burst
+     * it is read at most: a sync tells of each event it writes, and each read is 41 days and their attendees.
+     */
+    const val SETTLE_MS = 2_000L
+    const val SETTLE_CAP_MS = 10_000L
+    /** How long after a read that failed it is tried again by itself, the last reading kept meanwhile. A provider change tries sooner. */
+    const val RETRY_MS = 2 * 60_000L
     /**
      * How long the calendar stays observed and loaded after its last user left. The strip hides for every panel and every
      * full-screen flip, and it comes back in seconds: without this each of those would read 41 days again and the next
@@ -67,13 +77,21 @@ object Calendar {
     private const val LOAD_WAIT_MS = 5_000L
     private val waiting = Waiters(LOAD_WAIT_MS, { ms, r -> main.postDelayed(r, ms) }, { main.removeCallbacks(it) })
     /**
-     * Calendar's loading is [Refresher]'s, one load at a time and one snapshot, but on a wiring of its own: `Background`'s
-     * stops loading while nothing shows items, and the Live Update chip needs meetings while the service is off.
+     * The provider read again by itself: once its changes have settled, and a while after a read that failed. A load that is
+     * running when a change settles gets one more after it; when a retry falls due, it is the retry.
      */
-    private val loader = calendarLoader(
-        Refresher.Wiring(Background.executor("calendar"), { Background.onMain(it::run) }, Now::elapsed,
-            changed = { Chips.update(app); loaded(); waiting.arrived() }, minGapMs = 0, mayLoad = { users.active && allowed() }),
-    ) { load(System.currentTimeMillis()).takeIf { allowed() } }
+    private val readAgain = ReadAgain(SETTLE_MS, SETTLE_CAP_MS, RETRY_MS, SystemClock::uptimeMillis, { ms, r -> main.postDelayed(r, ms) },
+        { main.removeCallbacks(it) }) { changed -> if (changed || !loader.loading(Unit)) refresh(force = true) }
+    /**
+     * Calendar's loading is [Refresher]'s, one load at a time and one snapshot, but on a wiring of its own: `Background`'s
+     * stops loading while nothing shows items, and the Live Update chip needs meetings while the service is off. A read
+     * that failed leaves the last reading as it is, and whoever waits for it is told.
+     */
+    private val loader: Refresher<Unit, Judged> = calendarLoader(
+        calendarWiring(Background.executor("calendar"), { Background.onMain(it::run) }, Now::elapsed,
+            changed = { readAgain.loaded(); Chips.update(app); loaded(); waiting.arrived() },
+            failed = { readAgain.failed(); waiting.arrived() }, mayLoad = { users.active && allowed() }),
+    ) { last -> load(System.currentTimeMillis(), last).takeIf { allowed() } }
 
     /**
      * A reading and its events, judged by the choices they were last asked with: when the choices change it is judged again,
@@ -135,9 +153,10 @@ object Calendar {
         Uses.on(Uses.CALENDAR)
 
     /**
-     * Reloads at most every [RELOAD_MS], or right away after the provider changes, and only while someone [hold]s the
-     * calendar. One load at a time: a sync that changes hundreds of events queues one more load, not hundreds. Main thread.
-     * Nothing while a set is staged: the real reading stays as it is until the set is taken off.
+     * Reloads at most every [RELOAD_MS], or with [force] now, and only while someone [hold]s the calendar. One load at a
+     * time: what asks while one runs queues one more, not hundreds. The provider's changes ask once they have settled
+     * ([SETTLE_MS], at most [SETTLE_CAP_MS] into a sync). Main thread. Nothing while a set is staged: the real reading stays
+     * as it is until the set is taken off.
      */
     fun refresh(force: Boolean = false) {
         if (staged != null) return
@@ -168,14 +187,15 @@ object Calendar {
     private fun observe() {
         if (observer != null || !users.active) return
         observer = object : ContentObserver(main) {
-            override fun onChange(selfChange: Boolean) { refresh(force = true) }
+            override fun onChange(selfChange: Boolean) { readAgain.changed() }
         }.also { app.contentResolver.registerContentObserver(CalendarContract.Instances.CONTENT_URI, true, it) }
     }
 
-    /** The last user has gone: nothing listens to the provider and nothing it said is kept. */
+    /** The last user has gone: nothing listens to the provider, nothing is read again and nothing it said is kept. */
     private fun letGo() {
         observer?.let { app.contentResolver.unregisterContentObserver(it) }
         observer = null
+        readAgain.stop()
         forget()
     }
 
@@ -194,17 +214,29 @@ object Calendar {
         if (next != null && allowed()) refresh(force = true)
     }
 
-    /** One load: read, and judged at once (off the main thread) by the choices it was read with. */
-    private fun load(now: Long): Judged {
+    /**
+     * One load: read, and judged at once (off the main thread) by the choices it was read with. Throws when the provider
+     * did, or gave no answer, and when the attendees could not be read and [last] is a reading that had them
+     * ([Meetings.Reading.replaces]): what was read before stays then.
+     */
+    private fun load(now: Long, last: Judged?): Judged {
         val choices = MeetingChoices.state.value
         val reading = try {
             read(Meetings.spans(now - 36 * 3_600_000L..now + 40 * 86_400_000L, view), choices)
         } catch (e: Exception) {
             Log.w(TAG, "calendar query failed: ${e.javaClass.simpleName}")
-            Meetings.Reading(emptyMap(), emptyList())
+            throw e
         }
+        guestsFailedInARow = if (reading.guestsFailed != null) guestsFailedInARow + 1 else 0
+        if (!reading.replaces(last?.reading, guestsFailedInARow)) throw Unanswered()
         return Judged(reading, choices.calendarsOff).also { it.events(choices, ::noTitle) }
     }
+
+    /** How many loads in a row read no attendees (the loader's one thread). */
+    @Volatile private var guestsFailedInARow = 0
+
+    /** No answer, which says nothing of what is on the calendar: the provider gave no cursor, or a reading had its attendees unread. */
+    private class Unanswered : RuntimeException()
 
     /**
      * The provider's calendars, every one (as [Meetings.Cal], by id). For Setup's list too ([calendars]). Off the main thread.
@@ -212,11 +244,11 @@ object Calendar {
     private fun readCalendars(): Map<Long, Meetings.Cal> {
         val out = HashMap<Long, Meetings.Cal>()
         val c = CalendarContract.Calendars.CONTENT_URI
-        app.contentResolver.query(c, arrayOf(
+        (app.contentResolver.query(c, arrayOf(
             CalendarContract.Calendars._ID, CalendarContract.Calendars.ACCOUNT_NAME, CalendarContract.Calendars.ACCOUNT_TYPE,
             CalendarContract.Calendars.OWNER_ACCOUNT, CalendarContract.Calendars.IS_PRIMARY, CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL,
             CalendarContract.Calendars.VISIBLE, CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, CalendarContract.Calendars.CALENDAR_COLOR,
-        ), null, null, null)?.use { r ->
+        ), null, null, null) ?: throw Unanswered()).use { r ->
             while (r.moveToNext()) {
                 val id = r.getLong(0)
                 out[id] = Meetings.Cal(id, r.getString(1).orEmpty(), r.getString(2).orEmpty(), r.getString(3).orEmpty(),
@@ -229,8 +261,8 @@ object Calendar {
     /**
      * One reading: the calendars, the occurrences in [spans], and the attendees of the events [Meetings.asksAttendees] names
      * by [choices] (read once per load, not per tick, in chunks of [IDS_PER_QUERY]), each with its answer. A row keeps what
-     * was found in the description, never the description. Throws when the provider does (a column it doesn't have): the
-     * caller says so by its kind.
+     * was found in the description, never the description. Throws when the provider does (a column it doesn't have) or
+     * answers with no cursor: the caller says so by its kind. Attendees that can't be read are said in [Meetings.Reading.guestsFailed].
      */
     private fun read(spans: List<LongRange>, choices: MeetingChoices.State): Meetings.Reading {
         val calendars = readCalendars()
@@ -245,7 +277,7 @@ object Calendar {
         val rows = ArrayList<Meetings.Row>()
         // An occurrence that crosses from one span into the next comes back from both.
         val seen = HashSet<Pair<Long, Long>>()
-        for (span in spans) CalendarContract.Instances.query(app.contentResolver, projection, span.first, span.last)?.use { c ->
+        for (span in spans) (CalendarContract.Instances.query(app.contentResolver, projection, span.first, span.last) ?: throw Unanswered()).use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
                 if (!seen.add(id to c.getLong(2))) continue
@@ -264,10 +296,10 @@ object Calendar {
         val guests = HashMap<Long, MutableList<Meetings.Guest>>()
         // Without them nobody is known to be invited: every event is then one with only the user, as before there were rules.
         val failed = try {
-            for (chunk in asked.chunked(IDS_PER_QUERY)) app.contentResolver.query(CalendarContract.Attendees.CONTENT_URI,
+            for (chunk in asked.chunked(IDS_PER_QUERY)) (app.contentResolver.query(CalendarContract.Attendees.CONTENT_URI,
                 arrayOf(CalendarContract.Attendees.EVENT_ID, CalendarContract.Attendees.ATTENDEE_EMAIL, CalendarContract.Attendees.ATTENDEE_TYPE,
                     CalendarContract.Attendees.ATTENDEE_STATUS),
-                "${CalendarContract.Attendees.EVENT_ID} IN (${chunk.joinToString(",")})", null, null)?.use { c ->
+                "${CalendarContract.Attendees.EVENT_ID} IN (${chunk.joinToString(",")})", null, null) ?: throw Unanswered()).use { c ->
                 while (c.moveToNext()) {
                     val email = c.getString(1).orEmpty()
                     if (email.isBlank()) continue // no one to tell apart (and no one to meet)
@@ -399,10 +431,18 @@ object Calendar {
 
 /**
  * How the calendar loads: [Refresher]'s rules, on the calendar's numbers. Pure, so the rules run in a test; [Calendar] gives
- * it the app's wiring and the query.
+ * it the app's wiring ([calendarWiring]) and the query, which gets the last reading.
  */
-internal fun <T : Any> calendarLoader(wiring: Refresher.Wiring, load: () -> T?): Refresher<Unit, T> =
-    Refresher(wiring, every = { _, _ -> Calendar.RELOAD_MS }, load = { _, _ -> load() })
+internal fun <T : Any> calendarLoader(wiring: Refresher.Wiring, load: (last: T?) -> T?): Refresher<Unit, T> =
+    Refresher(wiring, every = { _, _ -> Calendar.RELOAD_MS }, load = { _, last -> load(last) })
+
+/**
+ * The calendar's numbers for [Refresher.Wiring]: whenever asked (a provider change, the month menu), and after a read that
+ * failed, which [failed] hears (its kind is logged where it failed), not again by itself for [Calendar.RETRY_MS].
+ */
+internal fun calendarWiring(background: Executor, main: (Runnable) -> Unit, elapsed: () -> Long, changed: () -> Unit, failed: () -> Unit,
+    mayLoad: () -> Boolean) = Refresher.Wiring(background, main, elapsed, changed = changed, minGapMs = 0, afterThrowMs = Calendar.RETRY_MS,
+        mayLoad = mayLoad, report = { failed() })
 
 /** The load under way is the first: nothing has been read yet, so finding no meeting would only mean not knowing. */
 internal fun Refresher<Unit, *>.loadingFirst(): Boolean = loading(Unit) && peek(Unit) == null

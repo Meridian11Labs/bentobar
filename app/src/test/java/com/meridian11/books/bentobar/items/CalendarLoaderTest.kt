@@ -17,8 +17,14 @@ class CalendarLoaderTest {
     private val background = Executor { waiting.addLast(it) }
     private fun run() { while (waiting.isNotEmpty()) waiting.removeFirst().run() }
 
-    private val loader = calendarLoader(Refresher.Wiring(background, { it.run() }, { clock }, changed = { changes++ }, minGapMs = 0, mayLoad = { may })) {
+    private var failures = 0
+    private var broken = false
+    private val lasts = ArrayList<List<Calendar.Event>?>()
+
+    private val loader = calendarLoader<List<Calendar.Event>>(calendarWiring(background, { it.run() }, { clock }, changed = { changes++ }, failed = { failures++ }, mayLoad = { may })) { last ->
+        lasts += last
         loads++
+        if (broken) throw IllegalStateException("the provider is away")
         listOf(Calendar.Event(loads.toLong(), "e", 0, 1, false, 0, "", true, false, null))
     }
 
@@ -79,6 +85,61 @@ class CalendarLoaderTest {
         may = false
         loader.want(Unit); assertFalse(loader.refresh(Unit, afterRunning = true)); run()
         assertEquals(0, loads)
+    }
+
+    @Test fun aReadThatFailsKeepsTheLastReadingAndSaysSo() {
+        // A meeting ten minutes away must not go from the bar and the chip because the provider was away for one read.
+        loader.want(Unit); run()
+        broken = true
+        clock += Calendar.RELOAD_MS; loader.want(Unit); run()
+        assertEquals(2, loads)
+        assertEquals("the last reading stays", 1L, loader.peek(Unit)?.single()?.eventId)
+        assertEquals("told, so nobody waits for it", 1, failures)
+        assertEquals(1, changes)
+    }
+
+    @Test fun afterAFailureItIsReadAgainAfterTheRetryOrAtAProviderChange() {
+        loader.want(Unit); run()
+        broken = true
+        clock += Calendar.RELOAD_MS; loader.want(Unit); run()
+        clock += Calendar.RETRY_MS - 1_000; loader.want(Unit); run()
+        assertEquals("not every second meanwhile", 2, loads)
+        clock += 1_000; loader.want(Unit); run()
+        assertEquals(3, loads)
+        assertTrue(loader.refresh(Unit, afterRunning = true)); run()
+        assertEquals(4, loads)
+        broken = false
+        assertTrue(loader.refresh(Unit, afterRunning = true)); run()
+        assertEquals(5L, loader.peek(Unit)?.single()?.eventId)
+    }
+
+    @Test fun eachLoadIsGivenTheLastReading() {
+        loader.want(Unit); run()
+        loader.refresh(Unit); run()
+        assertEquals(listOf(null, 1L), lasts.map { it?.single()?.eventId })
+    }
+
+    @Test fun aReadingWithoutItsAttendeesTakesNoReadingsPlace() {
+        // Nobody is known to be invited then: every meeting with others in it would be one with only the user, and go.
+        val cals = emptyMap<Long, Meetings.Cal>()
+        val good = Meetings.Reading(cals, emptyList())
+        val unread = Meetings.Reading(cals, emptyList(), guestsFailed = "SQLiteException")
+        assertFalse(unread.replaces(good))
+        assertFalse(unread.replaces(good, failedInARow = 2))
+        assertTrue("better than nothing", unread.replaces(null))
+        assertTrue(good.replaces(good))
+        // A calendar whose attendees are never to be had is not held at its first reading for good.
+        assertTrue("no better than the last", unread.replaces(unread))
+        assertTrue("the third in a row", unread.replaces(good, failedInARow = Meetings.GUESTS_FAILED_TO_REPLACE))
+    }
+
+    @Test fun aQueryWithNoAnswerIsAFailureNotAnEmptyCalendar() {
+        // A null cursor read as no calendars hid every event, and as no rows emptied the day.
+        val code = SourceScan.code(SourceScan.sources.single { it.name == "Calendar.kt" })
+        assertFalse(code, Regex("""\)\?\.use \{""").containsMatchIn(code))
+        assertEquals("the calendars, the occurrences and the attendees", 3, Regex("""\?: throw Unanswered\(\)\)\.use \{""").findAll(code).count())
+        // And a read that threw is no reading of nothing: it leaves the last one as it is.
+        assertFalse(code, "Meetings.Reading(emptyMap(), emptyList())" in code)
     }
 
     @Test fun theCalendarKeepsLoadingWhileTheServiceIsOffForTheChip() {

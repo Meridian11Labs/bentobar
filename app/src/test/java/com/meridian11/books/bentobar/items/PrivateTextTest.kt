@@ -120,6 +120,25 @@ class PrivateTextTest {
         assertTrue(EventItem.discreet)
     }
 
+    /**
+     * What `Env` is asked to open is a link from the layout or an event's place (a Directions press without a maps app):
+     * its log lines name an intent by its action and scheme and a failure by its kind, never what either holds.
+     */
+    @Test fun envLogsWhatItOpensByItsKindAlone() {
+        var code = SourceScan.code(SourceScan.sources.single { it.place() == "items/Env.kt" })
+        val allowed = listOf(
+            """if (BuildConfig.DEBUG) Http.log = { Log.i(TAG, it) }""",
+            """Log.w(TAG, "forgetting what ${'$'}{type.type} fetched failed: ${'$'}{e.javaClass.simpleName}")""",
+            """Log.w(TAG, "no activity for ${'$'}{intent.action} ${'$'}{intent.scheme}")""",
+            """Log.w(TAG, "can't open ${'$'}{intent.action} ${'$'}{intent.scheme}: ${'$'}{e.javaClass.simpleName}")""",
+            """Log.w(TAG, "can't copy: ${'$'}{it.javaClass.simpleName}")""")
+        for (a in allowed) {
+            assertTrue(a, a in code)
+            code = code.replace(a, "")
+        }
+        for (call in listOf("Log.", "println(", "printStackTrace", "System.out", "System.err")) assertFalse("Env.kt calls $call", call in code)
+    }
+
     @Test fun noDebugLineSaysTheText() {
         PrompterItem.edit("p", script)
         for (line in listOfNotNull(PrompterItem.debug(emptyList()))) assertFalse(line, script.take(20) in line)
@@ -136,6 +155,24 @@ class PrivateTextTest {
         PrompterItem.settle(Settle.SERVICE_STARTED)
         settled(PrompterItem.type)
         assertEquals(setOf("p"), Kept.own("prompter").names())
+    }
+
+    /**
+     * A stored layout this version can't read (from a newer one, or damaged) is set aside and the bar starts fresh: the
+     * start's sweep keeps the notes of its prompters, so Put back brings them back with them, and a discard lets them go.
+     */
+    @Test fun aSetAsideLayoutsPromptersKeepTheirNotesUntilItIsPutBackOrDiscarded() {
+        Kept.own("prompter").write("p", script, 1)
+        val raw = """{"version":${com.meridian11.books.bentobar.data.LAYOUT_VERSION + 1},"items":[{"id":"p","type":"prompter"},{"id":"c","type":"clock"}]}"""
+        Store.open(MapPrefs(mapOf("bar" to raw))) { }
+        assertTrue(Store.config.value.items.none { it.id == "p" })
+        PrompterItem.settle(Settle.SERVICE_STARTED)
+        settled(PrompterItem.type)
+        assertEquals(setOf("p"), Kept.own("prompter").names())
+        Store.discardSetAside()
+        PrompterItem.settle(Settle.SERVICE_STARTED)
+        settled(PrompterItem.type)
+        assertEquals(emptySet<String>(), Kept.own("prompter").names())
     }
 
     @Test fun aRemovedPromptersNotesStayWhileUndoCanBringItBackAndGoWhenItNoLongerCan() {

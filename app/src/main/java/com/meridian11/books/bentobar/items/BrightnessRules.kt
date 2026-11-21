@@ -22,8 +22,12 @@ object BrightnessRules {
         return (MIN + ((MAX - MIN) * l * l).roundToInt()).coerceIn(MIN, MAX)
     }
 
-    /** A notch of the wheel is 5 percent of the slider, up or down. */
-    fun wheel(level: Float, steps: Int): Float = (level + 0.05f * steps).coerceIn(0f, 1f)
+    /**
+     * A notch of the wheel is 5 percent of the slider, up or down; null where it would not change Android's value (past an
+     * end), since writing one switches automatic brightness off.
+     */
+    fun wheel(level: Float, steps: Int): Float? =
+        (level + 0.05f * steps).coerceIn(0f, 1f).takeIf { value(it) != value(level) }
 
     /** The percent the item says: the slider's place. */
     fun percent(level: Float): Int = (level.coerceIn(0f, 1f) * 100).roundToInt()

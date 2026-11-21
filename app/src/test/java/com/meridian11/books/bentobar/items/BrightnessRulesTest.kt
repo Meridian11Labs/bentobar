@@ -2,6 +2,8 @@ package com.meridian11.books.bentobar.items
 
 import com.meridian11.books.bentobar.util.Sym
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** Brightness without a device: the slider's curve over Android's 1 to 255, the wheel, and the icon. */
@@ -30,11 +32,21 @@ class BrightnessRulesTest {
     }
 
     @Test fun aNotchIsFivePercentAndStopsAtTheEnds() {
-        assertEquals(0.55f, BrightnessRules.wheel(0.5f, 1), 1e-6f)
-        assertEquals(0.4f, BrightnessRules.wheel(0.5f, -2), 1e-6f)
-        assertEquals(1f, BrightnessRules.wheel(0.98f, 1), 0f)
-        assertEquals(0f, BrightnessRules.wheel(0.02f, -1), 0f)
-        assertEquals(1f, BrightnessRules.wheel(0.5f, 40), 0f)
+        assertEquals(0.55f, BrightnessRules.wheel(0.5f, 1)!!, 1e-6f)
+        assertEquals(0.4f, BrightnessRules.wheel(0.5f, -2)!!, 1e-6f)
+        assertEquals(1f, BrightnessRules.wheel(0.98f, 1)!!, 0f)
+        assertEquals(0f, BrightnessRules.wheel(0.1f, -3)!!, 0f)
+        assertEquals(1f, BrightnessRules.wheel(0.5f, 40)!!, 0f)
+    }
+
+    @Test fun aNotchThatChangesNothingIsNoChangeSoAutomaticStaysOn() {
+        // Writing a level switches automatic brightness off; a notch past an end would do only that.
+        assertNull(BrightnessRules.wheel(BrightnessRules.level(BrightnessRules.MAX), 1))
+        assertNull(BrightnessRules.wheel(BrightnessRules.level(BrightnessRules.MIN), -1))
+        assertNull(BrightnessRules.wheel(0.5f, 0))
+        // Every notch between the ends changes Android's value.
+        for (v in BrightnessRules.MIN until BrightnessRules.MAX) assertNotNull("up from $v", BrightnessRules.wheel(BrightnessRules.level(v), 1))
+        for (v in BrightnessRules.MIN + 1..BrightnessRules.MAX) assertNotNull("down from $v", BrightnessRules.wheel(BrightnessRules.level(v), -1))
     }
 
     @Test fun theIconSaysAutomaticOrHowBright() {

@@ -1,5 +1,9 @@
 package com.meridian11.books.bentobar.items
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.media.AudioRecordingConfiguration
@@ -27,7 +31,8 @@ import com.meridian11.books.bentobar.util.Sym
  * The mute is BentoBar's while it holds it ([MuteKeeper]), and it gives it back at the moments [settle] names: the item
  * leaving the layout, the service ending, a start that finds no such item placed. The bar hiding is none of them, so a mute
  * outlives a full-screen call. A rebind of the service ends it too (it can't be told from the service ending). A mute that is
- * not BentoBar's is shown and left alone. The camera can't be switched off by an app: the menu leads to Android's privacy
+ * not BentoBar's is shown and left alone; so while one is BentoBar's, Android's word of every change of the mute is heard,
+ * also while the item is not sampled, and the user undoing it makes it BentoBar's no more. The camera can't be switched off by an app: the menu leads to Android's privacy
  * settings for that.
  */
 object InUseItem : ItemType("inuse", R.string.item_inuse_title, Sym.VIDEOCAM, R.string.item_inuse_desc) {
@@ -43,7 +48,11 @@ object InUseItem : ItemType("inuse", R.string.item_inuse_title, Sym.VIDEOCAM, R.
     internal val byClick = Opt.bool("click", false)
 
     /** Android's microphone switch for every app, behind an interface a test fakes. */
-    interface MicMute { var muted: Boolean }
+    interface MicMute {
+        var muted: Boolean
+        /** [heard] is told of every change of [muted], whoever made it, until it is null again. Main thread. */
+        fun watch(heard: (() -> Unit)?)
+    }
 
     /** BentoBar's mute and whether it holds one. A `var` so a test can give it a fake microphone and do disk work on the spot. */
     internal var mute = MuteKeeper(AndroidMic, { Kept.own(type) }, { Background.executor(type).execute(it) })
@@ -251,7 +260,7 @@ internal class MuteKeeper(
         mic.muted = true
         if (!mic.muted) { works = false; return false }
         works = true
-        ours = true
+        own()
         background(Runnable { runCatching { kept().write(OURS, "1", System.currentTimeMillis()) } })
         return true
     }
@@ -280,12 +289,23 @@ internal class MuteKeeper(
         when {
             InUseRules.undoMute(InUse(muted = muted, ours = true), why, placed) -> { mic.muted = false; forget() }
             !muted -> forget()
-            else -> ours = true
+            else -> own()
         }
+    }
+
+    /**
+     * The mute is ours: from now on every change of it is heard, so that one the user makes while nothing samples the item
+     * (the bar hidden for a full-screen call) is seen. A step reads the mute only while the item is sampled: an unmute and a
+     * mute again in between left it ours, and a later settle would have undone the user's own.
+     */
+    private fun own() {
+        ours = true
+        mic.watch { seen(mic.muted) }
     }
 
     private fun forget() {
         ours = false
+        mic.watch(null)
         background(Runnable { runCatching { kept().remove(OURS) } })
     }
 
@@ -294,9 +314,40 @@ internal class MuteKeeper(
     }
 }
 
-/** The microphone switch on Android: `AudioManager`'s, for every app. Never throws; what can't be read counts as not muted. */
+/**
+ * The microphone switch on Android: `AudioManager`'s, for every app. Never throws; what can't be read counts as not muted.
+ * Its changes come as `ACTION_MICROPHONE_MUTE_CHANGED`, which the system sends to receivers registered in code only, and
+ * from the system's own process, so a receiver no other app may reach hears it.
+ */
 private object AndroidMic : InUseItem.MicMute {
     private fun am(): AudioManager? = Env.app.getSystemService(AudioManager::class.java)
+
+    @Volatile private var heard: (() -> Unit)? = null
+    private var registered = false
+    private val changes by lazy {
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                try {
+                    heard?.invoke()
+                } catch (e: Exception) {
+                    Log.w(Env.TAG, "inuse: the mute's change failed: ${e.javaClass.simpleName}")
+                }
+            }
+        }
+    }
+
+    @Synchronized override fun watch(heard: (() -> Unit)?) {
+        this.heard = heard
+        if ((heard != null) == registered) return
+        try {
+            if (heard != null) Env.app.registerReceiver(changes, IntentFilter(AudioManager.ACTION_MICROPHONE_MUTE_CHANGED), Context.RECEIVER_NOT_EXPORTED)
+            else Env.app.unregisterReceiver(changes)
+            registered = heard != null
+        } catch (e: Exception) {
+            Log.w(Env.TAG, "can't follow the microphone's mute: ${e.javaClass.simpleName}")
+        }
+    }
+
     override var muted: Boolean
         get() = runCatching { am()?.isMicrophoneMute }.getOrNull() == true
         set(value) {

@@ -19,6 +19,14 @@ class CpuLoad(private val cores: Int) {
 
     var perCore = DoubleArray(cores); private set
     var total = 0.0; private set
+    /** When [add] last made a reading (µs, its clock); -1: none yet. */
+    private var readAt = -1L
+
+    /**
+     * Whether the last reading is one of now ([now], µs): at most [CURRENT_US] old. Not after the sampler stopped and
+     * started again: the call it starts with makes no reading, and [total] is still what was read before it stopped.
+     */
+    fun current(now: Long): Boolean = readAt >= 0 && now - readAt in 0..CURRENT_US
 
     /**
      * Takes each core's idle time so far ([idle], µs, the sum over its idle states) at [at] (µs, a clock that runs while
@@ -49,6 +57,7 @@ class CpuLoad(private val cores: Int) {
             shown
         }
         total = perCore.average()
+        readAt = at
         return true
     }
 
@@ -57,5 +66,7 @@ class CpuLoad(private val cores: Int) {
         const val MAX_US = 10_000_000.0
         /** The longest sleep seen across readings on a quiet Googlebook was about four seconds. */
         const val MAX_OWED_US = 5_000_000.0
+        /** Ticks come a second apart, two in power save: a reading older than this is from before the sampler last stopped. */
+        const val CURRENT_US = 5_000_000L
     }
 }

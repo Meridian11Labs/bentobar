@@ -89,7 +89,7 @@ private object TickerOnDevice {
         sampleEnv = Env::tick,
         clocks = { Timers.check(); Caffeine.check() },
         failedText = { Env.str(R.string.item_failed, it.title) },
-        log = { what, e -> if (e == null) Log.w(TAG, what) else Log.w(TAG, what, e) },
+        log = { what, e -> if (e == null) Log.w(TAG, what) else Log.w(TAG, what, ItemGuard.forLog(e)) },
         location = { items, sampled -> WeatherHere.follow(items, sampled, Online.on(Online.Service.OPEN_METEO)) },
     )
 }

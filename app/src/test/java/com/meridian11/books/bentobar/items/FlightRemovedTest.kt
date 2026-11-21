@@ -155,6 +155,38 @@ class FlightRemovedTest {
         assertEquals(emptySet<String>(), notes())
     }
 
+    /**
+     * The bar's own menu arranges the layout otherwise while Undo has a removed item, and a load lets its flight go: Undo
+     * offers the removal no more, also once the layout is arranged back, so the item never comes back without its flight.
+     */
+    @Test fun aRemovalWhoseFlightWasLetGoIsNotUndoneWhenTheLayoutIsArrangedBack() {
+        follow("f")
+        follow("g")
+        assertTrue(Undo.change(removed = "f") { it.without("f") })
+        Store.update { it.hide("c") }
+        FlightLoad.kept("g", 2_000, FlightItem.ids())
+        settled()
+        assertEquals(setOf("g"), notes())
+        Store.update { it.show("c") }
+        assertEquals(false, Undo.undo())
+        assertEquals(listOf("c", "g"), ids())
+    }
+
+    /** A layout set aside at the start (from a newer version) keeps its items' flights through the start's sweep, until it is discarded. */
+    @Test fun aSetAsideLayoutsFlightsStayThroughTheStartsSweepUntilItIsDiscarded() {
+        follow("f")
+        val raw = """{"version":${com.meridian11.books.bentobar.data.LAYOUT_VERSION + 1},"items":[{"id":"f","type":"flight"},{"id":"c","type":"clock"}]}"""
+        Store.open(MapPrefs(mapOf("bar" to raw))) { }
+        assertTrue(Store.config.value.items.none { it.type == FlightItem.type })
+        FlightItem.sweepAtStart()
+        settled()
+        assertEquals(setOf("f"), notes())
+        Store.discardSetAside()
+        FlightItem.sweepAtStart()
+        settled()
+        assertEquals(emptySet<String>(), notes())
+    }
+
     @Test fun anItemThatUndoTakesOutAgainTakesTheFlightItFollowedSinceWithIt() {
         assertTrue(Undo.change(added = "h") { c -> c.copy(items = c.items + flight.copy(id = "h")) })
         follow("h")

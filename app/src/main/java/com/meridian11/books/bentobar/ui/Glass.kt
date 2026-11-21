@@ -99,14 +99,9 @@ fun DropColumn(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
         val placeables = measurables.map { it.measure(child) }
         val width = maxOf(constraints.minWidth, placeables.maxOfOrNull { it.width } ?: 0).coerceAtMost(constraints.maxWidth)
         val height = placeables.sumOf { it.height }.coerceIn(constraints.minHeight, constraints.maxHeight)
-        // Which block each child is: a divider joins the block below it.
-        val blocks = IntArray(placeables.size)
-        var next = 0
-        for (i in placeables.indices) {
-            blocks[i] = next
-            if (measurables[i].layoutId != JOINS_BELOW) next++
-        }
-        val count = next
+        // Which block each child is: a divider joins the block below it, and one that ends the card is its own.
+        val blocks = MenuMotion.blocks(measurables.map { it.layoutId == JOINS_BELOW })
+        val count = MenuMotion.count(blocks)
         val drop = MenuMotion.DROP_DP.dp.toPx() / MenuMotion.DROP_DP
         if (glass != null) {
             val tops = IntArray(count)

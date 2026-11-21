@@ -119,6 +119,21 @@ object ScreenTimeRules {
     fun shown(onMs: Long, loadedAt: Long, liveSince: Long, now: Long, dayStart: Long): Long =
         (onMs + (now - maxOf(loadedAt, liveSince)).coerceAtLeast(0)).coerceAtMost((now - dayStart).coerceAtLeast(0))
 
+    /** Without Usage access, asked again this soon: the user may be giving it right now. */
+    private const val NO_ACCESS_MS = 15_000L
+
+    /**
+     * How long a reading taken at [readAt] stays good, the bar last back on screen at [liveSince] (wall clock): ten minutes,
+     * since the bar is sampled only while it shows and [shown] counts on from the reading; a minute for one from before
+     * the bar came back, which can't know the time it was away (read at once when it is older, and not again on every
+     * return of a bar that hides and shows again and again); a minute for the menu's apps, which nothing counts on.
+     */
+    fun every(access: Boolean, withApps: Boolean, readAt: Long, liveSince: Long): Long = when {
+        !access -> NO_ACCESS_MS
+        withApps || readAt < liveSince -> MINUTE
+        else -> 10 * MINUTE
+    }
+
     /** Local midnight of [now]'s day; where a clock change skips midnight, the day's first moment. */
     fun dayStart(now: ZonedDateTime): Long = now.toLocalDate().atStartOfDay(now.zone).toInstant().toEpochMilli()
 

@@ -103,7 +103,7 @@ object BrightnessItem : ItemType("brightness", R.string.item_brightness_title, S
     }
 
     override val usesWheel = true
-    override fun onScroll(item: ItemConfig, steps: Int) = set(BrightnessRules.wheel(level(), steps))
+    override fun onScroll(item: ItemConfig, steps: Int) { BrightnessRules.wheel(level(), steps)?.let(::set) }
 
     override fun onSlide(item: ItemConfig, level: Float, done: Boolean) = set(level)
 

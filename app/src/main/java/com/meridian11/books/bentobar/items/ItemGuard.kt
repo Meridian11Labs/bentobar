@@ -19,4 +19,14 @@ internal object ItemGuard {
         if (e is VirtualMachineError) throw e
         if (kindOnly) log("$what: ${e.javaClass.simpleName}", null) else log(what, e)
     }
+
+    /**
+     * [e] as Android's log is given it, for any type: its kind and where it was thrown, never its message or a cause's,
+     * which can quote what was being read or opened (a link, a path, a reply).
+     */
+    fun forLog(e: Throwable): Throwable = Thrown(e.javaClass.simpleName).also { it.stackTrace = e.stackTrace }
+
+    private class Thrown(kind: String) : Throwable(kind) {
+        override fun toString() = message.orEmpty()
+    }
 }

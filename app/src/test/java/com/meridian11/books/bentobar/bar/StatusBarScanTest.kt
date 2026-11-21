@@ -136,4 +136,21 @@ class StatusBarScanTest {
         // As Rect.intersects: a free area squeezed to no width, inside a wide window, still counts as under it.
         assertTrue(Box(150, 0, 150, 41).intersects(Box(0, 0, 1920, 1200)))
     }
+
+    /**
+     * Whose window it is is asked of its root alone, fetched with nothing under it: another app's window is never walked,
+     * and its tree is never even fetched. Only then is the tree fetched, in one round trip, and walked.
+     */
+    @Test fun aWindowsRootSaysWhoseItIsBeforeAnythingUnderItIsFetched() {
+        val code = java.io.File("src/main/java/com/meridian11/books/bentobar/bar/StatusBarScan.kt").readText()
+        val scan = code.substringAfter("fun scan(w: AccessibilityWindowInfo)").substringBefore("\n    }\n")
+        val steps = listOf("root(w, 0)", "BarRules.isStatusBarPackage(", "FLAG_PREFETCH_DESCENDANTS_DEPTH_FIRST", "getChild(")
+        var at = 0
+        for (step in steps) {
+            val i = scan.indexOf(step, at)
+            assertTrue("$step is missing, or out of order, in: $scan", i >= 0)
+            at = i + step.length
+        }
+        assertEquals("one way to a root: $code", 1, Regex("""getRoot\(""").findAll(code).count())
+    }
 }

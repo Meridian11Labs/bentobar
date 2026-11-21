@@ -284,8 +284,8 @@ class MeetingsJudgeTest {
     private var nextId = 100L
 
     /** "Team sync" on [cal], from 0 to 1: the same event as every other copy made here. */
-    private fun copy(cal: Cal, self: Int = 0, availability: Int = 0, title: String = "Team sync", guests: List<Guest>) =
-        Row(++nextId, cal.id, title, 0, 1, selfStatus = self, availability = availability, organizer = "ana@example.com") to guests
+    private fun copy(cal: Cal, self: Int = 0, availability: Int = 0, title: String = "Team sync", link: String? = null, guests: List<Guest>) =
+        Row(++nextId, cal.id, title, 0, 1, selfStatus = self, availability = availability, organizer = "ana@example.com", link = link) to guests
 
     private fun reading(vararg copies: Pair<Row, List<Guest>>) =
         Meetings.Reading(cals.associateBy { it.id }, copies.map { it.first }, copies.associate { it.first.eventId to it.second })
@@ -324,6 +324,19 @@ class MeetingsJudgeTest {
     @Test fun onlyTheSameStartEndAndTitleIsTheSameEvent() {
         val v = verdicts(copy(work, self = Meetings.SELF_DECLINED, guests = invited), copy(team, title = "Team sync 2", guests = invited))
         assertEquals(listOf(Verdict.DECLINED, Verdict.WITH_OTHERS), v)
+    }
+
+    @Test fun anOwnCopyWithAnotherCallLinkDecidesNothingForTheSharedOne() {
+        // Two "Team sync"s at one time, each with its own call: declining the one on the user's calendar leaves the other.
+        val v = verdicts(copy(work, self = Meetings.SELF_DECLINED, link = "https://meet.google.com/aaa-aaaa-aaa", guests = invited),
+            copy(team, link = "https://meet.google.com/bbb-bbbb-bbb", guests = invited))
+        assertEquals(listOf(Verdict.DECLINED, Verdict.WITH_OTHERS), v)
+        // With the same link, or a link on one copy only, it is one event, and the own copy decides.
+        val same = verdicts(copy(work, self = Meetings.SELF_DECLINED, link = "https://meet.google.com/aaa-aaaa-aaa", guests = invited),
+            copy(team, link = "https://meet.google.com/aaa-aaaa-aaa", guests = invited))
+        assertEquals(listOf(Verdict.DECLINED, Verdict.DECLINED), same)
+        val one = verdicts(copy(work, self = Meetings.SELF_DECLINED, guests = invited), copy(team, link = "https://meet.google.com/aaa-aaaa-aaa", guests = invited))
+        assertEquals(listOf(Verdict.DECLINED, Verdict.DECLINED), one)
     }
 
     @Test fun anUntickedOwnCalendarDecidesNothingForATickedOne() {

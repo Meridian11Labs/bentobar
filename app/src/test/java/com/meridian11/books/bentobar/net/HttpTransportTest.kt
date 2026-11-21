@@ -73,6 +73,15 @@ class HttpTransportTest {
         }
     }
 
+    @Test fun aRetryAfterOnAnyOtherFailingStatusIsNoWait() {
+        TinyServer { TinyServer.Answer(status = 500, headers = mapOf("Retry-After" to "86400")) }.use { server ->
+            assertEquals(null, (server.transport().get(forecast) as Reply.Failed).retryAfterSec)
+        }
+        TinyServer { TinyServer.Answer(status = 503, headers = mapOf("Retry-After" to "120")) }.use { server ->
+            assertEquals(120L, (server.transport().get(forecast) as Reply.Failed).retryAfterSec)
+        }
+    }
+
     @Test fun anAnswerThatIsTooLargeIsRefused() {
         TinyServer { TinyServer.Answer(body = ByteArray(5_000) { 'x'.code.toByte() }) }.use { server ->
             val reply = server.transport(maxBytes = 1_000).get(forecast)

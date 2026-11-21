@@ -28,6 +28,18 @@ object NoticesRules {
         override fun toString() = "Raw(title of ${title?.length ?: 0}, text of ${text?.length ?: 0}, ongoing=$ongoing)"
     }
 
+    /** Android's kinds of small icon that are drawn ([drawn]), by its numbers (`Icon.TYPE_*`). */
+    const val ICON_BITMAP = 1
+    const val ICON_RESOURCE = 2
+    const val ICON_ADAPTIVE_BITMAP = 5
+
+    /**
+     * Whether a small icon of Android's kind [type] is drawn: one from the app's own resources, or a picture that came with
+     * the notification. Any other gets the bell and is never opened: one by a content address would open another app's
+     * provider on the reading thread (which waits for as long as that app takes), one as data would be decoded at any size.
+     */
+    fun drawn(type: Int): Boolean = type == ICON_RESOURCE || type == ICON_BITMAP || type == ICON_ADAPTIVE_BITMAP
+
     /** How far [raw]'s bar has come, 0 to 1, where it says: a maximum above 0 and not indeterminate. */
     fun progress(raw: Raw): Float? =
         if (raw.progressMax > 0 && !raw.indeterminate) (raw.progress.toFloat() / raw.progressMax).coerceIn(0f, 1f) else null

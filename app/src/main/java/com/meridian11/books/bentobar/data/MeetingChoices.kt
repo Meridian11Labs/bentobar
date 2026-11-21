@@ -110,8 +110,9 @@ object MeetingChoices {
     )
 
     /**
-     * The whole file, written beside itself and renamed, so it is never half written. If that fails (a full disk) the old
-     * file is removed: left as it was, it would bring back a choice the user has just changed. Nothing of it is logged.
+     * The whole file, written beside itself and renamed, so it is never half written. If that fails (a full disk) the file
+     * is left as it was: a start before the next write has the choices written last, one change behind, where none would
+     * count every calendar's events again. The next change writes the whole file, this one's with it. Nothing of it is logged.
      */
     private fun save() {
         val target = file ?: return
@@ -125,9 +126,6 @@ object MeetingChoices {
         } catch (e: Exception) {
             false
         }
-        if (!saved) {
-            runCatching { part.delete() }
-            runCatching { target.delete() }
-        }
+        if (!saved) runCatching { part.delete() }
     }
 }

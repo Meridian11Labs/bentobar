@@ -4,11 +4,12 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.util.Sym
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 /**
@@ -105,18 +106,25 @@ object AirRules {
         return if (rounded10 % 10 == 0) "${rounded10 / 10}" else "${rounded10 / 10}.${rounded10 % 10}"
     }
 
+    // A number from a reply is a number: never a string ("NaN" reads as one), never infinite, and within what the
+    // figure can be. Anything else is missing, and the rest of the reply is read.
+    private fun JsonElement?.number(): Double? = (this as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull?.takeIf { it.isFinite() }
+    private fun JsonElement?.index(): Int? = number()?.takeIf { it in 0.0..2000.0 && it == floor(it) }?.toInt()
+    private fun JsonElement?.micrograms(): Double? = number()?.takeIf { it in 0.0..100_000.0 }
+    private fun JsonElement?.uvIndex(): Double? = number()?.takeIf { it in 0.0..30.0 }
+
     /** Parses Open-Meteo's `/v1/air-quality` JSON reply. [now] is the wall clock and [up] the time since boot, both of this moment. */
     fun read(jsonText: String, place: Place, now: Long, up: Long = 0): AirReading? = try {
         val root = Json.parseToJsonElement(jsonText).jsonObject
         val cur = root["current"] as? JsonObject ?: return null
-        val us = cur["us_aqi"]?.jsonPrimitive?.intOrNull
-        val eu = cur["european_aqi"]?.jsonPrimitive?.intOrNull
-        val pm25 = cur["pm2_5"]?.jsonPrimitive?.doubleOrNull
-        val pm10 = cur["pm10"]?.jsonPrimitive?.doubleOrNull
-        val ozone = cur["ozone"]?.jsonPrimitive?.doubleOrNull
-        val uv = cur["uv_index"]?.jsonPrimitive?.doubleOrNull
+        val us = cur["us_aqi"].index()
+        val eu = cur["european_aqi"].index()
+        val pm25 = cur["pm2_5"].micrograms()
+        val pm10 = cur["pm10"].micrograms()
+        val ozone = cur["ozone"].micrograms()
+        val uv = cur["uv_index"].uvIndex()
         val hourly = root["hourly"] as? JsonObject
-        val uvHourly = (hourly?.get("uv_index") as? JsonArray)?.mapNotNull { it.jsonPrimitive.doubleOrNull }.orEmpty()
+        val uvHourly = (hourly?.get("uv_index") as? JsonArray)?.mapNotNull { it.uvIndex() }.orEmpty()
         val uvMax = (uvHourly + listOfNotNull(uv)).maxOrNull()
         if (us == null && eu == null && uv == null) null
         else AirReading(place.key, us, eu, pm25, pm10, ozone, uv, uvMax, fetchedAt = now, fetchedUp = up)

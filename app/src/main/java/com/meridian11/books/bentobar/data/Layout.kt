@@ -44,6 +44,23 @@ fun readLayout(raw: String): LayoutRead {
 }
 
 /**
+ * The ids of a layout's items by their type, read as plain strings from `items` and nothing else, so that a layout
+ * [readLayout] refuses (from a newer version, or one whose other parts don't decode) still names its items. For what a
+ * type keeps for an item outside the layout: it stays while a layout set aside has the item. Empty for what isn't JSON.
+ */
+fun idsIn(raw: String): Map<String, Set<String>> {
+    val items = (runCatching { layoutJson.parseToJsonElement(raw) }.getOrNull() as? JsonObject)?.get("items") as? JsonArray ?: return emptyMap()
+    val out = HashMap<String, MutableSet<String>>()
+    for (item in items) {
+        val o = item as? JsonObject ?: continue
+        val id = (o["id"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: continue
+        val type = (o["type"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: continue
+        out.getOrPut(type) { HashSet() } += id
+    }
+    return out
+}
+
+/**
  * A layout the read left no item of stands where the version that wrote it had the bar. Up to 2.1 a layout said that
  * with its items (an Off item too, and a Shelf), and wrote [BarConfig.position] only through Look, so once the read has
  * dropped them all ([withoutRetired], [withoutOff]) `position` may name a place the bar never was: the empty capsule and
