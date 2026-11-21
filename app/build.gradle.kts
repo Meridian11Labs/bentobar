@@ -12,8 +12,8 @@ android {
         applicationId = "com.meridian11.books.bentobar"
         minSdk = 34
         targetSdk = 37
-        versionCode = 28
-        versionName = "2.3.0"
+        versionCode = 29
+        versionName = "2.3.1"
     }
 
     // Release signing from ~/.config/bentobar (never committed). Absent -> unsigned release build.
