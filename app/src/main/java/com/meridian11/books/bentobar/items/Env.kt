@@ -288,6 +288,8 @@ class CpuSampler {
     var available = true; private set
     val total get() = load.total
     val perCore: DoubleArray get() = load.perCore
+    /** Whether [total] is a reading of now ([CpuLoad.current]): not while the sampler has only just started again. */
+    fun current(): Boolean = available && load.current(android.os.SystemClock.elapsedRealtimeNanos() / 1000)
     val history = History()
     val gpuHistory = History()
     /** GPU busy fraction, or null when the device doesn't expose it. */

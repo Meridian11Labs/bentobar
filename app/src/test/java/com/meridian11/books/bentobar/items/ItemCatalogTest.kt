@@ -59,6 +59,11 @@ class ItemCatalogTest {
         assertEquals(setOf("weather", "air"), Items.all.filter { it.usesMyLocation }.map { it.type }.toSet())
     }
 
+    @Test fun heatRunsTheCpusSamplerOnlyWhileItsMenuIsOpen() {
+        // Its menu's "CPU load" row is all Heat reads of it; an item waiting for its rule would else read the cores every second.
+        assertEquals(setOf("battery"), Items.of("heat")!!.samples)
+    }
+
     @Test fun everyAccessATypeNeedsHasWords() {
         // Setup's row and the item's line are drawn from these: an access with no words would be a blank row.
         for (type in Items.all) for (access in type.needs) {
