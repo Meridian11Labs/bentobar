@@ -404,12 +404,22 @@ object FlightRules {
     /**
      * True when [f] is over for someone asking at [now]: it landed, or was to land, more than three
      * hours ago (a canceled one: was to leave). Then the next flight of that number is what was
-     * asked for.
+     * asked for. One whose times came without their UTC twins ([guessed]) is over once the service
+     * says it landed, is canceled or diverted: nobody can say it was within the last three hours.
      */
     fun over(f: Flight, now: Instant): Boolean {
+        val done = f.state == FlightState.LANDED || f.state == FlightState.CANCELED || f.state == FlightState.DIVERTED
+        if (guessed(f)) return done
         val end = if (f.state == FlightState.CANCELED) f.from.planned?.let(f.from::moment) else f.to.time?.let(f.to::moment)
-        return end != null && (f.state == FlightState.LANDED || f.state == FlightState.CANCELED || f.state == FlightState.DIVERTED) && Duration.between(end, now) > OVER
+        return end != null && done && Duration.between(end, now) > OVER
     }
+
+    /**
+     * A flight of the day's operations ([Flight.timetable] false) with a time the service gave without its UTC twin
+     * ([Flight.loose]): what moment that time stands for is anybody's guess, by up to fourteen hours, so whether it has
+     * left or landed is the service's word alone.
+     */
+    fun guessed(f: Flight): Boolean = f.loose && !f.timetable
 
     /**
      * Which of several flights of one number is "the next": the one in the air now; else one that
@@ -427,11 +437,12 @@ object FlightRules {
      * Where a followed flight stands at [now] by the clock: the time to go until it leaves, then the
      * time to landing, then that it has landed. A flight that was to land more than three hours ago
      * has landed as far as a follower is concerned, whatever was last heard of it: one that slept
-     * through the landing must not stand at "0 min". A timetable's flight goes by its plan alone.
+     * through the landing must not stand at "0 min". A timetable's flight goes by its plan alone, and
+     * one whose times are a guess ([guessed]) by what the service last said: it is asked about until then.
      */
     fun standing(f: Flight, now: Instant): Standing {
         fun until(end: FlightEnd): Long = end.time?.let { (Duration.between(now, end.moment(it)).seconds + 59) / 60 }?.coerceAtLeast(0) ?: 0
-        val landing = f.to.time?.let(f.to::moment)
+        val landing = f.to.time?.takeUnless { guessed(f) }?.let(f.to::moment)
         return when {
             f.state == FlightState.CANCELED -> Standing(Stage.CANCELED)
             arrived(f, now) || (landing != null && Duration.between(landing, now) > OVER) -> Standing(Stage.LANDED)

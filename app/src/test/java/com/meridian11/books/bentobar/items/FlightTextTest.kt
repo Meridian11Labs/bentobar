@@ -277,6 +277,18 @@ class FlightTextTest {
         assertNull(bar(down, "2026-10-04T08:01:00Z").tooltip)
     }
 
+    @Test fun aLandingWithoutItsUtcTimeIsInTheBarForAnHourFromWhenTheServiceSaidSo() {
+        // Landed at 10:01 at Frankfurt, said without the UTC twin: read as UTC that is 10:01Z, two hours after the real 08:01Z.
+        val down = lh455(left, fra(actual = "2026-10-03T10:01", belt = "21").copy(offset = 0), FlightState.LANDED).copy(loose = true)
+        // Heard at 08:05, looked at at 08:20: its hour in the bar, not two hours to go before it.
+        val b = bar(down, "2026-10-03T08:20:00Z", heard = "2026-10-03T08:05:00Z")
+        assertEquals("Landed · Belt 21", b.text)
+        assertEquals("LH 455 landed at 10:01 AM, belt 21", b.desc)
+        assertNull(bar(down, "2026-10-03T09:06:00Z", heard = "2026-10-03T08:05:00Z").text)
+        // And one heard of three hours after its time read as UTC has its hour too, from then.
+        assertEquals("Landed · Belt 21", bar(down, "2026-10-03T13:10:00Z", heard = "2026-10-03T13:05:00Z").text)
+    }
+
     @Test fun aFlightThatSleptThroughItsLandingIsLandedNotACountdownToNothing() {
         // Last heard of in the air; the lid opens seven hours after it was to land.
         val b = bar(inAir(fra(expected = "2026-10-03T10:25")), now = "2026-10-03T15:30:00Z", heard = "2026-10-03T06:00:00Z")

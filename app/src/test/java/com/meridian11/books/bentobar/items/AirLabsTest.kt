@@ -481,6 +481,25 @@ class AirLabsTest {
         // And nothing that is made from it throws.
         FlightRules.standing(f, at("2026-10-02T07:00:00Z"))
         FlightRules.over(f, at("2026-10-02T07:00:00Z"))
+        // It stands where the service put it, planned, however long ago its times were by a clock nobody can read.
+        assertEquals(Stage.BEFORE, FlightRules.standing(f, at("2026-10-03T12:00:00Z")).stage)
+        assertTrue(FlightRules.shown(f, at("2026-10-03T12:00:00Z")) === f)
+    }
+
+    @Test fun trackedJustAfterALandingWithoutItsUtcTimeTheNextFlightIsLookedFor() {
+        // Landed, said without the UTC twin: nobody can say it was within the last three hours, so the next is asked for.
+        val landed = """{"response":{"flight_iata":"LH455","dep_iata":"SFO","arr_iata":"FRA","status":"landed",
+            "dep_time":"2026-10-01 14:40","dep_time_utc":"2026-10-01 21:40","arr_time":"2026-10-02 10:25","arr_actual":"2026-10-02 10:01"}}"""
+        val s = Service(mapOf("flight" to landed, "schedules" to none, "routes" to reply("routes-LH455")))
+        val next = lookup(lh455, at("2026-10-02T08:10:00Z"), get = s::get).flight!!
+        assertEquals(listOf("flight", "schedules", "routes"), s.asked)
+        assertTrue(next.timetable)
+        assertEquals(time("2026-10-02T14:40"), next.from.planned)
+        // The same landing with its UTC time is the flight asked for, for three hours.
+        val known = landed.replace("\"arr_actual\":\"2026-10-02 10:01\"", "\"arr_actual\":\"2026-10-02 10:01\",\"arr_actual_utc\":\"2026-10-02 08:01\"")
+        val k = Service(mapOf("flight" to known, "schedules" to none, "routes" to reply("routes-LH455")))
+        assertEquals(FlightState.LANDED, lookup(lh455, at("2026-10-02T08:10:00Z"), get = k::get).flight!!.state)
+        assertEquals(listOf("flight"), k.asked)
     }
 
     @Test fun whatWentWrongIsSaidAndCostsOneRequest() {
