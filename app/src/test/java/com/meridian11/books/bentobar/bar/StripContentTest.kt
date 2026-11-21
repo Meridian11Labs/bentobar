@@ -146,6 +146,18 @@ class StripContentTest {
         assertTrue("no width at all has nothing to show", StripContent.empty(width = 0, drawn = true))
     }
 
+    /**
+     * An invisible window draws nothing, so it measures nothing by itself: it asks for a measure when what it would draw
+     * changed. Only for something to draw: a measure of nothing finds it empty again, and an item waiting for its rule
+     * changes its state every second.
+     */
+    @Test fun anInvisibleStripIsMeasuredAgainOnlyWhenItHasSomethingToDraw() {
+        assertTrue(StripContent.measureAgain(empty = true, drawn = true))
+        assertFalse("nothing to draw: it would stay empty", StripContent.measureAgain(empty = true, drawn = false))
+        assertFalse("a visible window measures by itself", StripContent.measureAgain(empty = false, drawn = true))
+        assertFalse(StripContent.measureAgain(empty = false, drawn = false))
+    }
+
     /** Finding F59: an empty strip is not "live" (it can have room or not: either way there is nothing to see). */
     @Test fun theStatusSaysEmptyBeforeItSaysAnythingElse() {
         assertEquals(BarStatus.EMPTY, StripContent.status(refused = false, empty = true, noRoom = true))
@@ -207,7 +219,7 @@ class StripContentTest {
     /** Finding F08: while invisible nothing draws, and Compose's remeasure waits for a draw, so it is asked for by hand. */
     @Test fun aStripMadeInvisibleStillMeasuresWhatItsCompositionChanged() {
         val host = code.substringAfter("private fun StripHost(").substringBefore("private var stripEmpty")
-        assertTrue(host, Regex("""SideEffect \{ if \(strip\.empty\) view\.requestLayout\(\) \}""").containsMatchIn(host))
+        assertTrue(host, Regex("""SideEffect \{ if \(StripContent\.measureAgain\(strip\.empty, drawn\)\) view\.requestLayout\(\) \}""").containsMatchIn(host))
         assertTrue(host, "StripContent.empty(w, drawn)" in host)
     }
 

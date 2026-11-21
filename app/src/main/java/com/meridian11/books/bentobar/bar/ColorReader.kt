@@ -31,6 +31,7 @@ internal class ColorReader(
     interface Facts {
         val started: Boolean
         val onScreen: Boolean
+        /** No strip is on view: none is measured with something to draw, so every window of ours is invisible. No reading then. */
         val empty: Boolean
         val interactive: Boolean
         val snapshot: BarSnapshot?
@@ -77,7 +78,7 @@ internal class ColorReader(
      */
     fun readSoon(cause: ColorWatch.Cause, firstMs: Long) {
         if (!facts.started || !facts.onScreen) return
-        // Not while the strip has nothing to draw: the reading waits until it has ([ColorWatch.pause]).
+        // Not while no strip is on view (nothing to draw, or not measured yet): the reading waits until one is ([ColorWatch.pause]).
         if (facts.empty) return watch.owe(cause)
         watch.cause(cause, SystemClock.uptimeMillis(), firstMs)
         arm()
@@ -89,7 +90,7 @@ internal class ColorReader(
     /** The strip left the screen: what was still to be read no longer matters, and its return asks again. */
     fun stripLeft() { watch.clear(); main.removeCallbacks(sample) }
 
-    /** Nothing to draw: no readings; something again: the readings owed meanwhile, or two quick ones. */
+    /** No strip on view any more: no readings; one on view again: the readings owed meanwhile, or two quick ones. */
     fun contentChanged(empty: Boolean) {
         if (!facts.started || !facts.onScreen) return
         if (empty) watch.pause() else watch.resume(SystemClock.uptimeMillis(), 250)

@@ -72,6 +72,20 @@ class HidePathTest {
         assertTrue("windows that moved are told to the colour reader", "else if (d.read == BarRules.Read.WINDOWS_MOVED) colors.windowsMoved()" in check)
     }
 
+    /**
+     * A reading is a screenshot, and one is taken only while a strip of ours is on view (Play Protect, AGENTS.md): a strip
+     * shown and not measured yet has an invisible window, so to the colour reader it is as empty as one with nothing to
+     * draw. Which strips are on view is said in one place, and that place alone tells the reader when the first comes or
+     * the last goes: what was owed meanwhile is read then.
+     */
+    @Test fun theBarIsReadOnlyWhileAStripIsOnView() {
+        val facts = code.substringAfter("private val colors = ColorReader(").substringBefore("}) {")
+        assertTrue(facts, Regex("""override val empty get\(\) = onView\.value\.isEmpty\(\)""").containsMatchIn(facts))
+        val noteOnView = code.substringAfter("private fun noteOnView() {").substringBefore("\n    }\n")
+        inOrder(noteOnView, "onView.value = ", "colors.contentChanged(")
+        assertEquals("the reader hears of it from noteOnView alone", 1, Regex("""colors\.contentChanged\(""").findAll(code).count())
+    }
+
     /** A screenshot's answer can come after stop(): running it is what closes its buffer, so the thread it runs on stays. */
     @Test fun aScreenshotAnsweredAfterStopStillClosesItsBuffer() {
         val scan = File("src/main/java/com/meridian11/books/bentobar/bar/StatusBarScan.kt").readText()
@@ -107,6 +121,46 @@ class HidePathTest {
         val off = stop.indexOf("DisplaysItem.follow(false)")
         assertTrue("stop() must call DisplaysItem.follow(false)", off >= 0)
         assertTrue("follow(false) comes before Ticker.stop, in the way off the screen", off < stop.indexOf("leaveScreen()") && "Ticker.stop(\"bar\")" in hide)
+    }
+
+    /**
+     * Every Store write lands in onConfig, a label on every key and a slider on every step: the look is made again (and
+     * logged) and the chip asked again only when what each reads of the layout changed (BarRules.lookInputs, chipInputs).
+     */
+    @Test fun aLayoutChangeMakesTheLookAndTheChipAgainOnlyWhenWhatTheyReadChanged() {
+        val onConfig = code.substringAfter("private fun onConfig() {").substringBefore("\n    }\n")
+        assertTrue(onConfig, Regex("""BarRules\.lookInputs\(cfg\)\.let \{ if \(it != lastLook\) \{ lastLook = it; colors\.applyLook\(\) \} \}""").containsMatchIn(onConfig))
+        assertTrue(onConfig, Regex("""BarRules\.chipInputs\(cfg\)\.let \{ if \(it != lastChip\) \{ lastChip = it; Chips\.update\(service\) \} \}""").containsMatchIn(onConfig))
+        assertEquals("no other call in onConfig: $onConfig", 1, Regex("""applyLook\(\)""").findAll(onConfig).count())
+        assertEquals("no other call in onConfig: $onConfig", 1, Regex("""Chips\.update\(""").findAll(onConfig).count())
+    }
+
+    /**
+     * A ‹ coming or going changes a strip's width, so the bar is placed again: by the reading it has (a strip of ours is
+     * no part of the status bar's tree), and on a call of its own, which a window event's checks don't take the place of.
+     */
+    @Test fun whatHasNoRoomPlacesTheBarAgainWithoutReadingItsTree() {
+        val publish = code.substringAfter("private fun publishOverflow() {").substringBefore("\n    }\n")
+        assertTrue(publish, "main.post(placeAgain)" in publish)
+        assertFalse(publish, "scanNow" in publish)
+        assertTrue(Regex("""private val placeAgain = Runnable \{ check\(full = false\) \}""").containsMatchIn(code))
+    }
+
+    /** What the trace says of a placing is put into words only while the trace is on: place() runs for every measure. */
+    @Test fun aPlacingIsPutIntoWordsOnlyForTheTrace() {
+        val words = place.substringAfter("if (tracing) {").substringBefore("\n        }\n")
+        assertTrue(words, "joinToString" in words && "lastWhere" in words)
+        assertEquals("the words of a placing are built in that branch alone", 1, Regex("""joinToString""").findAll(place).count())
+    }
+
+    /** Both calls that wait for the status bar's process on the main thread are timed, and the log says only how long. */
+    @Test fun theCallsIntoTheStatusBarAreTimed() {
+        val light = code.substringAfter("private fun lightCheck() {").substringBefore("\n    }\n")
+        inOrder(light, "SystemClock.uptimeMillis()", "node.refresh()", "timed(BarRules.Call.REFRESH, ")
+        val check = code.substringAfter("private fun check(full: Boolean) {").substringBefore("private fun place(")
+        inOrder(check, "SystemClock.uptimeMillis()", "StatusBarScan.scan(", "timed(BarRules.Call.SCAN, ")
+        val timed = code.substringAfter("private fun timed(").substringBefore("\n")
+        assertTrue(timed, Regex("""BarRules\.slowCall\(call, SystemClock\.uptimeMillis\(\) - since\)\?\.let \{ Log\.w\(tag, it\) \}""").containsMatchIn(timed))
     }
 
     /** A measure posted before the bar left arrives after it: it finds a bar that is gone, and places nothing. */

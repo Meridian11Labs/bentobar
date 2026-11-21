@@ -550,4 +550,16 @@ class ColorWatchTest {
         val gone = ColorWatch().also { it.pause(); it.owe(Cause.SLOW); it.clear(); it.resume(0, 250) }
         assertEquals(listOf(250L, 1_250L), Strip("a", gone).follow { "a" }.at)
     }
+
+    @Test fun aReturnWhoseStripsAreNotMeasuredYetReadsOnceTheFirstIsOnView() {
+        // Back on screen: the strips' windows are up but invisible until their first measure, which can take longer than the
+        // 250 ms the return's first reading waits. The series is owed until a strip is on view, and starts 250 ms after that.
+        val w = ColorWatch()
+        w.clear()                                              // the bar had left
+        w.owe(Cause.SLOW)                                      // back, with nothing on view yet
+        assertNull(w.due(250))
+        assertNull(w.due(5_000))
+        val s = Strip("lock", w).also { w.resume(700, 250) }.follow { "lock" }
+        assertEquals(listOf(950L, 1_700L, 2_700L, 4_200L, 6_700L, 10_700L), s.at)
+    }
 }

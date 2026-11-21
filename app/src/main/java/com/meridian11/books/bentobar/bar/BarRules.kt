@@ -1,10 +1,14 @@
 package com.meridian11.books.bentobar.bar
 
 import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.ChipMode
+import com.meridian11.books.bentobar.data.ColorMode
 import com.meridian11.books.bentobar.data.Pill
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.ROOM_ORDER
 import com.meridian11.books.bentobar.data.Section
+import com.meridian11.books.bentobar.data.TextSize
+import com.meridian11.books.bentobar.items.EventItem
 
 /**
  * A rectangle on the screen, in plain numbers (`android.graphics.Rect` is a stub in unit tests). It answers with the
@@ -100,6 +104,46 @@ internal object BarRules {
 
     fun geometry(cfg: BarConfig) = Geometry(cfg.enabled, cfg.pill, cfg.spacing, cfg.items.map { Triple(it.id, it.section, it.area) })
 
+    /** What the strip's look is made of in the layout (`ColorReader.applyLook`): a change of anything else leaves the look as it is. */
+    data class LookInputs(val color: ColorMode, val textSize: TextSize, val spacing: Int, val pill: Pill)
+
+    fun lookInputs(cfg: BarConfig) = LookInputs(cfg.color, cfg.textSize, cfg.spacing, cfg.pill)
+
+    /**
+     * What the Live Update chip reads of the layout (`Chips.update`): whether the bar is switched on, the chip's mode, and
+     * whether a Next meeting item is there. A change of anything else in the layout is nothing to the chip; what else it
+     * goes by (a timer, the calendar, the service) asks it again by itself.
+     */
+    data class ChipInputs(val enabled: Boolean, val mode: ChipMode, val meetingItem: Boolean)
+
+    fun chipInputs(cfg: BarConfig) = ChipInputs(cfg.enabled, cfg.chipMode, cfg.items.any { it.type == EventItem.type })
+
+    /** What a configuration change asks of the bar ([afterConfig]). */
+    enum class AfterConfig {
+        /** Only the input devices or the SIM changed (a keyboard attached or taken off): the bar is looked at again, and that is all. */
+        RESCAN,
+        /**
+         * Anything else (density, size, orientation, theme, locale, text size, the window's bounds): a popup or tooltip placed
+         * for the old display closes, the bar is looked at again, and its colors are read over the time it may take.
+         */
+        RESET,
+    }
+
+    /** The configuration bits of the input devices and the SIM: ActivityInfo's CONFIG_MCC, MNC, TOUCHSCREEN, KEYBOARD, KEYBOARD_HIDDEN and NAVIGATION. */
+    const val INPUT_CONFIG = 0x0001 or 0x0002 or 0x0008 or 0x0010 or 0x0020 or 0x0040
+
+    /** What a configuration change whose [diff] (`Configuration.diff`) is that asks of the bar. Nothing known to differ is no reason to do less. */
+    fun afterConfig(diff: Int): AfterConfig = if (diff != 0 && diff and INPUT_CONFIG.inv() == 0) AfterConfig.RESCAN else AfterConfig.RESET
+
+    /** A call that waits for the status bar's process on the main thread: the tree walk of a full look, the spacer's refresh. */
+    enum class Call { SCAN, REFRESH }
+
+    /** A [Call] longer than this holds up the strip, its popups and the pointer with it, and is logged. */
+    private const val SLOW_CALL_MS = 250L
+
+    /** The log line for a [call] that took [ms], or null for one that was quick. Its kind and its length only: no window, node or text. */
+    fun slowCall(call: Call, ms: Long): String? = if (ms > SLOW_CALL_MS) "slow ${call.name.lowercase()} on the main thread: $ms ms" else null
+
     /** What asks [decide] for a reading of the bar's colors. */
     enum class Read { NEW_BAR_WINDOW, WINDOWS_MOVED }
 
@@ -110,9 +154,20 @@ internal object BarRules {
     const val NO_TREE = "no-tree"
     private val timeRe = Regex("""\d{1,2}[:.]\d{2}""")
 
-    /** The status bar window: a system window along the top edge, shorter than [maxHeight]. */
-    fun findBar(listed: List<WindowFact>, screenWidth: Int, maxHeight: Int): WindowFact? =
-        listed.firstOrNull { w -> w.kind == WindowFact.Kind.SYSTEM && w.box.top == 0 && w.box.height() in 1..maxHeight && w.box.width() >= screenWidth / 2 }
+    /** The package whose window the status bar is: SystemUI's, on Googlebook OS as on the emulator. */
+    private const val SYSTEM_UI = "com.android.systemui"
+
+    /** Whether a window whose root is [packageName]'s may be the status bar, and so be read. */
+    fun isStatusBarPackage(packageName: String?) = packageName == SYSTEM_UI
+
+    /**
+     * The status bar window: a system window along the top edge, shorter than [maxHeight]. [notBar] are the windows of that
+     * shape whose root was found not to be SystemUI's ([isStatusBarPackage]): they are passed over.
+     */
+    fun findBar(listed: List<WindowFact>, screenWidth: Int, maxHeight: Int, notBar: Set<Int> = emptySet()): WindowFact? =
+        listed.firstOrNull { w ->
+            w.id !in notBar && w.kind == WindowFact.Kind.SYSTEM && w.box.top == 0 && w.box.height() in 1..maxHeight && w.box.width() >= screenWidth / 2
+        }
 
     /** Whether the last reading still stands: a cheap look at the same bar window in the same place reads no node. */
     fun keepsReading(full: Boolean, last: BarSnapshot?, bar: WindowFact) = !full && last != null && last.windowId == bar.id && last.bar == bar.box
