@@ -1,10 +1,14 @@
 package com.meridian11.books.bentobar.bar
 
 import com.meridian11.books.bentobar.data.BarConfig
+import com.meridian11.books.bentobar.data.ChipMode
+import com.meridian11.books.bentobar.data.ColorMode
 import com.meridian11.books.bentobar.data.Pill
 import com.meridian11.books.bentobar.data.Position
 import com.meridian11.books.bentobar.data.ROOM_ORDER
 import com.meridian11.books.bentobar.data.Section
+import com.meridian11.books.bentobar.data.TextSize
+import com.meridian11.books.bentobar.items.EventItem
 
 /**
  * A rectangle on the screen, in plain numbers (`android.graphics.Rect` is a stub in unit tests). It answers with the
@@ -99,6 +103,20 @@ internal object BarRules {
     data class Geometry(val enabled: Boolean, val pill: Pill, val spacing: Int, val items: List<Triple<String, Section, Position>>)
 
     fun geometry(cfg: BarConfig) = Geometry(cfg.enabled, cfg.pill, cfg.spacing, cfg.items.map { Triple(it.id, it.section, it.area) })
+
+    /** What the strip's look is made of in the layout (`ColorReader.applyLook`): a change of anything else leaves the look as it is. */
+    data class LookInputs(val color: ColorMode, val textSize: TextSize, val spacing: Int, val pill: Pill)
+
+    fun lookInputs(cfg: BarConfig) = LookInputs(cfg.color, cfg.textSize, cfg.spacing, cfg.pill)
+
+    /**
+     * What the Live Update chip reads of the layout (`Chips.update`): whether the bar is switched on, the chip's mode, and
+     * whether a Next meeting item is there. A change of anything else in the layout is nothing to the chip; what else it
+     * goes by (a timer, the calendar, the service) asks it again by itself.
+     */
+    data class ChipInputs(val enabled: Boolean, val mode: ChipMode, val meetingItem: Boolean)
+
+    fun chipInputs(cfg: BarConfig) = ChipInputs(cfg.enabled, cfg.chipMode, cfg.items.any { it.type == EventItem.type })
 
     /** What a configuration change asks of the bar ([afterConfig]). */
     enum class AfterConfig {

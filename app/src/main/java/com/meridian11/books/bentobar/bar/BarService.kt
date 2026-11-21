@@ -448,6 +448,8 @@ class BarController(private val service: AccessibilityService) {
     }
 
     private var lastGeometry: BarRules.Geometry? = null
+    private var lastLook: BarRules.LookInputs? = null
+    private var lastChip: BarRules.ChipInputs? = null
 
     private fun onConfig() {
         if (!started) return
@@ -455,11 +457,13 @@ class BarController(private val service: AccessibilityService) {
         colors.onConfig()
         // Switched to Show everything (or presenting) with hidden items out: nothing can fold them back.
         Store.config.value.let { if ((it.hiddenMode == HiddenMode.SHOW_ALL || it.presenting) && expanded.value) fold() }
-        colors.applyLook()
+        // Every Store write lands here, and a label saves on every key: the look, the bar and the chip are asked again only
+        // when what each reads of the layout changed.
+        val cfg = Store.config.value
+        BarRules.lookInputs(cfg).let { if (it != lastLook) { lastLook = it; colors.applyLook() } }
         if (Ticker.running) Ticker.refresh()
-        // Every Store write lands here, and a label saves on every key: only what moves the strip asks the bar again.
-        BarRules.geometry(Store.config.value).let { if (it != lastGeometry) { lastGeometry = it; scan() } }
-        Chips.update(service)
+        BarRules.geometry(cfg).let { if (it != lastGeometry) { lastGeometry = it; scan() } }
+        BarRules.chipInputs(cfg).let { if (it != lastChip) { lastChip = it; Chips.update(service) } }
     }
 
     // ---- where the status bar is -------------------------------------------------------------

@@ -312,6 +312,37 @@ class BarRulesTest {
         assertEquals(g, BarRules.geometry(two.copy(position = com.meridian11.books.bentobar.data.Position.LEFT)))
     }
 
+    /** Every Store write reaches the controller, a label on every key: the strip's look is made again only when what it is made of changed. */
+    @Test fun aLabelTypedLetterByLetterLeavesTheLookAndTheChipAsTheyAre() {
+        val typed = layout.copy(items = layout.items.map { it.with("text", "h") }, pinnedOpen = true, autoCollapseSec = 5)
+        assertEquals(BarRules.lookInputs(layout), BarRules.lookInputs(typed))
+        assertEquals(BarRules.chipInputs(layout), BarRules.chipInputs(typed))
+        // An item moved to another area, or a new one that is no meeting, is nothing to either.
+        val moved = layout.copy(items = layout.items.map { it.copy(area = com.meridian11.books.bentobar.data.Position.LEFT) } +
+            com.meridian11.books.bentobar.data.ItemConfig("u", "text"))
+        assertEquals(BarRules.lookInputs(layout), BarRules.lookInputs(moved))
+        assertEquals(BarRules.chipInputs(layout), BarRules.chipInputs(moved))
+    }
+
+    @Test fun whatTheLookIsMadeOfIsALookInput() {
+        val l = BarRules.lookInputs(layout)
+        assertNotEquals(l, BarRules.lookInputs(layout.copy(color = com.meridian11.books.bentobar.data.ColorMode.DARK)))
+        assertNotEquals(l, BarRules.lookInputs(layout.copy(textSize = com.meridian11.books.bentobar.data.TextSize.LARGE)))
+        assertNotEquals(l, BarRules.lookInputs(layout.copy(spacing = layout.spacing + 2)))
+        assertNotEquals(l, BarRules.lookInputs(layout.copy(pill = com.meridian11.books.bentobar.data.Pill.SOLID)))
+    }
+
+    @Test fun whatTheChipReadsOfTheLayoutIsAChipInput() {
+        val c = BarRules.chipInputs(layout)
+        assertNotEquals(c, BarRules.chipInputs(layout.copy(enabled = false)))
+        assertNotEquals(c, BarRules.chipInputs(layout.copy(chipMode = com.meridian11.books.bentobar.data.ChipMode.ALWAYS)))
+        assertNotEquals(c, BarRules.chipInputs(layout.copy(chipMode = com.meridian11.books.bentobar.data.ChipMode.OFF)))
+        // A Next meeting item makes the chip a meeting's too.
+        val meeting = layout.copy(items = layout.items + com.meridian11.books.bentobar.data.ItemConfig("m", com.meridian11.books.bentobar.items.EventItem.type))
+        assertNotEquals(c, BarRules.chipInputs(meeting))
+        assertEquals(BarRules.chipInputs(meeting), BarRules.chipInputs(meeting.copy(items = meeting.items.map { it.with("text", "h") })))
+    }
+
     // ---- what a configuration change asks of the bar ---------------------------------------------------
 
     private val keyboard = ActivityInfo.CONFIG_KEYBOARD or ActivityInfo.CONFIG_KEYBOARD_HIDDEN

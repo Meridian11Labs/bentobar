@@ -123,6 +123,18 @@ class HidePathTest {
         assertTrue("follow(false) comes before Ticker.stop, in the way off the screen", off < stop.indexOf("leaveScreen()") && "Ticker.stop(\"bar\")" in hide)
     }
 
+    /**
+     * Every Store write lands in onConfig, a label on every key and a slider on every step: the look is made again (and
+     * logged) and the chip asked again only when what each reads of the layout changed (BarRules.lookInputs, chipInputs).
+     */
+    @Test fun aLayoutChangeMakesTheLookAndTheChipAgainOnlyWhenWhatTheyReadChanged() {
+        val onConfig = code.substringAfter("private fun onConfig() {").substringBefore("\n    }\n")
+        assertTrue(onConfig, Regex("""BarRules\.lookInputs\(cfg\)\.let \{ if \(it != lastLook\) \{ lastLook = it; colors\.applyLook\(\) \} \}""").containsMatchIn(onConfig))
+        assertTrue(onConfig, Regex("""BarRules\.chipInputs\(cfg\)\.let \{ if \(it != lastChip\) \{ lastChip = it; Chips\.update\(service\) \} \}""").containsMatchIn(onConfig))
+        assertEquals("no other call in onConfig: $onConfig", 1, Regex("""applyLook\(\)""").findAll(onConfig).count())
+        assertEquals("no other call in onConfig: $onConfig", 1, Regex("""Chips\.update\(""").findAll(onConfig).count())
+    }
+
     /** A measure posted before the bar left arrives after it: it finds a bar that is gone, and places nothing. */
     @Test fun aMeasureThatComesLateNeverPutsBackABarThatHasLeft() {
         inOrder(hide, "showing = false", "strip.hide()")
