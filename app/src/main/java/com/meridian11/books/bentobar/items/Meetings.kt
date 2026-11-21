@@ -101,7 +101,13 @@ object Meetings {
         val rows: List<Row>,
         val guests: Map<Long, List<Guest>> = emptyMap(),
         val guestsFailed: String? = null,
-    )
+    ) {
+        /**
+         * Whether it takes the last reading's place ([hasLast]: there is one). With its attendees unread nobody is known to
+         * be invited, so every meeting with others would be one with only the user: it stands in only for no reading at all.
+         */
+        fun replaces(hasLast: Boolean) = guestsFailed == null || !hasLast
+    }
 
     /**
      * What an event is, the first of these that applies ([judge]). [event]: it is shown at all (the month view); [meeting]:
