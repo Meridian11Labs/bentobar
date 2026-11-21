@@ -103,11 +103,17 @@ object Meetings {
         val guestsFailed: String? = null,
     ) {
         /**
-         * Whether it takes the last reading's place ([hasLast]: there is one). With its attendees unread nobody is known to
-         * be invited, so every meeting with others would be one with only the user: it stands in only for no reading at all.
+         * Whether it takes the place of [last] (null: there is none). With its attendees unread nobody is known to be
+         * invited, so every meeting with others would be one with only the user: it stands in for no reading, for a last one
+         * whose attendees were unread too, and once [failedInARow] reads in a row had them unread ([GUESTS_FAILED_TO_REPLACE]),
+         * so that a calendar whose attendees can never be read still follows what is on it.
          */
-        fun replaces(hasLast: Boolean) = guestsFailed == null || !hasLast
+        fun replaces(last: Reading?, failedInARow: Int = 1) =
+            guestsFailed == null || last == null || last.guestsFailed != null || failedInARow >= GUESTS_FAILED_TO_REPLACE
     }
+
+    /** How many reads in a row with the attendees unread make the last of them the reading (a read is tried every two minutes). */
+    const val GUESTS_FAILED_TO_REPLACE = 3
 
     /**
      * What an event is, the first of these that applies ([judge]). [event]: it is shown at all (the month view); [meeting]:

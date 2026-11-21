@@ -122,9 +122,15 @@ class CalendarLoaderTest {
     @Test fun aReadingWithoutItsAttendeesTakesNoReadingsPlace() {
         // Nobody is known to be invited then: every meeting with others in it would be one with only the user, and go.
         val cals = emptyMap<Long, Meetings.Cal>()
-        assertFalse(Meetings.Reading(cals, emptyList(), guestsFailed = "SQLiteException").replaces(hasLast = true))
-        assertTrue("better than nothing", Meetings.Reading(cals, emptyList(), guestsFailed = "SQLiteException").replaces(hasLast = false))
-        assertTrue(Meetings.Reading(cals, emptyList()).replaces(hasLast = true))
+        val good = Meetings.Reading(cals, emptyList())
+        val unread = Meetings.Reading(cals, emptyList(), guestsFailed = "SQLiteException")
+        assertFalse(unread.replaces(good))
+        assertFalse(unread.replaces(good, failedInARow = 2))
+        assertTrue("better than nothing", unread.replaces(null))
+        assertTrue(good.replaces(good))
+        // A calendar whose attendees are never to be had is not held at its first reading for good.
+        assertTrue("no better than the last", unread.replaces(unread))
+        assertTrue("the third in a row", unread.replaces(good, failedInARow = Meetings.GUESTS_FAILED_TO_REPLACE))
     }
 
     @Test fun aQueryWithNoAnswerIsAFailureNotAnEmptyCalendar() {

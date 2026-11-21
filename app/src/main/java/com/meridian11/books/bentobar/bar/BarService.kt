@@ -517,7 +517,7 @@ class BarController(private val service: AccessibilityService) {
             timed(BarRules.Call.SCAN, since)
             if (scanned?.notTheBar == true) {
                 // Another app's window in the bar's shape: nothing of it was read but whose it is, and the next one is asked.
-                Log.i(tag, "a window in the status bar's place is not SystemUI's: passed over")
+                Log.w(tag, "a window in the status bar's place is not SystemUI's: passed over")
                 notBar += barFact.id
                 barFact = BarRules.findBar(listed, screenW, maxH, notBar)
                 continue

@@ -414,6 +414,9 @@ object FlightRules {
         return end != null && done && Duration.between(end, now) > OVER
     }
 
+    /** The most a time read without its UTC twin can be off: the farthest a time zone is from UTC. */
+    val GUESS_OFF: Duration = Duration.ofHours(14)
+
     /**
      * A flight of the day's operations ([Flight.timetable] false) with a time the service gave without its UTC twin
      * ([Flight.loose]): what moment that time stands for is anybody's guess, by up to fourteen hours, so whether it has
@@ -438,11 +441,12 @@ object FlightRules {
      * time to landing, then that it has landed. A flight that was to land more than three hours ago
      * has landed as far as a follower is concerned, whatever was last heard of it: one that slept
      * through the landing must not stand at "0 min". A timetable's flight goes by its plan alone, and
-     * one whose times are a guess ([guessed]) by what the service last said: it is asked about until then.
+     * one whose times are a guess ([guessed]) by what the service last said, until even a guess as far out as a time
+     * zone can make it ([GUESS_OFF]) has landed it: it is asked about until then.
      */
     fun standing(f: Flight, now: Instant): Standing {
         fun until(end: FlightEnd): Long = end.time?.let { (Duration.between(now, end.moment(it)).seconds + 59) / 60 }?.coerceAtLeast(0) ?: 0
-        val landing = f.to.time?.takeUnless { guessed(f) }?.let(f.to::moment)
+        val landing = f.to.time?.let(f.to::moment)?.let { if (guessed(f)) it.plus(GUESS_OFF) else it }
         return when {
             f.state == FlightState.CANCELED -> Standing(Stage.CANCELED)
             arrived(f, now) || (landing != null && Duration.between(landing, now) > OVER) -> Standing(Stage.LANDED)

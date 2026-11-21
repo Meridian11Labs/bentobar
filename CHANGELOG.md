@@ -3,7 +3,8 @@
 ## 2.3.1 (2026-11-21)
 
 - **A calendar read that fails keeps the last reading.** A query that throws or gives no cursor, and an attendee read
-  that fails while there is a reading, now count as failures: `Calendar` keeps what it had and reads again in two
+  that fails while there is a reading that had its attendees (up to the third such read in a row), now count as
+  failures: `Calendar` keeps what it had and reads again in two
   minutes, and whoever waits in `whenLoaded` is told at once. Up to 2.3.0 such a read replaced a good one for 15
   minutes. The provider's changes are read once they settle (`items/ReadAgain.kt`: 2 s quiet, at most 10 s into a
   sync), the retry on the same delayed read. `Meetings.once` and `verdicts` take two occurrences as one event's copies
@@ -32,7 +33,7 @@
 - **Online.** `AirRules.read` takes only finite numbers within range (a "NaN" in a reply threw in the menu).
   `HttpTransport.retryAfter` reads the header only on a 429 or a 503, a 429 with 0 holds the default 10 s, and one
   reply holds a service for an hour at most. `FlightRules.guessed` (loose times, not a timetable): landed and over by
-  the service's state, the landed hour from `heardAt`. `FxRules`: four significant digits below 1.
+  the service's state, by the clock only 14 hours (`GUESS_OFF`) past the usual three, the landed hour from `heardAt`. `FxRules`: four significant digits below 1.
 - **Items.** `Fmt.percent` floors with a tolerance (29%, not 28%). `TimerClock.wheel`: down over no timer does
   nothing; `BrightnessRules.wheel` is null where the value would not change. Countdown `holds`. Screen time:
   `ScreenTimeRules.every` (10 minutes, 1 after a return), from API 35 `UsageEventsQuery` with the event types it

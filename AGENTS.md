@@ -620,7 +620,8 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
   an invitation the organizer canceled) comes back from Instances like any other (seen on the API 34 and 37
   emulators): `judge` drops it. The grown projection (`CALENDAR_ID`, `STATUS`, `AVAILABILITY`, `ORGANIZER`) ran there
   too; a column a device lacks would throw, as would a query that gives no cursor: the last reading stays, the read is
-  tried again in two minutes, and `event check` says `query=failed:…`. A failed attendee read replaces no reading.
+  tried again in two minutes, and `event check` says `query=failed:…`. A read whose attendees failed replaces only a reading whose attendees failed too, or from the third such read in a
+  row (`Meetings.Reading.replaces`).
 - **Least privilege** (user feedback): the accessibility config subscribes only to
   `typeWindowsChanged`. No content events, key filtering or motion events. The status bar is the only
   window whose content code reads; of any other window it reads the type and where it is, and of one in the status

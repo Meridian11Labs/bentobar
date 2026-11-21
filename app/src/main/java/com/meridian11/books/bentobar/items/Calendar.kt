@@ -91,7 +91,7 @@ object Calendar {
         calendarWiring(Background.executor("calendar"), { Background.onMain(it::run) }, Now::elapsed,
             changed = { readAgain.loaded(); Chips.update(app); loaded(); waiting.arrived() },
             failed = { readAgain.failed(); waiting.arrived() }, mayLoad = { users.active && allowed() }),
-    ) { last -> load(System.currentTimeMillis(), hasLast = last != null).takeIf { allowed() } }
+    ) { last -> load(System.currentTimeMillis(), last).takeIf { allowed() } }
 
     /**
      * A reading and its events, judged by the choices they were last asked with: when the choices change it is judged again,
@@ -216,9 +216,10 @@ object Calendar {
 
     /**
      * One load: read, and judged at once (off the main thread) by the choices it was read with. Throws when the provider
-     * did, or gave no answer, and when the attendees could not be read and [hasLast]: what was read before stays then.
+     * did, or gave no answer, and when the attendees could not be read and [last] is a reading that had them
+     * ([Meetings.Reading.replaces]): what was read before stays then.
      */
-    private fun load(now: Long, hasLast: Boolean): Judged {
+    private fun load(now: Long, last: Judged?): Judged {
         val choices = MeetingChoices.state.value
         val reading = try {
             read(Meetings.spans(now - 36 * 3_600_000L..now + 40 * 86_400_000L, view), choices)
@@ -226,9 +227,13 @@ object Calendar {
             Log.w(TAG, "calendar query failed: ${e.javaClass.simpleName}")
             throw e
         }
-        if (!reading.replaces(hasLast)) throw Unanswered()
+        guestsFailedInARow = if (reading.guestsFailed != null) guestsFailedInARow + 1 else 0
+        if (!reading.replaces(last?.reading, guestsFailedInARow)) throw Unanswered()
         return Judged(reading, choices.calendarsOff).also { it.events(choices, ::noTitle) }
     }
+
+    /** How many loads in a row read no attendees (the loader's one thread). */
+    @Volatile private var guestsFailedInARow = 0
 
     /** No answer, which says nothing of what is on the calendar: the provider gave no cursor, or a reading had its attendees unread. */
     private class Unanswered : RuntimeException()

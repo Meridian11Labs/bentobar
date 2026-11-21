@@ -157,8 +157,11 @@ internal object BarRules {
     /** The package whose window the status bar is: SystemUI's, on Googlebook OS as on the emulator. */
     private const val SYSTEM_UI = "com.android.systemui"
 
-    /** Whether a window whose root is [packageName]'s may be the status bar, and so be read. */
-    fun isStatusBarPackage(packageName: String?) = packageName == SYSTEM_UI
+    /**
+     * Whether a window whose root is [packageName]'s may be the status bar, and so be read: SystemUI's. A root that names
+     * no package is read as before (no app's window does that); another app's name passes the window over.
+     */
+    fun isStatusBarPackage(packageName: String?) = packageName == null || packageName == SYSTEM_UI
 
     /**
      * The status bar window: a system window along the top edge, shorter than [maxHeight]. [notBar] are the windows of that

@@ -249,6 +249,11 @@ class FlightRulesTest {
         // Long after: what was last heard stands until the service says more (each ask may), never a landing nobody saw.
         assertEquals(Stage.IN_AIR, FlightRules.standing(air, at("2026-10-03T02:00:00Z")).stage)
         assertEquals(FlightRules.NEAR, FlightRules.pace(air, at("2026-10-03T02:00:00Z")))
+        // Until a guess as far out as a time zone can make it, plus the three hours a known landing has: then it landed,
+        // and nothing more is asked.
+        assertEquals(Stage.IN_AIR, FlightRules.standing(air, at("2026-10-03T05:59:00Z")).stage)
+        assertEquals(Stage.LANDED, FlightRules.standing(air, at("2026-10-03T06:01:00Z")).stage)
+        assertNull(FlightRules.pace(air, at("2026-10-03T06:01:00Z")))
         // The service's word lands it.
         assertEquals(Stage.LANDED, FlightRules.standing(toLax("landed"), midway).stage)
         assertNull(FlightRules.pace(toLax("landed"), midway))

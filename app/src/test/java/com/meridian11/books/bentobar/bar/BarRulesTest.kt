@@ -160,7 +160,8 @@ class BarRulesTest {
      * hidden by a full-screen app there is then no bar, and no strip over that app.
      */
     @Test fun anotherAppsWindowInTheBarsShapeIsNotRead() {
-        for (other in listOf("com.example.overlay", "com.android.systemui.plugin", "", null)) assertFalse("$other", BarRules.isStatusBarPackage(other))
+        for (other in listOf("com.example.overlay", "com.android.systemui.plugin", "")) assertFalse(other, BarRules.isStatusBarPackage(other))
+        assertTrue("a root that names nobody is read as before", BarRules.isStatusBarPackage(null))
         val impostor = "70:t3:Overlay:[0,0][1920,41]"
         val both = WindowDump(list(impostor, bar, strip, maximized)).listed
         assertEquals("first in the list, it is the one asked first", 70, BarRules.findBar(both, 1920, 45)?.id)

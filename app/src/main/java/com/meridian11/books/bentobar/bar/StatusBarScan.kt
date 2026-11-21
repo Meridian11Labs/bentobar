@@ -14,7 +14,7 @@ internal fun Box.rect() = Rect(left, top, right, bottom)
 /**
  * Reads the accessibility tree into plain facts for [BarRules]. The status bar is the only window whose content is
  * read (SystemUI's status bar window, as [BarNode]s, which become a [BarSnapshot]); of any other window, only its kind,
- * its id and where it is ([WindowFact]), and of one in the bar's place whose its root is.
+ * its id and where it is ([WindowFact]), and of one in the bar's place whose root it is.
  */
 object StatusBarScan {
     /**
@@ -43,7 +43,8 @@ object StatusBarScan {
         // (an overlay the list calls a system window) is not walked, and its tree is never fetched.
         val owner = root(w, 0) ?: return noTree()
         if (!BarRules.isStatusBarPackage(owner.packageName?.toString())) return Scanned(null, null)
-        // One round trip: prefetch the (small, ~35 node) tree instead of an IPC per getChild().
+        // Then the tree in one more round trip: the root again (a window's root is never the node cache's), with the
+        // (small, ~35 node) tree prefetched, instead of an IPC per getChild().
         val root = root(w, AccessibilityNodeInfo.FLAG_PREFETCH_DESCENDANTS_DEPTH_FIRST or
             AccessibilityNodeInfo.FLAG_PREFETCH_UNINTERRUPTIBLE) ?: return noTree()
         var spacerNode: AccessibilityNodeInfo? = null
