@@ -1,10 +1,12 @@
 package com.meridian11.books.bentobar.items
 
 import android.app.usage.UsageEvents
+import android.app.usage.UsageEventsQuery
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Canvas
+import android.os.Build
 import android.os.PowerManager
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ImageBitmap
@@ -19,18 +21,22 @@ import java.time.ZonedDateTime
 
 /**
  * What Screen time reads, with Usage access, from Android's own record of the day (`UsageStatsManager.queryEvents` from
- * local midnight to now): when the screen went on and off, for the bar, and, for the menu only and only while it is open,
- * which apps came to the front and left it. Off the main thread, through two [Refresher]s, at most once a minute each
- * while wanted; nothing is kept on disk, and no app's name is ever logged. The arithmetic is [ScreenTimeRules].
+ * local midnight to now, from API 35 only the kinds of events read here): when the screen went on and off, for the bar,
+ * and, for the menu only and only while it is open, which apps came to the front and left it. Off the main thread, through
+ * two [Refresher]s, as often as [ScreenTimeRules.every] says while wanted; nothing is kept on disk, and no app's name is
+ * ever logged. The arithmetic is [ScreenTimeRules].
  *
  * Android's aggregated per-app totals are not used: their daily buckets don't start at local midnight (Android's docs:
  * they cover "at least" the range asked), so "today" would take in part of yesterday.
  */
 object ScreenTimeLoad {
     private const val MINUTE = 60_000L
-    /** Without Usage access, asked again this soon: the user may be giving it right now. */
-    private const val NO_ACCESS_MS = 15_000L
     private const val ICON_PX = 64
+
+    /** The kinds of events [read] takes: the screen's and the device's going on and off, and for the menu the apps' too. */
+    private val BAR_KINDS = intArrayOf(UsageEvents.Event.SCREEN_INTERACTIVE, UsageEvents.Event.SCREEN_NON_INTERACTIVE,
+        UsageEvents.Event.DEVICE_STARTUP, UsageEvents.Event.DEVICE_SHUTDOWN)
+    private val APP_KINDS = BAR_KINDS + intArrayOf(UsageEvents.Event.ACTIVITY_RESUMED, UsageEvents.Event.ACTIVITY_PAUSED)
 
     /**
      * Today as read at [at] (wall clock): [access] whether Usage access was given; [onMs] the screen's time on from
@@ -46,13 +52,19 @@ object ScreenTimeLoad {
     @Immutable
     class App(val label: String, val ms: Long, val icon: ImageBitmap?)
 
-    private fun every(day: Day): Long = if (day.access) MINUTE else NO_ACCESS_MS
+    private fun every(day: Day, withApps: Boolean): Long = ScreenTimeRules.every(day.access, withApps, day.at, ScreenTimeItem.liveSince)
 
     /** The bar's: the screen's time on today. */
-    val day = Background.refresher<Unit, Day>(ScreenTimeItem.type, every = { _, d -> every(d) }, load = { _, _ -> read(Env.app, withApps = false) })
+    val day = Background.refresher<Unit, Day>(ScreenTimeItem.type, every = { _, d -> every(d, false) }, load = { _, _ -> read(Env.app, withApps = false) })
 
     /** The menu's: the same, with the apps in front. Wanted only while the menu is open, and forgotten when it closes. */
-    val apps = Background.refresher<Unit, Day>(ScreenTimeItem.type, every = { _, d -> every(d) }, load = { _, _ -> read(Env.app, withApps = true) })
+    val apps = Background.refresher<Unit, Day>(ScreenTimeItem.type, every = { _, d -> every(d, true) }, load = { _, _ -> read(Env.app, withApps = true) })
+
+    /** The day's events from [start] to [now]: from API 35 only the kinds [read] takes, so a busy day's other events don't come across. */
+    private fun events(usm: UsageStatsManager, start: Long, now: Long, withApps: Boolean): UsageEvents? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM)
+            usm.queryEvents(UsageEventsQuery.Builder(start, now).setEventTypes(*if (withApps) APP_KINDS else BAR_KINDS).build())
+        else usm.queryEvents(start, now)
 
     /** Background thread. Usage access taken back while this runs is "no access", never a throw. */
     private fun read(context: Context, withApps: Boolean): Day {
@@ -63,7 +75,7 @@ object ScreenTimeLoad {
         val flips = ArrayList<Flip>()
         val fronts = ArrayList<Front>()
         try {
-            val events = usm.queryEvents(start, now) ?: return Day(true, start, now, 0, if (withApps) emptyList() else null)
+            val events = events(usm, start, now, withApps) ?: return Day(true, start, now, 0, if (withApps) emptyList() else null)
             val e = UsageEvents.Event()
             while (events.hasNextEvent()) {
                 if (!events.getNextEvent(e)) break
