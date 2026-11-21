@@ -120,6 +120,25 @@ class PrivateTextTest {
         assertTrue(EventItem.discreet)
     }
 
+    /**
+     * What `Env` is asked to open is a link from the layout or an event's place (a Directions press without a maps app):
+     * its log lines name an intent by its action and scheme and a failure by its kind, never what either holds.
+     */
+    @Test fun envLogsWhatItOpensByItsKindAlone() {
+        var code = SourceScan.code(SourceScan.sources.single { it.place() == "items/Env.kt" })
+        val allowed = listOf(
+            """if (BuildConfig.DEBUG) Http.log = { Log.i(TAG, it) }""",
+            """Log.w(TAG, "forgetting what ${'$'}{type.type} fetched failed: ${'$'}{e.javaClass.simpleName}")""",
+            """Log.w(TAG, "no activity for ${'$'}{intent.action} ${'$'}{intent.scheme}")""",
+            """Log.w(TAG, "can't open ${'$'}{intent.action} ${'$'}{intent.scheme}: ${'$'}{e.javaClass.simpleName}")""",
+            """Log.w(TAG, "can't copy: ${'$'}{it.javaClass.simpleName}")""")
+        for (a in allowed) {
+            assertTrue(a, a in code)
+            code = code.replace(a, "")
+        }
+        for (call in listOf("Log.", "println(", "printStackTrace", "System.out", "System.err")) assertFalse("Env.kt calls $call", call in code)
+    }
+
     @Test fun noDebugLineSaysTheText() {
         PrompterItem.edit("p", script)
         for (line in listOfNotNull(PrompterItem.debug(emptyList()))) assertFalse(line, script.take(20) in line)
