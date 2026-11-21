@@ -91,6 +91,57 @@ class UndoTest {
     }
 
     /**
+     * Once Undo held a change's items no more (asked while the layout was arranged otherwise, by the bar's own menu), it
+     * offers that change no more, even when the layout is arranged back: a sweep may have taken what was kept for them.
+     * Arranged otherwise and back with nobody asking in between, nothing was let go, and it is offered still.
+     */
+    @Test fun aChangeUndoHeldNoMoreIsNotOfferedAgainWhenTheLayoutIsArrangedBack() {
+        assertTrue(Undo.change(removed = "b") { it.without("b") })
+        Store.update { it.hide("a") }
+        Store.update { it.show("a") }
+        assertTrue("nobody asked in between", Undo.offered(Undo.last.value!!, Store.config.value))
+        Store.update { it.hide("a") }
+        assertEquals(emptySet<String>(), Undo.held("nope"))
+        Store.update { it.show("a") }
+        assertFalse(Undo.offered(Undo.last.value!!, Store.config.value))
+        assertEquals(emptySet<String>(), Undo.held("nope"))
+        assertFalse(Undo.undo())
+        assertEquals(listOf("a", "c"), ids())
+        // The next change is a change of its own, offered as ever.
+        assertTrue(Undo.change { it.hide("a") })
+        assertEquals(setOf("a", "c"), Undo.held("nope"))
+        assertTrue(Undo.undo())
+    }
+
+    /** A type's items as its sweep reads them: the layout's and what Undo holds, read as one, never the one without the other. */
+    @Test fun aTypesItemsAreTheLayoutsAndWhatUndoHolds() {
+        assertTrue(Undo.change(removed = "b") { it.without("b") })
+        assertEquals(setOf("a", "b", "c"), Undo.idsOf("nope"))
+        assertTrue(Undo.undo())
+        assertEquals(setOf("a", "b", "c"), Undo.idsOf("nope"))
+        assertEquals(emptySet<String>(), Undo.idsOf("clock"))
+    }
+
+    /**
+     * While Undo writes an item back into the layout, Undo itself holds it, until the change is let go: a sweep that read
+     * the layout before the write and asks Undo after it must still find it.
+     */
+    @Test fun anItemUndoBringsBackIsHeldWhileTheLayoutIsWritten() {
+        val prefs = MapPrefs()
+        Store.open(prefs) { }
+        Store.update { BarConfig(items = listOf(a, ItemConfig("f", "flight"))) }
+        Undo.last.value = null
+        assertTrue(Undo.change(removed = "f") { it.without("f") })
+        var during: Set<String>? = null
+        prefs.onPut = { during = Undo.held("flight") }
+        assertTrue(Undo.undo())
+        prefs.onPut = null
+        assertEquals(setOf("f"), during)
+        assertEquals(emptySet<String>(), Undo.held("flight"))
+        assertNull(Undo.pending)
+    }
+
+    /**
      * Between the layout losing an item and the change being kept, another thread's sweep must still be told the item
      * can come back: asked in the middle of the save, which is after the layout changed and before the change is kept.
      */
