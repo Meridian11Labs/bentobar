@@ -164,6 +164,37 @@ class RefresherTest {
         assertEquals("devices#2", r.peek("devices"))
     }
 
+    /** A press of Track, while a load for the item runs: what it follows is forgotten, kept anew, wanted and asked about at once. */
+    private fun forgottenAndAskedAgainWhileItLoads(kept: HashMap<String, String>, found: String?): Pair<Refresher<String, String>, List<String?>> {
+        val seen = ArrayList<String?>()
+        val r = refresher(restore = { key -> kept[key]?.let { Refresher.Restored(it, 0) } }, load = { key, last -> seen += last; loads += key; "$key#${loads.size}" })
+        r.want("x")
+        clock += 31 * min
+        held = true
+        r.want("x") // a load is on its way
+        r.forget("x")
+        found?.let { kept["x"] = it }
+        r.want("x")
+        assertTrue(r.refresh("x", afterRunning = true))
+        run()
+        return r to seen
+    }
+
+    @Test fun oneMoreAskedForAfterAForgetFollowsTheLoadItOvertook() {
+        val (r, seen) = forgottenAndAskedAgainWhileItLoads(HashMap(), found = "found")
+        // The overtaken load publishes nothing; what is kept now shows, and the load asked for follows it, from it.
+        assertEquals(listOf(null, "x#1", "found"), seen)
+        assertEquals("x#3", r.peek("x"))
+        assertFalse(r.loading("x"))
+    }
+
+    @Test fun withNothingKeptTheLoadThatFollowsIsOne() {
+        val (r, seen) = forgottenAndAskedAgainWhileItLoads(HashMap(), found = null)
+        assertEquals("the first, the overtaken one, and one more", 3, loads.size)
+        assertEquals(listOf(null, "x#1", null), seen)
+        assertEquals("x#3", r.peek("x"))
+    }
+
     @Test fun anAnswerThatArrivesAfterForgetIsDropped() {
         held = true
         val r = refresher()
