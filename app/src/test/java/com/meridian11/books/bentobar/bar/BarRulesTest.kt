@@ -343,6 +343,16 @@ class BarRulesTest {
         assertEquals(BarRules.chipInputs(meeting), BarRules.chipInputs(meeting.copy(items = meeting.items.map { it.with("text", "h") })))
     }
 
+    // ---- calls into the status bar's process -----------------------------------------------------------
+
+    /** The tree walk and the spacer's refresh run on the main thread and wait for SystemUI: one that is slow says so in the log. */
+    @Test fun aSlowCallIntoTheStatusBarIsLoggedByItsKindAndLengthAlone() {
+        assertNull(BarRules.slowCall(BarRules.Call.SCAN, 0))
+        assertNull("a quarter of a second is still quick", BarRules.slowCall(BarRules.Call.SCAN, 250))
+        assertEquals("slow scan on the main thread: 251 ms", BarRules.slowCall(BarRules.Call.SCAN, 251))
+        assertEquals("slow refresh on the main thread: 3000 ms", BarRules.slowCall(BarRules.Call.REFRESH, 3_000))
+    }
+
     // ---- what a configuration change asks of the bar ---------------------------------------------------
 
     private val keyboard = ActivityInfo.CONFIG_KEYBOARD or ActivityInfo.CONFIG_KEYBOARD_HIDDEN

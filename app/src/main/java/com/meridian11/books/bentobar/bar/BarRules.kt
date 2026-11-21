@@ -135,6 +135,15 @@ internal object BarRules {
     /** What a configuration change whose [diff] (`Configuration.diff`) is that asks of the bar. Nothing known to differ is no reason to do less. */
     fun afterConfig(diff: Int): AfterConfig = if (diff != 0 && diff and INPUT_CONFIG.inv() == 0) AfterConfig.RESCAN else AfterConfig.RESET
 
+    /** A call that waits for the status bar's process on the main thread: the tree walk of a full look, the spacer's refresh. */
+    enum class Call { SCAN, REFRESH }
+
+    /** A [Call] longer than this holds up the strip, its popups and the pointer with it, and is logged. */
+    private const val SLOW_CALL_MS = 250L
+
+    /** The log line for a [call] that took [ms], or null for one that was quick. Its kind and its length only: no window, node or text. */
+    fun slowCall(call: Call, ms: Long): String? = if (ms > SLOW_CALL_MS) "slow ${call.name.lowercase()} on the main thread: $ms ms" else null
+
     /** What asks [decide] for a reading of the bar's colors. */
     enum class Read { NEW_BAR_WINDOW, WINDOWS_MOVED }
 

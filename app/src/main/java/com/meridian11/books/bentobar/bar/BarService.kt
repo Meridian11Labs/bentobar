@@ -261,12 +261,18 @@ class BarController(private val service: AccessibilityService) {
         val step = BarRules.lightLook(hasSpacer = node != null, sinceFullMs = SystemClock.uptimeMillis() - lastFullScan)
         if (step == BarRules.LightLook.FULL) return scan()
         if (node == null || step == BarRules.LightLook.WINDOWS) return check(full = false)
-        if (!node.refresh()) return scan()
+        val since = SystemClock.uptimeMillis()
+        val fresh = node.refresh()
+        timed(BarRules.Call.REFRESH, since)
+        if (!fresh) return scan()
         // Against the spacer's own last bounds: with the spacer squeezed to nothing, the free area is
         // the widest gap instead, and comparing with that would run a full scan every time.
         val r = Rect().also { node.getBoundsInScreen(it) }
         if (r.box() != s.spacer) scan()
     }
+    /** A call into the status bar's process that took long on the main thread says so in the log, by its kind and length alone. */
+    private fun timed(call: BarRules.Call, since: Long) { BarRules.slowCall(call, SystemClock.uptimeMillis() - since)?.let { Log.w(tag, it) } }
+
     private val expandOnHover = Runnable { if (hovering) expanded.value = true }
     private val collapse: Runnable = object : Runnable {
         override fun run() {
@@ -503,7 +509,9 @@ class BarController(private val service: AccessibilityService) {
                 lastFullScan = SystemClock.uptimeMillis()
                 // Without content-change events the node cache can go stale: read the status bar fresh.
                 service.clearCache()
+                val since = SystemClock.uptimeMillis()
                 val scanned = runCatching { StatusBarScan.scan(windows[listed.indexOf(barFact)]) }.onFailure { Log.w(tag, "scan failed", it) }.getOrNull()
+                timed(BarRules.Call.SCAN, since)
                 // A reading kept from before has no node (a scan without a tree brought none).
                 spacerNode = scanned?.spacerNode
                 BarRules.settled(scanned?.snapshot, prev)

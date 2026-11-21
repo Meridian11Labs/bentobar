@@ -153,6 +153,16 @@ class HidePathTest {
         assertEquals("the words of a placing are built in that branch alone", 1, Regex("""joinToString""").findAll(place).count())
     }
 
+    /** Both calls that wait for the status bar's process on the main thread are timed, and the log says only how long. */
+    @Test fun theCallsIntoTheStatusBarAreTimed() {
+        val light = code.substringAfter("private fun lightCheck() {").substringBefore("\n    }\n")
+        inOrder(light, "SystemClock.uptimeMillis()", "node.refresh()", "timed(BarRules.Call.REFRESH, ")
+        val check = code.substringAfter("private fun check(full: Boolean) {").substringBefore("private fun place(")
+        inOrder(check, "SystemClock.uptimeMillis()", "StatusBarScan.scan(", "timed(BarRules.Call.SCAN, ")
+        val timed = code.substringAfter("private fun timed(").substringBefore("\n")
+        assertTrue(timed, Regex("""BarRules\.slowCall\(call, SystemClock\.uptimeMillis\(\) - since\)\?\.let \{ Log\.w\(tag, it\) \}""").containsMatchIn(timed))
+    }
+
     /** A measure posted before the bar left arrives after it: it finds a bar that is gone, and places nothing. */
     @Test fun aMeasureThatComesLateNeverPutsBackABarThatHasLeft() {
         inOrder(hide, "showing = false", "strip.hide()")
