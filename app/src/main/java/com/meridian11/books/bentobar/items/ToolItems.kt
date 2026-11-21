@@ -102,8 +102,10 @@ object Caffeine {
     fun check() {
         val v = until.value
         if (v == 0L || v == FOREVER) return
-        val jump = anchor.jump(ClockAnchor.now(Env.app))
-        if (jump != 0L) set(v + jump)
+        val now = ClockAnchor.now(Env.app)
+        val jump = anchor.jump(now)
+        // Set before a restart, it is anchored in this boot ([set] anchors), so the next clock change is followed too.
+        if (jump != 0L || anchor.stale(now)) set(v + jump)
         if (!active()) off()
     }
 
