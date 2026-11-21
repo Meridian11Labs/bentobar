@@ -140,4 +140,22 @@ class CpuLoadTest {
         load.add(3 * second, longArrayOf(500_000))
         assertEquals(0.5, load.perCore[0], 1e-9)
     }
+
+    @Test
+    fun aReadingIsCurrentOnlyWhileTheSamplerRunsSoAMenuThatStartsItNeverShowsOneFromLongAgo() {
+        // Heat's menu starts the CPU's sampler when it opens: what was read the last time anything looked is no reading now.
+        val load = CpuLoad(1)
+        assertFalse("nothing read yet", load.current(0))
+        load.add(0, longArrayOf(0))
+        assertFalse("one call is no reading", load.current(0))
+        load.add(second, longArrayOf(500_000))
+        assertTrue(load.current(second))
+        assertTrue("a tick every two seconds in power save", load.current(3 * second))
+        assertFalse(load.current(second + CpuLoad.CURRENT_US + 1))
+        // Started again a minute later: its first call makes no reading, so the last one is still from a minute ago.
+        load.add(61 * second, longArrayOf(10 * second))
+        assertFalse(load.current(61 * second))
+        load.add(62 * second, longArrayOf(10 * second + 250_000))
+        assertTrue(load.current(62 * second))
+    }
 }

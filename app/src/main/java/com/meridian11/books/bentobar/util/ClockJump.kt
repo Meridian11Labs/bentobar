@@ -25,7 +25,18 @@ data class ClockAnchor(val wall: Long, val elapsed: Long, val boot: Int) {
     /** Real time from [now] to [deadline], a wall-clock time set at this anchor, whatever the clock did in between. */
     fun left(deadline: Long, now: ClockAnchor): Long = deadline + jump(now) - now.wall
 
+    /**
+     * Whether a deadline anchored here should be anchored again at [now]: this anchor is from an earlier boot (or from
+     * before anchors), so [jump] would follow no clock change for the rest of it. Only once the new boot is [SETTLED_MS]
+     * old: until then the wall clock may still be the hardware's, and the network's correction of it taken for a clock
+     * change would move the deadline by the hardware clock's error.
+     */
+    fun stale(now: ClockAnchor): Boolean = boot != now.boot && now.boot >= 0 && now.elapsed >= SETTLED_MS
+
     companion object {
+        /** How long after a boot its wall clock is taken as set (from the network, where the device sets it so). */
+        const val SETTLED_MS = 5 * 60_000L
+
         private var bootCount: Int? = null
 
         /** The boot count can't change while this process lives, so it's read once. */

@@ -94,6 +94,26 @@ class ScreenTimeRulesTest {
         assertEquals(10 * min, ScreenTimeRules.shown(10 * min, loadedAt = at(5), liveSince = at(0), now = at(10), dayStart = day))
     }
 
+    @Test fun aReadingSinceTheBarCameBackIsGoodForTenMinutesSinceTheBarCountsOnFromIt() {
+        // The bar is sampled only while it shows, so the screen is on: [shown] adds the time since the reading.
+        assertEquals(10 * min, ScreenTimeRules.every(access = true, withApps = false, readAt = at(600), liveSince = at(540)))
+        assertEquals(10 * min, ScreenTimeRules.every(access = true, withApps = false, readAt = at(600), liveSince = at(600)))
+    }
+
+    @Test fun aReadingFromBeforeTheBarCameBackIsGoodForAMinuteSoTheTimeAwayIsCountedSoonButNotOnEveryReturn() {
+        // Back at 11:00 with a reading from 10:00: read at once. Back again 30 s after the last reading (a full-screen app,
+        // the bar shown on hover): read when that reading is a minute old, not on every return.
+        assertEquals(min, ScreenTimeRules.every(access = true, withApps = false, readAt = at(600), liveSince = at(660)))
+        assertEquals(min, ScreenTimeRules.every(access = true, withApps = false, readAt = at(600), liveSince = at(600) + 30_000))
+    }
+
+    @Test fun theMenusAppsAreReadEveryMinuteAndWithoutAccessItIsAskedAgainSoon() {
+        assertEquals(min, ScreenTimeRules.every(access = true, withApps = true, readAt = at(600), liveSince = at(540)))
+        // The user may be giving Usage access right now.
+        assertEquals(15_000L, ScreenTimeRules.every(access = false, withApps = false, readAt = at(600), liveSince = at(540)))
+        assertEquals(15_000L, ScreenTimeRules.every(access = false, withApps = true, readAt = at(600), liveSince = at(540)))
+    }
+
     @Test fun anAppIsInFrontFromItsFirstWindowUntilItsLast() {
         val events = listOf(
             Front(at(60), "a", true),

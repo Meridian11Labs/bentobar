@@ -54,9 +54,14 @@ class ItemCatalogTest {
     }
 
     @Test fun holdingAndPresentingAreOnTheTypes() {
-        assertEquals(setOf("network", "cpu", "memory"), Items.all.filter { it.holds }.map { it.type }.toSet())
+        assertEquals(setOf("network", "cpu", "memory", "countdown"), Items.all.filter { it.holds }.map { it.type }.toSet())
         assertEquals(setOf("timer", "countdown", "event"), Items.all.filter { it.presents }.map { it.type }.toSet())
         assertEquals(setOf("weather", "air"), Items.all.filter { it.usesMyLocation }.map { it.type }.toSet())
+    }
+
+    @Test fun heatRunsTheCpusSamplerOnlyWhileItsMenuIsOpen() {
+        // Its menu's "CPU load" row is all Heat reads of it; an item waiting for its rule would else read the cores every second.
+        assertEquals(setOf("battery"), Items.of("heat")!!.samples)
     }
 
     @Test fun everyAccessATypeNeedsHasWords() {

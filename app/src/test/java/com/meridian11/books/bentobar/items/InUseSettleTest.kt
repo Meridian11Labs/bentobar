@@ -9,6 +9,8 @@ import com.meridian11.books.bentobar.data.Store
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -26,9 +28,14 @@ class InUseSettleTest {
     private class FakeMic(val takes: Boolean = true) : InUseItem.MicMute {
         var state = false
         var sets = 0
+        /** Who hears a change of the mute, as Android's broadcast reaches a receiver; null: nobody listens. */
+        var heard: (() -> Unit)? = null
         override var muted: Boolean
             get() = state
             set(value) { sets++; if (takes) state = value }
+        override fun watch(heard: (() -> Unit)?) { this.heard = heard }
+        /** The user switches the mute outside BentoBar (the system's switch, a call app): Android says so to whoever listens. */
+        fun user(muted: Boolean) { state = muted; heard?.invoke() }
     }
 
     private val mic = FakeMic()
@@ -129,6 +136,54 @@ class InUseSettleTest {
         removeIt()
         InUseItem.settle(Settle.LEFT_LAYOUT)
         assertTrue(mic.state)
+    }
+
+    @Test fun aMuteOfOursTheUserUndoesAndMakesAgainWhileTheBarIsHiddenIsTheirs() {
+        // A full-screen call: the item is not sampled, so no reading sees the moment the microphone was on.
+        place()
+        InUseItem.mute.mute()
+        InUseItem.onIdle()
+        mic.user(muted = false)
+        mic.user(muted = true)
+        assertFalse(InUseItem.mute.ours)
+        assertFalse(keptOurs())
+        removeIt()
+        InUseItem.settle(Settle.LEFT_LAYOUT)
+        InUseItem.settle(Settle.SERVICE_ENDING)
+        assertTrue("the user's own mute is left alone", mic.state)
+    }
+
+    @Test fun ourOwnMuteHeardBackIsStillOurs() {
+        place()
+        InUseItem.mute.mute()
+        // Android tells every listener of the change BentoBar made itself.
+        mic.heard?.invoke()
+        assertTrue(InUseItem.mute.ours)
+        assertTrue(keptOurs())
+    }
+
+    @Test fun theMuteIsListenedToOnlyWhileItIsOurs() {
+        place()
+        assertNull("nothing to listen for", mic.heard)
+        InUseItem.mute.mute()
+        assertNotNull(mic.heard)
+        InUseItem.mute.unmute()
+        assertNull("given back", mic.heard)
+        InUseItem.mute.mute()
+        InUseItem.settle(Settle.SERVICE_ENDING)
+        assertNull("given back as the service ends", mic.heard)
+        // A start that finds a mute of its own from before keeps it, and listens again.
+        Kept.own("inuse").write("ours", "1", 0)
+        mic.state = true
+        keeper()
+        InUseItem.settle(Settle.SERVICE_STARTED)
+        assertNotNull(mic.heard)
+        mic.user(muted = false)
+        assertNull("someone undid it", mic.heard)
+        // A mute found that is not ours is never listened to.
+        mic.state = true
+        for (why in Settle.entries) InUseItem.settle(why)
+        assertNull(mic.heard)
     }
 
     @Test fun aMuteTheDeviceDoesNotTakeIsSaidAndNotKept() {

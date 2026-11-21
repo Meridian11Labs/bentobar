@@ -1,8 +1,10 @@
 package com.meridian11.books.bentobar.items
 
+import android.graphics.drawable.Icon
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** What Notification icons makes of other apps' notifications: which count, which the bar shows, the popup's order, the live one. */
@@ -19,6 +21,16 @@ class NoticesRulesTest {
             icon = null, open = null)
 
     private fun List<Notices.Notice>.keys() = map { it.key }
+
+    @Test fun aSmallIconFromTheAppsResourcesOrHandedOverAsAPictureIsDrawnAndOneByAddressOrAsDataGetsTheBell() {
+        // As Android numbers them (Icon.TYPE_*): the rule is kept free of Android, the numbers are its.
+        assertEquals(Icon.TYPE_BITMAP, NoticesRules.ICON_BITMAP)
+        assertEquals(Icon.TYPE_RESOURCE, NoticesRules.ICON_RESOURCE)
+        assertEquals(Icon.TYPE_ADAPTIVE_BITMAP, NoticesRules.ICON_ADAPTIVE_BITMAP)
+        for (type in listOf(Icon.TYPE_RESOURCE, Icon.TYPE_BITMAP, Icon.TYPE_ADAPTIVE_BITMAP)) assertTrue("$type", NoticesRules.drawn(type))
+        // A content address would open another app's provider, which may never answer; data would be decoded at any size.
+        for (type in listOf(Icon.TYPE_URI, Icon.TYPE_URI_ADAPTIVE_BITMAP, Icon.TYPE_DATA, -1, 99)) assertFalse("$type", NoticesRules.drawn(type))
+    }
 
     @Test fun ourOwnAndGroupSummariesAreLeftOut() {
         // BentoBar's own (a timer, the Live Update chip) are its own business; a group's summary repeats its children.
