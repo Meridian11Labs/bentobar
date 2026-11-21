@@ -598,6 +598,8 @@ object CountdownItem : ItemType("countdown", R.string.item_countdown_title, Sym.
     override val refreshMs = 10_000L
     override val canBeActive = true
     override val trigger = Trigger(R.string.trigger_countdown, R.string.trigger_countdown_short)
+    /** On "show when" it is out in the last day; held, its "Name ✓" is seen for a while before it goes. */
+    override val holds = true
     /** The name before the time. */
     val label = Opt.text("label", 16)
 

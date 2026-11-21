@@ -54,7 +54,7 @@ class ItemCatalogTest {
     }
 
     @Test fun holdingAndPresentingAreOnTheTypes() {
-        assertEquals(setOf("network", "cpu", "memory"), Items.all.filter { it.holds }.map { it.type }.toSet())
+        assertEquals(setOf("network", "cpu", "memory", "countdown"), Items.all.filter { it.holds }.map { it.type }.toSet())
         assertEquals(setOf("timer", "countdown", "event"), Items.all.filter { it.presents }.map { it.type }.toSet())
         assertEquals(setOf("weather", "air"), Items.all.filter { it.usesMyLocation }.map { it.type }.toSet())
     }
