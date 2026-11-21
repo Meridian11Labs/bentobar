@@ -16,6 +16,8 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.floor
+import kotlin.math.log10
 
 /**
  * Pure rules for the Exchange rates item: parsing Frankfurter's ECB rate table, cross-rate and
@@ -162,17 +164,22 @@ object FxRules {
     private val DATE = Regex("""\d{4}-\d{2}-\d{2}""")
 
     // Figures in the device's own way of writing numbers, as Stocks does: a decimal comma where the keyboard offers one.
+    // Below 1 a figure has four significant digits (0.00006123 for a rupiah in dollars, not 0.0001), with eight decimals at the most.
     fun formatRate(rate: Double, locale: Locale = Locale.getDefault()): String = when {
         rate >= 100.0 -> String.format(locale, "%.2f", rate)
         rate >= 10.0 -> String.format(locale, "%.3f", rate)
-        else -> String.format(locale, "%.4f", rate)
+        else -> String.format(locale, "%.${decimals(rate, 4)}f", rate)
     }
+
+    /** The decimals that give [v] four significant digits when it is below 1, [least] at the fewest and eight at the most; else [least]. */
+    private fun decimals(v: Double, least: Int): Int =
+        if (v >= 1.0 || !(v > 0.0)) least else (3 - floor(log10(v)).toInt()).coerceIn(least, 8)
 
     fun formatPct(pct: Double, locale: Locale = Locale.getDefault()): String = String.format(locale, "%.2f", abs(pct))
 
     fun formatConverted(amount: Double, rate: Double, locale: Locale = Locale.getDefault()): String {
         val v = amount * rate
-        return if (v >= 100.0) String.format(locale, "%,.2f", v) else String.format(locale, "%.2f", v)
+        return if (v >= 100.0) String.format(locale, "%,.2f", v) else String.format(locale, "%.${decimals(v, 2)}f", v)
     }
 
     /** An amount the user typed, for the line that repeats it: no grouping and no trailing zeros. */
