@@ -148,4 +148,65 @@ class AirRulesTest {
         assertEquals(77L, reading.fetchedUp)
         assertNull(reading.euAqi)
     }
+
+    // ---- what a reply's numbers may be -------------------------------------------------------------
+
+    @Test fun numbersThatAreNoNumbersAreLeftOut() {
+        val quoted = AirRules.read(
+            """{"current":{"us_aqi":"42","european_aqi":28,"pm2_5":"NaN","pm10":"Infinity","ozone":"64","uv_index":"6.3"}}""",
+            place, 10_000L,
+        )!!
+        assertNull(quoted.usAqi)
+        assertEquals(28, quoted.euAqi)
+        assertNull(quoted.pm25)
+        assertNull(quoted.pm10)
+        assertNull(quoted.ozone)
+        assertNull(quoted.uv)
+        assertNull(quoted.uvMax)
+
+        // The tree reader takes a bare NaN or Infinity, and 1e999 as Infinity.
+        val bare = AirRules.read("""{"current":{"us_aqi":42,"pm2_5":NaN,"pm10":1e999,"ozone":-1e999,"uv_index":Infinity}}""", place, 10_000L)!!
+        assertEquals(42, bare.usAqi)
+        assertNull(bare.pm25)
+        assertNull(bare.pm10)
+        assertNull(bare.ozone)
+        assertNull(bare.uv)
+        assertNull(bare.uvMax)
+        val huge = AirRules.read("""{"current":{"us_aqi":42,"pm2_5":1e999,"uv_index":1e999}}""", place, 10_000L)!!
+        assertNull(huge.pm25)
+        assertNull(huge.uv)
+        assertNull(huge.uvMax)
+    }
+
+    @Test fun numbersBeyondAllSenseAreLeftOut() {
+        val r = AirRules.read(
+            """{"current":{"us_aqi":-5,"european_aqi":50000,"pm2_5":-1,"pm10":200000,"ozone":64.0,"uv_index":31}}""",
+            place, 10_000L,
+        )
+        assertNull(r) // neither index nor a UV figure is left
+        val half = AirRules.read("""{"current":{"us_aqi":42.5,"european_aqi":28.0,"uv_index":-0.5}}""", place, 10_000L)!!
+        assertNull(half.usAqi)
+        assertEquals(28, half.euAqi)
+        assertNull(half.uv)
+        val edges = AirRules.read(
+            """{"current":{"us_aqi":0,"european_aqi":2000,"pm2_5":0,"pm10":100000,"ozone":0.0,"uv_index":30}}""",
+            place, 10_000L,
+        )!!
+        assertEquals(0, edges.usAqi)
+        assertEquals(2000, edges.euAqi)
+        assertEquals(0.0, edges.pm25!!, 0.0)
+        assertEquals(100000.0, edges.pm10!!, 0.0)
+        assertEquals(30.0, edges.uv!!, 0.0)
+    }
+
+    @Test fun anHourThatIsNoNumberIsLeftOutOfTheDaysPeak() {
+        val r = AirRules.read(
+            """{"current":{"us_aqi":42,"uv_index":2.0},"hourly":{"uv_index":["NaN",3.0,null,1e999,50,-2,"9",{"a":1},[1],4.2]}}""",
+            place, 10_000L,
+        )!!
+        assertEquals(4.2, r.uvMax!!, 0.0)
+        assertEquals("4.2", AirRules.formatUv(r.uvMax!!))
+        val none = AirRules.read("""{"current":{"us_aqi":42},"hourly":{"uv_index":["NaN",null]}}""", place, 10_000L)!!
+        assertNull(none.uvMax)
+    }
 }
