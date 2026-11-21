@@ -11,6 +11,15 @@ object CallLinks {
     private val urlRe = Regex("""https?://[^\s<>"')\]]+""")
 
     /**
+     * The longest a link may be. A Join button carries its link whole, and Android refuses a notification that is too big
+     * for it (a link of a megabyte would make the chip throw); a real meeting's link is a few hundred characters at most.
+     */
+    const val MAX_CHARS = 2_048
+
+    /** The web links in [text], as a link ends: what is longer than [MAX_CHARS] is none. */
+    private fun links(text: String) = urlRe.findAll(text).map { it.value.trimEnd('.', ',', ';') }.filter { it.length <= MAX_CHARS }
+
+    /**
      * Video-call hosts. A host matches itself and its subdomains ("webex.com" matches
      * "acme.webex.com"). With a path prefix, the link's path must start with one of them.
      */
@@ -47,7 +56,7 @@ object CallLinks {
     )
 
     /** True when [text] (an event's description or location) links to a task in a task app. */
-    fun isTask(text: String): Boolean = urlRe.findAll(text).map { it.value.trimEnd('.', ',', ';') }.any { u ->
+    fun isTask(text: String): Boolean = links(text).any { u ->
         val (host, path) = split(u) ?: return@any false
         taskHosts.any { c ->
             val hostOk = if (c.subdomainsOnly) host.endsWith("." + c.host) else host == c.host || host.endsWith("." + c.host)
@@ -56,8 +65,7 @@ object CallLinks {
     }
 
     /** The first video-call link in [text], or null when there is none (other URLs don't count). */
-    fun find(text: String): String? =
-        urlRe.findAll(text).map { it.value.trimEnd('.', ',', ';') }.firstOrNull { isCall(it) }
+    fun find(text: String): String? = links(text).firstOrNull { isCall(it) }
 
     /** True when [url] is a meeting link on one of [callHosts]. */
     fun isCall(url: String): Boolean {
