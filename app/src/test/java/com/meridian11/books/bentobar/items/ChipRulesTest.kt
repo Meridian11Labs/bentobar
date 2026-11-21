@@ -99,6 +99,13 @@ class ChipRulesTest {
         assertTrue("ChipRules.leaveUp(" in notify)
     }
 
+    @Test fun aChipAndroidRefusesThrowsNothingOutOfUpdate() {
+        // Update runs after every calendar load, at the service's start and at each boundary: a throw there would take them down.
+        val notify = SourceScan.code(SourceScan.sources.single { it.name == "Notify.kt" })
+        assertTrue(Regex("""try \{\s*build\(app\)\?\.let \{ Notify\.channels\(app\); nm\.notify\(Notify\.ID_CHIP, it\) \}""").containsMatchIn(notify))
+        assertTrue("by its kind alone", "Log.w(Env.TAG, \"the chip failed: ${'$'}{e.javaClass.simpleName}\")" in notify)
+    }
+
     @Test fun theChipsBoundaryIsAnInexactAlarmAndTheCalendarLetsGoOfItsObserver() {
         val notify = SourceScan.code(SourceScan.sources.single { it.name == "Notify.kt" })
         assertTrue(".setTimeoutAfter(" in notify)

@@ -138,7 +138,11 @@ class Refresher<K : Any, V : Any>(
         for (k in (slots.keys + loading).toList()) if (k !in keys) forget(k)
     }
 
-    private fun start(key: K, tryRestore: Boolean) {
+    /**
+     * [thenLoad]: one more was asked for while a load that a [forget] overtook ran, and this looks at what is kept first: a
+     * load follows what it finds (with nothing kept the load is this one's own).
+     */
+    private fun start(key: K, tryRestore: Boolean, thenLoad: Boolean = false) {
         if (!loading.add(key)) return
         val all = generation
         val own = keyGeneration[key] ?: 0
@@ -169,7 +173,17 @@ class Refresher<K : Any, V : Any>(
                         loaded?.exceptionOrNull()?.let { wiring.report(it.javaClass.simpleName) }
                     }
                 }
-                if (again.remove(key) && current) start(key, tryRestore = false)
+                // One more was asked for while this ran: it follows, also when this one was overtaken by a forget (what an item
+                // follows replaced and asked about at once, as a press of Track does), with nothing left of the key then but
+                // what is kept, which is looked at first. A forget since the ask took it back.
+                when {
+                    !again.remove(key) -> if (thenLoad && kept != null && current) start(key, tryRestore = false)
+                    current -> start(key, tryRestore = false)
+                    else -> {
+                        val first = slots[key] == null && restore != null && key !in restored
+                        start(key, tryRestore = first, thenLoad = first)
+                    }
+                }
             })
         }
         try {

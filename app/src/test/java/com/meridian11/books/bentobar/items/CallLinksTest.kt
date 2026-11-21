@@ -25,6 +25,16 @@ class CallLinksTest {
             CallLinks.find("Notes: https://todoist.com/showTask?id=1\nhttps://meet.google.com/abc-defg-hij"))
     }
 
+    @Test fun aLinkTooLongForANotificationIsNoLink() {
+        // A Join button carries the link whole: one of a megabyte would make the chip throw where Android takes it.
+        val long = "https://meet.google.com/abc-defg-hij?x=" + "a".repeat(CallLinks.MAX_CHARS)
+        assertNull(CallLinks.find("Join: $long"))
+        assertEquals("one after it still counts", "https://meet.google.com/xyz-abcd-efg", CallLinks.find("$long https://meet.google.com/xyz-abcd-efg"))
+        val longest = "https://meet.google.com/abc-defg-hij?x=".let { it + "a".repeat(CallLinks.MAX_CHARS - it.length) }
+        assertEquals(longest, CallLinks.find(longest))
+        assertFalse(CallLinks.isTask("https://todoist.com/showTask?id=" + "1".repeat(CallLinks.MAX_CHARS)))
+    }
+
     @Test fun lookalikesDontCount() {
         assertNull(CallLinks.find("https://example.com/?u=zoom.us"))
         assertNull(CallLinks.find("https://zoom.us/pricing"))
