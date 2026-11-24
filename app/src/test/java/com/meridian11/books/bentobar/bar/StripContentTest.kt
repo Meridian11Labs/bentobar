@@ -4,6 +4,7 @@ import com.meridian11.books.bentobar.data.Display
 import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Pill
 import com.meridian11.books.bentobar.data.Position
+import com.meridian11.books.bentobar.items.BarProgress
 import com.meridian11.books.bentobar.items.BarRoute
 import com.meridian11.books.bentobar.items.BarSlider
 import com.meridian11.books.bentobar.items.ItemState
@@ -64,6 +65,9 @@ class StripContentTest {
         val route = ItemState(icon = "", route = BarRoute(0.3f))
         assertTrue(draws(display = Display.ICON, state = route))
         assertFalse("shown as text only, it has none", draws(display = Display.TEXT, state = route))
+        val progress = ItemState(icon = "", progress = BarProgress(listOf(0.5f)))
+        assertTrue(draws(display = Display.ICON, state = progress))
+        assertFalse("shown as text only, it has none", draws(display = Display.TEXT, state = progress))
     }
 
     /** An alert's red capsule is drawn around the item, whatever is in it. */

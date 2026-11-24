@@ -2,7 +2,7 @@
 <!-- Day progress. Every name here starts with progress_ or item_progress_. -->
 <resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
     <string name="item_progress_title">Day progress</string>
-    <string name="item_progress_desc">How much of the day is gone, or of the workday, the week, the month or the year</string>
+    <string name="item_progress_desc">How much of the day, workday, week, month, year or life is gone or remaining</string>
     <!-- What it counts: the option's name and its choices, and the menu's rows. -->
     <string name="progress_of">Progress of</string>
     <string name="progress_day">Day</string>
@@ -10,6 +10,7 @@
     <string name="progress_week">Week</string>
     <string name="progress_month">Month</string>
     <string name="progress_year">Year</string>
+    <string name="progress_life">Life</string>
     <string name="progress_from">Workday starts</string>
     <string name="progress_to">Workday ends</string>
     <string name="progress_midnight">Midnight</string>
@@ -18,9 +19,47 @@
         <item quantity="one">%1$d day</item>
         <item quantity="other">%1$d days</item>
     </plurals>
+    <plurals name="progress_years">
+        <item quantity="one">%1$d year</item>
+        <item quantity="other">%1$d years</item>
+    </plurals>
     <string name="progress_left">%1$s left</string>
+    <string name="progress_gone">%1$s elapsed</string>
+    <string name="progress_elapsed">Elapsed</string>
+    <string name="progress_remaining">Remaining</string>
     <!-- A workday that has ended. -->
     <string name="progress_over">Over</string>
     <!-- Spoken: "Day: 62% gone. 9 hours 7 minutes left". -->
     <string name="progress_desc">%1$s: %2$s gone. %3$s</string>
+
+    <!-- Material 3 Expressive styles & options -->
+    <string name="progress_mode">Show progress as</string>
+    <string name="progress_style">Indicator style</string>
+    <string name="progress_style_wavy">M3 Expressive Wavy</string>
+    <string name="progress_style_track">M3 Track &amp; Gap</string>
+    <string name="progress_style_ring">M3 Ring</string>
+    <string name="progress_style_pie">Pie</string>
+    <string name="progress_style_glyph">Symbol</string>
+
+    <string name="progress_bars">Bars in the bar</string>
+    <string name="progress_bars_one">Selected only</string>
+    <string name="progress_bars_day_year">Day &amp; Year</string>
+    <string name="progress_bars_all">Day, Year &amp; Life</string>
+
+    <string name="progress_stack">Stack direction</string>
+    <string name="progress_stack_vertical">Vertical</string>
+    <string name="progress_stack_horizontal">Horizontal</string>
+
+    <string name="progress_tint">Bar tint</string>
+    <string name="progress_tint_accent">System accent</string>
+    <string name="progress_tint_bar">Match status bar</string>
+
+    <string name="progress_width">Bar width</string>
+    <string name="progress_show_life">Show Life card in menu</string>
+    <string name="progress_show_life_help">Include your life span progress card inside the popup menu.</string>
+    <string name="progress_year_month">Year starts in month</string>
+    <string name="progress_year_day">Year starts on day</string>
+    <string name="progress_life_start">Birth / start year</string>
+    <string name="progress_life_end">Expected end year</string>
+    <string name="progress_preferences">Preferences</string>
 </resources>

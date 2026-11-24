@@ -48,6 +48,10 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -97,7 +101,11 @@ import com.meridian11.books.bentobar.data.ItemConfig
 import com.meridian11.books.bentobar.data.Pill
 import com.meridian11.books.bentobar.data.TextSize
 import com.meridian11.books.bentobar.items.AppItem
+import com.meridian11.books.bentobar.items.BarProgress
 import com.meridian11.books.bentobar.items.BarRoute
+import com.meridian11.books.bentobar.items.ProgressStyle
+import kotlin.math.PI
+import kotlin.math.sin
 import com.meridian11.books.bentobar.items.BarSlider
 import com.meridian11.books.bentobar.items.ItemState
 import com.meridian11.books.bentobar.items.Stands
@@ -634,6 +642,7 @@ private fun ItemView(entry: StripEntry, look: StripLook, events: StripEvents, gl
     val parts = StripContent.parts(s, entry.item.display)
     val slider = parts.slider
     val route = parts.route
+    val progress = parts.progress
     // While the pointer holds the slider: the level under it. Otherwise the item's own, which is the real one.
     var held by remember { mutableStateOf<Float?>(null) }
     // A held slider keeps the strip's highlight on its item, wherever the pointer goes, until it lets go.
@@ -700,6 +709,10 @@ private fun ItemView(entry: StripEntry, look: StripLook, events: StripEvents, gl
             RouteTrack(route, look, alert, rtl)
             // 6 dp to the words, as much as the item has at its two ends: the line is no glyph that belongs to them.
             if (parts.gapAfterRoute) Spacer(Modifier.width(6.dp))
+        }
+        if (progress != null) {
+            ProgressGraphic(progress, look, color, alert, rtl)
+            if (parts.gapAfterProgress) Spacer(Modifier.width(6.dp))
         }
         if (parts.iconDrawn) {
             val img = s.image
@@ -807,6 +820,179 @@ private fun VolumeTrack(slider: BarSlider, held: Float?, handle: Boolean, look: 
  * where the item says it stands, each time the item is drawn again.
  * Where each part stands is [SliderMath.route]'s arithmetic; this only draws it.
  */
+/**
+ * Material 3 Expressive progress indicator in the top bar (Day progress):
+ * Wavy (sinusoidal wave + gap + trailing stop dot), Track (pill + gap + stop dot),
+ * Ring (circular arc + gap), and Pie (filled sector with rim).
+ */
+@Composable
+private fun ProgressGraphic(progress: BarProgress, look: StripLook, baseColor: Color, alert: Boolean, rtl: Boolean) {
+    val activeColor = when {
+        alert -> look.alertFg
+        progress.accentColor -> look.accent
+        else -> baseColor
+    }
+    val trackColor = if (alert) look.alertFg.copy(alpha = look.sliderTrackAlpha) else look.sliderTrack
+    val count = progress.fractions.size.coerceIn(1, 3)
+    val isCircular = progress.style == ProgressStyle.RING || progress.style == ProgressStyle.PIE
+
+    val totalWidth = when {
+        isCircular -> {
+            val d = if (count == 1) 18.dp else 15.dp
+            (d * count) + (4.dp * (count - 1))
+        }
+        progress.vertical -> progress.widthDp.dp
+        else -> (progress.widthDp.dp * count) + (5.dp * (count - 1))
+    }
+
+    Canvas(Modifier.width(totalWidth).fillMaxHeight()) {
+        val centerY = size.height / 2f
+        if (isCircular) {
+            val dPx = (if (count == 1) 18.dp else 15.dp).toPx()
+            val gapBetween = 4.dp.toPx()
+            progress.fractions.take(3).forEachIndexed { idx, rawFrac ->
+                val f = rawFrac.coerceIn(0f, 1f)
+                val cx = dPx / 2f + idx * (dPx + gapBetween)
+                val topLeft = Offset(cx - dPx / 2f, centerY - dPx / 2f)
+                if (progress.style == ProgressStyle.PIE) {
+                    val pad = 2.dp.toPx()
+                    val innerR = dPx / 2f - pad
+                    drawCircle(trackColor.copy(alpha = trackColor.alpha * 0.45f), radius = innerR, center = Offset(cx, centerY))
+                    if (f > 0.005f) {
+                        drawArc(
+                            color = activeColor,
+                            startAngle = -90f,
+                            sweepAngle = f * 360f,
+                            useCenter = true,
+                            topLeft = Offset(cx - innerR, centerY - innerR),
+                            size = Size(innerR * 2f, innerR * 2f),
+                        )
+                    }
+                    drawCircle(trackColor, radius = dPx / 2f - 0.8.dp.toPx(), center = Offset(cx, centerY), style = Stroke(1.3.dp.toPx()))
+                } else {
+                    val stroke = (if (count == 1) 2.6.dp else 2.2.dp).toPx()
+                    val inset = stroke / 2f
+                    val ringTopLeft = Offset(topLeft.x + inset, topLeft.y + inset)
+                    val ringSize = Size(dPx - stroke, dPx - stroke)
+                    val gapDeg = if (f > 0.02f && f < 0.96f) 24f else 0f
+                    val sweep = (f * 360f).coerceIn(0f, 360f)
+                    val trackStart = -90f + sweep + gapDeg
+                    val trackSweep = (360f - sweep - gapDeg * 2f).coerceAtLeast(0f)
+                    if (trackSweep > 2f) {
+                        drawArc(
+                            color = trackColor,
+                            startAngle = trackStart,
+                            sweepAngle = trackSweep,
+                            useCenter = false,
+                            topLeft = ringTopLeft,
+                            size = ringSize,
+                            style = Stroke(width = stroke, cap = StrokeCap.Round),
+                        )
+                    }
+                    if (sweep > 1f) {
+                        drawArc(
+                            color = activeColor,
+                            startAngle = -90f,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            topLeft = ringTopLeft,
+                            size = ringSize,
+                            style = Stroke(width = stroke, cap = StrokeCap.Round),
+                        )
+                    } else {
+                        drawCircle(activeColor, radius = stroke / 2f, center = Offset(cx, ringTopLeft.y))
+                    }
+                }
+            }
+            return@Canvas
+        }
+
+        fun drawLinear(startX: Float, endX: Float, yMid: Float, frac: Float, strokePx: Float, ampPx: Float) {
+            val f = frac.coerceIn(0f, 1f)
+            val span = (endX - startX).coerceAtLeast(4f)
+            fun px(offset: Float) = if (rtl) endX - offset else startX + offset
+
+            val stopR = (strokePx * 0.52f).coerceAtLeast(1.2.dp.toPx())
+            val gapPx = 3.dp.toPx()
+            val usable = (span - stopR * 2f).coerceAtLeast(4f)
+            val activeEnd = (f * usable).coerceIn(0f, usable)
+
+            if (f > 0.005f) {
+                if (progress.style == ProgressStyle.WAVY) {
+                    val wavelength = if (count > 1 && progress.vertical) 8.dp.toPx() else 10.5.dp.toPx()
+                    val step = 1.5f
+                    val path = Path()
+                    var xOff = 0f
+                    while (xOff <= activeEnd) {
+                        val y = yMid + sin((xOff / wavelength) * 2.0 * PI).toFloat() * ampPx
+                        val xDraw = px(xOff)
+                        if (xOff == 0f) path.moveTo(xDraw, y) else path.lineTo(xDraw, y)
+                        xOff += step
+                    }
+                    val endY = yMid + sin((activeEnd / wavelength) * 2.0 * PI).toFloat() * ampPx
+                    path.lineTo(px(activeEnd), endY)
+                    drawPath(path, activeColor, style = Stroke(width = strokePx, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                } else {
+                    val left = minOf(px(0f), px(activeEnd))
+                    val right = maxOf(px(0f), px(activeEnd))
+                    drawRoundRect(
+                        color = activeColor,
+                        topLeft = Offset(left, yMid - strokePx / 2f),
+                        size = Size((right - left).coerceAtLeast(strokePx), strokePx),
+                        cornerRadius = CornerRadius(strokePx / 2f),
+                    )
+                }
+            }
+
+            val trackStart = if (f > 0.005f) activeEnd + gapPx else 0f
+            val trackEnd = span - stopR * 2.2f
+            if (trackEnd - trackStart > strokePx * 0.8f) {
+                val left = minOf(px(trackStart), px(trackEnd))
+                val right = maxOf(px(trackStart), px(trackEnd))
+                drawRoundRect(
+                    color = trackColor,
+                    topLeft = Offset(left, yMid - strokePx / 2f),
+                    size = Size(right - left, strokePx),
+                    cornerRadius = CornerRadius(strokePx / 2f),
+                )
+            }
+            if (f < 0.985f) {
+                drawCircle(
+                    color = activeColor,
+                    radius = stopR,
+                    center = Offset(px(span - stopR), yMid),
+                )
+            }
+        }
+
+        if (progress.vertical) {
+            val strokePx = when (count) {
+                1 -> if (progress.style == ProgressStyle.WAVY) 2.5.dp.toPx() else 5.dp.toPx()
+                2 -> if (progress.style == ProgressStyle.WAVY) 2.0.dp.toPx() else 4.dp.toPx()
+                else -> if (progress.style == ProgressStyle.WAVY) 1.7.dp.toPx() else 3.2.dp.toPx()
+            }
+            val ampPx = if (count == 1) 2.1.dp.toPx() else if (count == 2) 1.4.dp.toPx() else 1.1.dp.toPx()
+            val rowH = if (progress.style == ProgressStyle.WAVY) strokePx + ampPx * 2f else strokePx
+            val gapY = if (count == 3) 2.2.dp.toPx() else 3.2.dp.toPx()
+            val totalH = rowH * count + gapY * (count - 1)
+            val topY = centerY - totalH / 2f
+            progress.fractions.take(3).forEachIndexed { idx, f ->
+                val yMid = topY + idx * (rowH + gapY) + rowH / 2f
+                drawLinear(0f, size.width, yMid, f, strokePx, ampPx)
+            }
+        } else {
+            val barW = progress.widthDp.dp.toPx()
+            val gapX = 5.dp.toPx()
+            val strokePx = if (progress.style == ProgressStyle.WAVY) 2.4.dp.toPx() else 5.dp.toPx()
+            val ampPx = 2.0.dp.toPx()
+            progress.fractions.take(3).forEachIndexed { idx, f ->
+                val sx = idx * (barW + gapX)
+                drawLinear(sx, sx + barW, centerY, f, strokePx, ampPx)
+            }
+        }
+    }
+}
+
 @Composable
 private fun RouteTrack(route: BarRoute, look: StripLook, alert: Boolean, rtl: Boolean) {
     val ink = look.route(route.stands, alert)

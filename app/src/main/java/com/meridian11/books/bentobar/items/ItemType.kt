@@ -48,6 +48,21 @@ data class BarRoute(
     val whole: Boolean = false,
 )
 
+enum class ProgressStyle { WAVY, TRACK, RING, PIE }
+
+/**
+ * Material 3 Expressive progress graphic drawn in the item's icon slot (Day progress):
+ * 1 to 3 stacked or horizontal wavy lines, tracks with stop indicator, rings or pies.
+ */
+@androidx.compose.runtime.Immutable
+data class BarProgress(
+    val fractions: List<Float>,
+    val style: ProgressStyle = ProgressStyle.WAVY,
+    val vertical: Boolean = true,
+    val widthDp: Int = 56,
+    val accentColor: Boolean = true,
+)
+
 /** What one item shows right now. Immutable (never mutate [image]), so Compose can skip unchanged items. */
 @androidx.compose.runtime.Immutable
 data class ItemState(
@@ -83,6 +98,8 @@ data class ItemState(
      * that is shown as text alone has none to give: its words then keep their own [tone].
      */
     val route: BarRoute? = null,
+    /** Expressive progress bars/rings in the bar instead of [icon]. Null: none. */
+    val progress: BarProgress? = null,
     /** The tooltip, instead of the type's name: a track's whole title and artist, which flight this is. */
     val tooltip: String? = null,
     /**
