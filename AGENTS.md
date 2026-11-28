@@ -391,13 +391,17 @@ Name no other company's app as a model or a comparison, in the app or anywhere h
 - `tools/icons.py`: subsets Material Symbols Rounded into `assets/fonts` (outlined and filled),
   writes `Sym.kt`, and exports some glyphs as vector drawables (`res/drawable/sym_*.xml`, for
   tiles and notifications). Add an icon name there, then rerun it.
-- `tools/readme_images.py`: composes docs/images/*.png (README) from raw captures in
-  ~/.cache/bentobar/shots (see its docstring). Capture with a **demo layout** (`./bento debug cfg` to
-  save the user's, `./bento debug import <base64>` to load the demo and later restore theirs) so no
-  calendar titles or other personal data show, with the network staged (`./bento debug network stage wifi`, then
-  `network off`) so the Network menu shows no real address (the same for a store screenshot of it), and with
-  `./bento winshot TITLE|app FILE`, which saves a PNG of one of BentoBar's own windows (no pointer, no other apps;
-  written to the debug app's cache and pulled with run-as, since a broadcast result can't carry a big image).
+- `tools/readme_images.py`: composes docs/images/*.png (README) in the Play listing's look (a flat off-white ground,
+  what the screen shows inside one plain display, no caption drawn in) from raw captures in ~/.cache/bentobar/shots (see
+  its docstring): whole screens of the debug build on a desktop emulator with a made-up wallpaper (`python3
+  tools/readme_images.py wallpaper FILE` writes it), never of anyone's own device. Capture with a **demo layout**
+  (`./bento debug import <base64>`; on a device `./bento debug cfg` first, to save the user's and later restore it) and
+  staged data (`event stage demo`, `weather stage clear`, `media stage playing`, `flight show air`) so no calendar
+  titles or other personal data show; no picture shows the Now playing or the Flight menu, whose staged data names a
+  player and an airline. A picture of the Network menu (a store screenshot of it too) has the network staged
+  (`./bento debug network stage wifi`, then `network off`) so that it shows no real address. Where other windows
+  must not show, `./bento winshot TITLE|app FILE` saves a PNG of one of BentoBar's own windows (no pointer, no other
+  apps; written to the debug app's cache and pulled with run-as, since a broadcast result can't carry a big image).
 - `docs/research/`: the device findings (probe results) and the official-docs research, with URLs.
 
 ## Before a PR

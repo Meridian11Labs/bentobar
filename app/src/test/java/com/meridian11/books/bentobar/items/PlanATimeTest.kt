@@ -110,12 +110,13 @@ class PlanATimeTest {
         assertEquals("02:30 +11:00", moment(LocalDate.of(2026, 10, 4), 8, lordHowe))
         assertEquals("02:30 +11:00", moment(LocalDate.of(2026, 10, 4), 9, lordHowe))
         assertEquals("02:30 +11:00", moment(LocalDate.of(2026, 10, 4), 10, lordHowe))
-        // Havana's go forward at midnight: the day begins at 1:00, and it is still that day.
+        // Havana's go forward at midnight: the day begins at 1:00, and it is still that day. A year whose change has
+        // happened: a coming year's can be called off, as 2027's was (tzdata 2026f), and then that day has no gap.
         val havana = ZoneId.of("America/Havana")
-        val first = PlanATime.moment(Plan(LocalDate.of(2027, 3, 14), 0), havana)
+        val first = PlanATime.moment(Plan(LocalDate.of(2025, 3, 9), 0), havana)
         assertEquals("01:00 -04:00", "${first.toLocalTime()} ${first.offset}")
-        assertEquals(LocalDate.of(2027, 3, 14), first.toLocalDate())
-        assertEquals("01:00 -04:00", moment(LocalDate.of(2027, 3, 14), 2, havana))
+        assertEquals(LocalDate.of(2025, 3, 9), first.toLocalDate())
+        assertEquals("01:00 -04:00", moment(LocalDate.of(2025, 3, 9), 2, havana))
     }
 
     @Test fun aTimeThatComesTwiceIsItsFirst() {

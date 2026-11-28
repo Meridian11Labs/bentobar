@@ -27,7 +27,7 @@
 Not affiliated with or endorsed by any employer (<a href="#about-this-project">more</a>).</sub></p>
 
 <p align="center">
-  <img src="docs/images/hero.png" width="880" alt="BentoBar's items in the Googlebook status bar, in its Left and Middle areas (the next meeting with a countdown, the weather, what plays, a flight's route line), with the Weather menu open under its item">
+  <img src="docs/images/hero.png" width="880" alt="BentoBar's items in the status bar, in its Left and Middle areas (the next meeting with a countdown, the date, the weather, what plays), with the Weather menu open under its item">
 </p>
 
 ## What it does
@@ -38,8 +38,8 @@ they have something to say, or wait **behind the ‹ button**: one click reveals
 them away. Like a bento box: everything in its compartment, and the whole thing neat.
 
 <p align="center">
-  <img src="docs/images/bar.png" width="880" alt="The status bar with BentoBar folded, then with its hidden items revealed">
-  <br><sub>With hidden items behind ‹ (a Look setting; the default shows everything that fits), folded (top) and revealed (bottom): a world clock, battery and memory slide in next to the running timer.</sub>
+  <img src="docs/images/bar.png" width="880" alt="The right end of the status bar with BentoBar folded, then with its hidden items revealed">
+  <br><sub>With hidden items behind ‹ (a Look setting; the default shows everything that fits), folded (top) and revealed (bottom): battery details, storage, the timer and keep awake slide in next to memory and sound.</sub>
 </p>
 
 - **Show when active:** a hidden item can pop out on its own while it has something to say, such
@@ -103,7 +103,7 @@ hides when an app goes full screen or the screen locks.
 | **Text or emoji**, **Spacer** | anything you like | optional link |
 
 <p align="center">
-  <img src="docs/images/menus.png" width="880" alt="BentoBar menus: weather, the month with today's events, Next meeting above the right-click item menu, CPU, and tools">
+  <img src="docs/images/menus.png" width="880" alt="BentoBar menus: weather, the month with today's events, Next meeting above the right-click item menu, memory, and tools">
 </p>
 
 ## Settings
